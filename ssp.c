@@ -19,6 +19,7 @@
 /* $Id: ssp.c 308529 2011-02-21 08:09:02Z scottmac $ */
 
 #include "php_func.h"
+#include "server.h"
 
 #include "php.h"
 #include "php_ini.h"
@@ -44,6 +45,12 @@
 #if HAVE_SETLOCALE
 	#include <locale.h>
 #endif
+
+#define SSP_RESTART		0
+#define SSP_START		1
+#define SSP_STOP		2
+#define SSP_INSTALL		3
+#define SSP_UNINSTALL	4
 
 #define PHP_MODE_STANDARD			1
 #define PHP_MODE_CLI_DIRECT			2
@@ -89,13 +96,10 @@ static void php_cli_usage(char *argv0)
 		prog = "php";
 	}
 	
-	php_printf( "Usage: %s [options] [-f] <file> [--] [args...]\n"
-	            "       %s [options] -r <code> [--] [args...]\n"
-	            "       %s [options] [-B <begin_code>] -R <code> [-E <end_code>] [--] [args...]\n"
-	            "       %s [options] [-B <begin_code>] -F <file> [-E <end_code>] [--] [args...]\n"
-	            "       %s [options] -- [args...]\n"
-	            "       %s [options] -a\n"
+	php_printf( "Usage: %s [options] [args]\n"
+	            "       %s [options] [args]\n"
 	            "\n"
+				"  options:\n"
 				"  -c <path>|<file> Look for php.ini file in this directory\n"
 				"  -n               No php.ini file will be used\n"
 				"  -d foo[=bar]     Define INI entry foo with value 'bar'\n"
@@ -108,10 +112,14 @@ static void php_cli_usage(char *argv0)
 				"  -v               Version number\n"
 				"  -z <file>        Load Zend extension <file>.\n"
 				"\n"
-				"  args...          Arguments passed to script. Use -- args when first argument\n"
-				"                   starts with - or script is read from stdin\n"
-				"\n"
 				"  --ini            Show configuration file names\n"
+				"\n"
+				"  args:\n"
+				"       install     install ssp service\n"
+				"       start       start ssp service\n"
+				"       stop        stop ssp service\n"
+				"       restart     restart ssp service\n"
+				"       uninstall   uninstall ssp service\n"
 				"\n"
 				, prog, prog, prog, prog, prog, prog);
 }
@@ -322,6 +330,8 @@ int main(int argc, char *argv[])
 	zend_file_handle file_handle;
 /* temporary locals */
 	int behavior=PHP_MODE_STANDARD;
+	char *serv_opt="",*pidfile="/var/run/ssp.pid";
+	short int port=8083;
 	int orig_optind=php_optind;
 	char *orig_optarg=php_optarg;
 	char *arg_free=NULL, **arg_excp=&arg_free;
@@ -397,7 +407,7 @@ int main(int argc, char *argv[])
 	php_optind = orig_optind;
 	php_optarg = orig_optarg;
 
-	if(php_startup()==FAILURE){
+	if(php_begin()==FAILURE){
 		exit_status=1;
 		goto err;
 	}
@@ -512,6 +522,12 @@ int main(int argc, char *argv[])
 				hide_argv = 1;
 				break;
 
+			case 'p': /* parse file */
+				port = atoi(php_optarg);
+				if(port<=0)
+					param_error="The port number must not be less than 1.";
+				break;
+
 			case 14:
 				behavior = PHP_MODE_SHOW_INI_CONFIG;
 				break;
@@ -527,12 +543,9 @@ int main(int argc, char *argv[])
 		}
 
 		/* only set script_file if not set already and not in direct mode and not at end of parameter list */
-		if (argc > php_optind 
-		  && !script_file 
-		  && behavior!=PHP_MODE_CLI_DIRECT 
-		  && strcmp(argv[php_optind-1],"--")) 
+		if (argc > php_optind) 
 		{
-			script_file=argv[php_optind];
+			serv_opt=argv[php_optind];
 			php_optind++;
 		}
 		if (script_file) {
@@ -542,7 +555,7 @@ int main(int argc, char *argv[])
 			script_filename = script_file;
 		} else {
 			file_handle.filename = "-";
-			file_handle.handle.fp = stdin;
+			//file_handle.handle.fp = stdin;
 		}
 		file_handle.type = ZEND_HANDLE_FP;
 		file_handle.opened_path = NULL;
@@ -564,6 +577,7 @@ int main(int argc, char *argv[])
 			PUTS("Could not startup.\n");
 			goto err;
 		}
+
 		request_started = 1;
 		CG(start_lineno) = lineno;
 		*arg_excp = arg_free; /* reconstuct argv */
@@ -582,8 +596,8 @@ int main(int argc, char *argv[])
 			case PHP_MODE_STANDARD:
 				if (strcmp(file_handle.filename, "-")) {
 					cli_register_file_handles(TSRMLS_C);
+					php_execute_script(&file_handle TSRMLS_CC);
 				}
-				php_execute_script(&file_handle TSRMLS_CC);
 				exit_status = EG(exit_status);
 				break;
 
@@ -599,7 +613,24 @@ int main(int argc, char *argv[])
 				zend_printf("Loaded Configuration File:         %s\n", php_ini_opened_path ? php_ini_opened_path : "(none)");
 				zend_printf("Scan for additional .ini files in: %s\n", *PHP_CONFIG_FILE_SCAN_DIR ? PHP_CONFIG_FILE_SCAN_DIR : "(none)");
 				zend_printf("Additional .ini files parsed:      %s\n", php_ini_scanned_files ? php_ini_scanned_files : "(none)");
+				goto out;
 				break;
+		}
+
+		if(strcmp(serv_opt,"restart")==0 || strcmp(serv_opt,"stop")==0){
+			goto out;
+		}
+		if(strcmp(serv_opt,"restart")==0 || strcmp(serv_opt,"start")==0){
+			socket_listen(port,pidfile);
+			goto out;
+		}
+		if(strcmp(serv_opt,"install")==0){
+		}else if(strcmp(serv_opt,"uninstall")==0){
+		}else{
+			php_cli_usage(argv[0]);
+			php_end_ob_buffers(1 TSRMLS_CC);
+			exit_status=1;
+			goto out;
 		}
 
 	} zend_end_try();

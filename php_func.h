@@ -33,7 +33,7 @@ static char *script_filename = "";
 #define CSM(v) (cli_sapi_module.v)
 
 void php_init();
-int php_startup();
+int php_begin();
 void php_end();
 
 /*

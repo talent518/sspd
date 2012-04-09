@@ -326,7 +326,7 @@ void php_init(){
 	CSM(additional_functions) = additional_functions;
 }
 
-int php_startup(){
+int php_begin(){
 	/* startup after we get the above ini override se we get things right */
 	if (CSM(startup)(&cli_sapi_module)==FAILURE) {
 		/* there is no way to see if we must call zend_ini_deactivate()
@@ -334,6 +334,9 @@ int php_startup(){
 		 * because the executor's constructor does not set initialize it.
 		 * Apart from that there seems no need for zend_ini_deactivate() yet.
 		 * So we goto out_err.*/
+		#ifdef ZTS
+				tsrm_shutdown();
+		#endif
 		return FAILURE;
 	}
 	module_started=1;
