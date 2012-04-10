@@ -2,8 +2,21 @@
 #define PHP_SSP_H
 
 #include "php.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
 #define PHP_SSP_VERSION "1.2.1"
+
+#define PHP_SSP_START 0
+#define PHP_SSP_RECEIVE 1
+#define PHP_SSP_SEND 2
+#define PHP_SSP_CONNECT 3
+#define PHP_SSP_CONNECT_DENIED 4
+#define PHP_SSP_CLOSE 5
+#define PHP_SSP_STOP 6
+
+#define PHP_SSP_LEN 7
 
 extern function_entry ssp_functions[];
 extern zend_module_entry ssp_module_entry;
@@ -14,7 +27,11 @@ extern zend_module_entry ssp_module_entry;
 #endif
 
 ZEND_BEGIN_MODULE_GLOBALS(ssp)
-	int error_code;
+	char *pidfile;
+	char *user;
+	char *host;
+	short int port;
+	char *bind[PHP_SSP_LEN];
 ZEND_END_MODULE_GLOBALS(ssp)
 
 #ifdef ZTS
@@ -28,9 +45,10 @@ ZEND_END_MODULE_GLOBALS(ssp)
 static PHP_MINIT_FUNCTION(ssp);
 static PHP_GINIT_FUNCTION(ssp);
 static PHP_MINFO_FUNCTION(ssp);
-static PHP_FUNCTION(ssp_encode);
-static PHP_FUNCTION(ssp_decode);
-static PHP_FUNCTION(ssp_last_error);
+
+static PHP_FUNCTION(ssp_bind);
+static PHP_FUNCTION(ssp_send);
+static PHP_FUNCTION(ssp_close);
 
 ZEND_DECLARE_MODULE_GLOBALS(ssp)
 

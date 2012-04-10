@@ -20,12 +20,14 @@
 
 #include "php_func.h"
 #include "server.h"
+#include "php_ext.h"
 
 #include "php.h"
 #include "php_ini.h"
 #include "php_getopt.h"
 #include "zend_extensions.h"
 #include "zend_hash.h"
+#include "zend_constants.h"
 
 #include <stdio.h>
 #ifdef PHP_WIN32
@@ -46,24 +48,8 @@
 	#include <locale.h>
 #endif
 
-#define SSP_RESTART		0
-#define SSP_START		1
-#define SSP_STOP		2
-#define SSP_INSTALL		3
-#define SSP_UNINSTALL	4
-
-#define PHP_MODE_STANDARD			1
-#define PHP_MODE_CLI_DIRECT			2
-#define PHP_MODE_SHOW_INI_CONFIG	3
-
 static char *php_optarg = NULL;
 static int php_optind = 1;
-
-static const char *param_mode_conflict = "Either execute direct code, process stdin or use a file.\n";
-
-PHPAPI extern char *php_ini_opened_path;
-PHPAPI extern char *php_ini_scanned_path;
-PHPAPI extern char *php_ini_scanned_files;
 
 static const opt_struct OPTIONS[] = {
 	{'c', 1, "php-ini"},
@@ -73,13 +59,12 @@ static const opt_struct OPTIONS[] = {
 	{'i', 0, "info"},
 	{'m', 0, "modules"},
 	{'n', 0, "no-php-ini"},
-	{'R', 1, "process-code"},
 	{'H', 0, "hide-args"},
 	{'r', 1, "run"},
 	{'?', 0, "usage"},/* help alias (both '?' and 'usage') */
 	{'v', 0, "version"},
 	{'z', 1, "zend-extension"},
-	{14,  0, "ini"},
+	{14,  0, "debug"},
 	{'-', 0, NULL} /* end of args */
 };
 
@@ -112,7 +97,7 @@ static void php_cli_usage(char *argv0)
 				"  -v               Version number\n"
 				"  -z <file>        Load Zend extension <file>.\n"
 				"\n"
-				"  --ini            Show configuration file names\n"
+				"  --debug          Show debug info\n"
 				"\n"
 				"  args:\n"
 				"       install     install ssp service\n"
@@ -329,9 +314,7 @@ int main(int argc, char *argv[])
 	int c;
 	zend_file_handle file_handle;
 /* temporary locals */
-	int behavior=PHP_MODE_STANDARD;
-	char *serv_opt="",*pidfile="/var/run/ssp.pid";
-	short int port=8083;
+	char *serv_opt="";
 	int orig_optind=php_optind;
 	char *orig_optarg=php_optarg;
 	char *arg_free=NULL, **arg_excp=&arg_free;
@@ -491,45 +474,23 @@ int main(int argc, char *argv[])
 			switch (c) {
 
 			case 'f': /* parse file */
-				if (behavior == PHP_MODE_CLI_DIRECT) {
-					param_error = param_mode_conflict;
-					break;
-				} else if (script_file) {
-					param_error = "You can use -f only once.\n";
-					break;
-				}
 				script_file = php_optarg;
 				break;
 
 			case 'r': /* run code from command line */
-				if (behavior == PHP_MODE_CLI_DIRECT) {
-					if (exec_direct || script_file) {
-						param_error = "You can use -r only once.\n";
-						break;
-					}
-				} else if (behavior != PHP_MODE_STANDARD) {
-					param_error = param_mode_conflict;
-					break;
-				}
-				behavior=PHP_MODE_CLI_DIRECT;
 				exec_direct=php_optarg;
 				break;
 
 			case 'z': /* load extension file */
 				zend_load_extension(php_optarg);
 				break;
+
 			case 'H':
 				hide_argv = 1;
 				break;
 
-			case 'p': /* parse file */
-				port = atoi(php_optarg);
-				if(port<=0)
-					param_error="The port number must not be less than 1.";
-				break;
-
 			case 14:
-				behavior = PHP_MODE_SHOW_INI_CONFIG;
+				debug = true;
 				break;
 			default:
 				break;
@@ -592,39 +553,38 @@ int main(int argc, char *argv[])
 		zend_is_auto_global("_SERVER", sizeof("_SERVER")-1 TSRMLS_CC);
 
 		PG(during_request_startup) = 0;
-		switch (behavior) {
-			case PHP_MODE_STANDARD:
-				if (strcmp(file_handle.filename, "-")) {
-					cli_register_file_handles(TSRMLS_C);
-					php_execute_script(&file_handle TSRMLS_CC);
-				}
-				exit_status = EG(exit_status);
-				break;
 
-			case PHP_MODE_CLI_DIRECT:
-				cli_register_file_handles(TSRMLS_C);
-				if (zend_eval_string_ex(exec_direct, NULL, "Command line code", 1 TSRMLS_CC) == FAILURE) {
-					exit_status=254;
-				}
-				break;
-			
-			case PHP_MODE_SHOW_INI_CONFIG:
-				zend_printf("Configuration File (php.ini) Path: %s\n", PHP_CONFIG_FILE_PATH);
-				zend_printf("Loaded Configuration File:         %s\n", php_ini_opened_path ? php_ini_opened_path : "(none)");
-				zend_printf("Scan for additional .ini files in: %s\n", *PHP_CONFIG_FILE_SCAN_DIR ? PHP_CONFIG_FILE_SCAN_DIR : "(none)");
-				zend_printf("Additional .ini files parsed:      %s\n", php_ini_scanned_files ? php_ini_scanned_files : "(none)");
-				goto out;
-				break;
+		if(debug)
+			zend_eval_string_ex("define('IS_DEBUG',true);", NULL, "Command line code", 1 TSRMLS_CC);
+		else
+			zend_eval_string_ex("define('IS_DEBUG',false);", NULL, "Command line code", 1 TSRMLS_CC);
+
+		if(strcmp(file_handle.filename, "-") || exec_direct){
+			cli_register_file_handles(TSRMLS_C);
 		}
 
-		if(strcmp(serv_opt,"restart")==0 || strcmp(serv_opt,"stop")==0){
-			goto out;
+		if (strcmp(file_handle.filename, "-")) {
+			php_execute_script(&file_handle TSRMLS_CC);
 		}
-		if(strcmp(serv_opt,"restart")==0 || strcmp(serv_opt,"start")==0){
-			socket_listen(port,pidfile);
-			goto out;
+
+		cli_register_file_handles(TSRMLS_C);
+		if (exec_direct && zend_eval_string_ex(exec_direct, NULL, "Command line code", 1 TSRMLS_CC) == FAILURE) {
+			exit_status=254;
 		}
-		if(strcmp(serv_opt,"install")==0){
+		
+		int et;
+		for(et=0;et<PHP_SSP_LEN;et++){
+			php_printf("EventType:%d,CallBack:%s\n",et,SSP_G(bind)[et]);
+		}
+
+		if(strcmp(serv_opt,"restart")==0){
+			socket_stop();
+			socket_start();
+		}else if(strcmp(serv_opt,"stop")==0){
+			socket_stop();
+		}else if(strcmp(serv_opt,"start")==0){
+			socket_start();
+		}else if(strcmp(serv_opt,"install")==0){
 		}else if(strcmp(serv_opt,"uninstall")==0){
 		}else{
 			php_cli_usage(argv[0]);

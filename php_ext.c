@@ -1,26 +1,26 @@
 #include "php_ext.h"
 
 /* {{{ arginfo */
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_encode, 0, 0, 1)
-	ZEND_ARG_INFO(0, value)
-	ZEND_ARG_INFO(0, options)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_bind, 0, 0, 2)
+	ZEND_ARG_INFO(0, eventtype)
+	ZEND_ARG_INFO(0, callback)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_decode, 0, 0, 1)
-	ZEND_ARG_INFO(0, ssp)
-	ZEND_ARG_INFO(0, assoc)
-	ZEND_ARG_INFO(0, depth)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_send, 0, 0, 2)
+	ZEND_ARG_INFO(0, socket)
+	ZEND_ARG_INFO(0, message)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO(arginfo_ssp_last_error, 0)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_close, 0, 0, 1)
+	ZEND_ARG_INFO(0, socket)
 ZEND_END_ARG_INFO()
 /* }}} */
 
 /* {{{ ssp_functions[] */
 function_entry ssp_functions[] = {
-	PHP_FE(ssp_encode, arginfo_ssp_encode)
-	PHP_FE(ssp_decode, arginfo_ssp_decode)
-	PHP_FE(ssp_last_error, arginfo_ssp_last_error)
+	PHP_FE(ssp_bind, arginfo_ssp_bind)
+	PHP_FE(ssp_send, arginfo_ssp_send)
+	PHP_FE(ssp_close, arginfo_ssp_close)
 	{NULL, NULL, NULL}
 };
 /* }}} */
@@ -48,8 +48,13 @@ zend_module_entry ssp_module_entry = {
 /* {{{ MINIT */
 static PHP_MINIT_FUNCTION(ssp)
 {
-	REGISTER_LONG_CONSTANT("SSP_CONST",  SSP_CONST,  CONST_CS | CONST_PERSISTENT);
-
+	REGISTER_LONG_CONSTANT("SSP_START",  PHP_SSP_START,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_RECEIVE",  PHP_SSP_RECEIVE,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_SEND",  PHP_SSP_SEND,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_CONNECT",  PHP_SSP_CONNECT,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_CONNECT_DENIED",  PHP_SSP_CONNECT_DENIED,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_CLOSE",  PHP_SSP_CLOSE,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_STOP",  PHP_SSP_STOP,  CONST_CS | CONST_PERSISTENT);
 	return SUCCESS;
 }
 /* }}} */
@@ -58,7 +63,10 @@ static PHP_MINIT_FUNCTION(ssp)
 */
 static PHP_GINIT_FUNCTION(ssp)
 {
-	ssp_globals->error_code = 0;
+	ssp_globals->user = "daemon";
+	ssp_globals->pidfile = "/var/run/ssp.pid";
+	ssp_globals->host	 = "0.0.0.0";
+	ssp_globals->port	 = 8083;
 }
 /* }}} */
 
@@ -71,30 +79,33 @@ static PHP_MINFO_FUNCTION(ssp)
 	php_info_print_table_row(2, "ssp version", PHP_SSP_VERSION);
 	php_info_print_table_end();
 }
-/* }}} */
 
-/* {{{ proto string ssp_encode(mixed data [, int options])
-   Returns the ssp representation of a value */
-static PHP_FUNCTION(ssp_encode)
+static PHP_FUNCTION(ssp_bind)
 {
-	RETURN_STRING("encode",1);
+	unsigned short eventtype;
+	char *callback;
+	long callback_len;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ls", &eventtype, &callback, &callback_len) == FAILURE) {
+		php_printf("Parameters error.\n");
+		RETURN_FALSE;
+	}
+	if(eventtype>PHP_SSP_LEN){
+		php_printf("Parameters error.\n");
+		RETURN_FALSE;
+	}
+	SSP_G(bind)[eventtype]=strdup(callback);
+	RETURN_TRUE;
 }
-/* }}} */
 
-/* {{{ proto mixed ssp_decode(string ssp [, bool assoc [, long depth]])
-   Decodes the ssp representation into a PHP value */
-static PHP_FUNCTION(ssp_decode)
+static PHP_FUNCTION(ssp_send)
 {
 	RETURN_STRING("decode",1);
 }
-/* }}} */
 
-/* {{{ proto int ssp_last_error()
-   Returns the error code of the last ssp_decode(). */
-static PHP_FUNCTION(ssp_last_error)
+static PHP_FUNCTION(ssp_close)
 {
+	RETURN_STRING("decode",1);
 }
-/* }}} */
 
 /*
  * Local variables:
