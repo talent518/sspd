@@ -559,6 +559,12 @@ int main(int argc, char *argv[])
 		else
 			zend_eval_string_ex("define('IS_DEBUG',false);", NULL, "Command line code", 1 TSRMLS_CC);
 
+		#ifdef PHP_WIN32
+			zend_eval_string_ex("define('STD_CHARSET','gbk');", NULL, "Command line code", 1 TSRMLS_CC);
+		#else
+			zend_eval_string_ex("define('STD_CHARSET','utf-8');", NULL, "Command line code", 1 TSRMLS_CC);
+		#endif
+
 		if(strcmp(file_handle.filename, "-") || exec_direct){
 			cli_register_file_handles(TSRMLS_C);
 		}
@@ -571,12 +577,12 @@ int main(int argc, char *argv[])
 		if (exec_direct && zend_eval_string_ex(exec_direct, NULL, "Command line code", 1 TSRMLS_CC) == FAILURE) {
 			exit_status=254;
 		}
-		
+/*
 		int et;
 		for(et=0;et<PHP_SSP_LEN;et++){
 			php_printf("EventType:%d,CallBack:%s\n",et,SSP_G(bind)[et]);
 		}
-
+*/
 		if(strcmp(serv_opt,"restart")==0){
 			socket_stop();
 			socket_start();

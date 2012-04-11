@@ -20,15 +20,17 @@ function socket_server_start(){
 	MOD('user.online')->clean();
 }
 
-function socket_server_connect($ClientId,$ClientHost,$ClientPort){
+function socket_server_connect($ClientId){
+	$info=ssp_info($ClientId);
+	extract($info);
 	$data=array(
-		'host'=>$ClientHost,
-		'port'=>$ClientPort,
+		'host'=>$host,
+		'port'=>$port,
 		'time'=>time(),
 		'sendKey'=>LIB('string')->rand(128,STRING_RAND_BOTH),
 	);
 	MOD('user.online')->add($data);
-	server_log( 'New connection ( '.$ClientId.' ) from '.$ClientHost.' on port '.$ClientPort.'. Time at '.date('m-d H:i:s',$data['time']));
+	server_log( 'New connection ( '.$sockfd.' ) from '.$host.' on port '.$port.'. Time at '.date('m-d H:i:s',$data['time']));
 	$response=new XML_Element('response');
 	$response->type='Connect.Key';
 	$response->setText($data['sendKey']);
@@ -44,6 +46,9 @@ function socket_server_connect_denied($ClientId){
 }
 
 function socket_server_receive($ClientId,$data){
+	$info=ssp_info($ClientId);
+	var_dump($info);
+	extract($info);
 	$requests=xml_to_object($data,true,$error);
 	if(is_array($requests)){
 		foreach($requests as $request){
@@ -94,13 +99,16 @@ function socket_server_receive($ClientId,$data){
 		}
 	}
 	if(is_array($error)){
-		data_server('XML_Parser_Error:'.var_export($error,TRUE));
+		server_log('XML_Parser_Error:'.var_export($error,TRUE));
 	}
 	$data=$requests=$error=null;
 }
 
 function socket_server_send($ClientId,$data){
-	data_log('Sending: "'.$data.'" to: '.$ClientId);
+	$info=ssp_info($ClientId);
+	extract($info);
+	data_log('Sending: "'.$data.'" to: '.$sockfd);
+	$data=xml_to_object($data,false,$error);
 	if($data->type!='Connect.Key'){
 		$key=MOD('user.online')->get_by_client($ClientId,'sendKey');
 		$return=new XML_Element('response');
@@ -108,6 +116,9 @@ function socket_server_send($ClientId,$data){
 		$return->setText(str_encode((string)$data,$key));
 	}else{
 		$return=$data;
+	}
+	if(is_array($error)){
+		server_log('XML_Parser_Error:'.var_export($error,TRUE));
 	}
 	return $return;
 }

@@ -1,9 +1,17 @@
 #include "php_ext.h"
+#include "server.h"
+#include <error.h>
+
+int le_ssp_descriptor;
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_bind, 0, 0, 2)
 	ZEND_ARG_INFO(0, eventtype)
 	ZEND_ARG_INFO(0, callback)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, socket)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_send, 0, 0, 2)
@@ -19,6 +27,7 @@ ZEND_END_ARG_INFO()
 /* {{{ ssp_functions[] */
 function_entry ssp_functions[] = {
 	PHP_FE(ssp_bind, arginfo_ssp_bind)
+	PHP_FE(ssp_info, arginfo_ssp_info)
 	PHP_FE(ssp_send, arginfo_ssp_send)
 	PHP_FE(ssp_close, arginfo_ssp_close)
 	{NULL, NULL, NULL}
@@ -55,6 +64,7 @@ static PHP_MINIT_FUNCTION(ssp)
 	REGISTER_LONG_CONSTANT("SSP_CONNECT_DENIED",  PHP_SSP_CONNECT_DENIED,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_CLOSE",  PHP_SSP_CLOSE,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_STOP",  PHP_SSP_STOP,  CONST_CS | CONST_PERSISTENT);
+	le_ssp_descriptor = zend_register_list_destructors_ex(NULL, NULL, PHP_SSP_DESCRIPTOR_RES_NAME,module_number);
 	return SUCCESS;
 }
 /* }}} */
@@ -80,31 +90,157 @@ static PHP_MINFO_FUNCTION(ssp)
 	php_info_print_table_end();
 }
 
+static zval *_ssp_resource_zval(node *value)
+{
+	zval *ret;
+	TSRMLS_FETCH();
+	MAKE_STD_ZVAL(ret);
+	ZEND_REGISTER_RESOURCE(ret,value,le_ssp_descriptor);
+	return ret;
+}
+
+static zval *_ssp_string_zval(const char *str)
+{
+	zval *ret;
+	int len = strlen(str);
+	MAKE_STD_ZVAL(ret);
+
+	Z_TYPE_P(ret) = IS_STRING;
+	Z_STRLEN_P(ret) = len;
+	Z_STRVAL_P(ret) = estrndup(str, len);
+	return ret;
+}
+
+char *trigger(unsigned short eventtype,...){
+	if(SSP_G(bind)[eventtype]==NULL){
+		return NULL;
+	}
+	va_list args;
+	zend_fcall_info fcall;
+	zval **params;
+	zval *retval;
+	int i;
+
+	fcall.size = sizeof(fcall);
+	fcall.function_table = EG(function_table);
+	fcall.function_name = _ssp_string_zval(SSP_G(bind)[eventtype]);
+	fcall.symbol_table = NULL;
+	fcall.object_ptr = NULL;
+	fcall.retval_ptr_ptr=&retval;
+	fcall.param_count=0;
+
+	va_start(args, eventtype);
+	switch(eventtype){
+		case PHP_SSP_START:
+		case PHP_SSP_STOP:
+			break;
+		case PHP_SSP_RECEIVE:
+		case PHP_SSP_SEND:
+			fcall.param_count=2;
+			params = safe_emalloc(sizeof(zval *),2,0);
+			params[0]=_ssp_resource_zval(va_arg(args,node*));
+			params[1]=_ssp_string_zval(va_arg(args,char*));
+			break;
+		case PHP_SSP_CONNECT:
+		case PHP_SSP_CONNECT_DENIED:
+		case PHP_SSP_CLOSE:
+			fcall.param_count=1;
+			params = safe_emalloc(sizeof(zval *),1,0);
+			params[0]=_ssp_resource_zval(va_arg(args,node*));
+			break;
+		default:
+			perror("Unable to call handler");
+			break;
+	}
+	va_end(args);
+
+	fcall.params = safe_emalloc(sizeof(zval **),2,0);
+	for (i = 0; i < fcall.param_count; i++) {
+		fcall.params[i]=&params[i];
+	}
+
+	int result=zend_call_function(&fcall, NULL TSRMLS_CC);
+
+	php_printf("retval:%s\n",Z_STRVAL_P(retval));
+
+	if (result==FAILURE) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to call handler %s()", Z_STRVAL_P(fcall.function_name));
+		return NULL;
+	} else {
+		return EG(exception) ? NULL : Z_STRVAL_P(retval);
+	}
+
+	for (i = 0; i < fcall.param_count; i++) {
+		zval_ptr_dtor(&params[i]);
+	}
+	efree(params);
+}
+
 static PHP_FUNCTION(ssp_bind)
 {
 	unsigned short eventtype;
 	char *callback;
 	long callback_len;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ls", &eventtype, &callback, &callback_len) == FAILURE) {
-		php_printf("Parameters error.\n");
+		php_printf("function ssp_bind parameters error.\n");
 		RETURN_FALSE;
 	}
 	if(eventtype>PHP_SSP_LEN){
-		php_printf("Parameters error.\n");
+		php_printf("function ssp_bind parameters error.\n");
 		RETURN_FALSE;
 	}
 	SSP_G(bind)[eventtype]=strdup(callback);
 	RETURN_TRUE;
 }
 
+static PHP_FUNCTION(ssp_info){
+	zval *res;
+	node *ptr;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &res) == FAILURE) {
+		php_printf("function ssp_info parameters error.\n");
+		RETURN_FALSE;
+	}
+	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
+	array_init(return_value);
+	add_assoc_long(return_value,"tid",ptr->tid);
+	add_assoc_long(return_value,"sockfd",ptr->sockfd);
+	add_assoc_string(return_value,"host",ptr->host,0); /* cast to avoid gcc-warning */
+	add_assoc_long(return_value,"port",ptr->port);
+	add_assoc_long(return_value,"flag",ptr->flag);
+}
+
 static PHP_FUNCTION(ssp_send)
 {
-	RETURN_STRING("decode",1);
+	char *data,*_data;
+	long data_len;
+	zval *res;
+	node *ptr;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs", &res, &data, &data_len) == FAILURE) {
+		php_printf("function ssp_send parameters error.\n");
+		RETURN_FALSE;
+	}
+	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
+	_data=trigger(PHP_SSP_SEND,ptr,data);
+	if(_data!=NULL){
+		data=_data;
+		data_len=strlen(_data);
+	}
+	int ret=send(ptr->sockfd,data,data_len,0);
+	RETURN_LONG(ret);
 }
 
 static PHP_FUNCTION(ssp_close)
 {
-	RETURN_STRING("decode",1);
+	zval *res;
+	node *ptr;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &res) == FAILURE) {
+		php_printf("function ssp_info parameters error.\n");
+		RETURN_FALSE;
+	}
+	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
+	ptr->flag=false;
+	close(ptr->sockfd);
+	del(head,ptr->sockfd);
 }
 
 /*

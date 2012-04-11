@@ -15,8 +15,6 @@ define('CTL_DIR',SRC_DIR.'ctl'.DIR_SEP);
 
 define('LOG_DIR',ROOT.'log'.DIR_SEP);
 
-define('PIDFILE',LOG_DIR.'wodome.pid');
-
 define('RES_DIR',ROOT.'res'.DIR_SEP);//资源目录
 define('RES_FONT_DIR',RES_DIR.'fonts'.DIR_SEP);//字体目录
 define('RES_IMAGE_DIR',RES_DIR.'images'.DIR_SEP);//图片目录

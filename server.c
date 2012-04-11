@@ -76,28 +76,34 @@ int del(node *head,int socket){
 }
 
 void thread(node *ptr){
-	int i,len,socket;
+	int i,len;
 	char *q;
 	char buff[BUFFER_MAX];
-	socket=ptr->sockfd;
+
+	trigger(PHP_SSP_CONNECT,ptr);
+
 	while(ptr->flag)
 	{
 		memset(buff,0,sizeof(buff));
-		len=read(socket,buff,BUFFER_MAX);
+		len=read(ptr->sockfd,buff,BUFFER_MAX);
 		if(len<0){
-			printf("Server Recieve Data Failed!\n");
+			php_printf("Server Recieve Data Failed!\n");
 			break;
 		}
 		if(len==0)
 			break;
 		if((q=strchr(buff,'\n'))!=NULL)
 			*q='\0';
-		if(debug)
-			printf("Received from client :%s\n\n",buff);
+		if(debug){
+			php_printf("Received from client :%s\n\n",buff);
+		}
+		trigger(PHP_SSP_RECEIVE,ptr,buff);
 	}
-	del(head,socket);
-	if(debug)
-		printf("Close connections (%d) for the host %s, port %d.\n",socket,ptr->host,ptr->port);
+	if(debug){
+		php_printf("Close connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
+	}
+	trigger(PHP_SSP_CONNECT,ptr);
+	del(head,ptr->sockfd);
 	pthread_exit(NULL);
 }
 
@@ -113,7 +119,7 @@ int socket_stop(){
 		fscanf(fp,"%d",&pid);
 		fclose(fp);
 		if(pid==getsid(pid)){
-			ret=kill(pid,SIGKILL);
+			ret=kill(pid,SIGTERM);
 			while(ret && getsid(pid)){
 				printf(".");
 				flush();
@@ -150,6 +156,7 @@ void socket_exit(int sid){
 		p->sockfd=0;
 		p=p->next;
 	}while(p!=NULL);
+	trigger(PHP_SSP_STOP);
 	exit(0);
 }
 
@@ -261,8 +268,11 @@ int socket_start(){
 	head->flag=true;
 	head->next=NULL;
 
-	if(debug)
-		printf("\nListen host for the %s, port %d.\n\n",head->host,head->port);
+	if(debug){
+		php_printf("\nListen host for the %s, port %d.\n\n",head->host,head->port);
+	}
+
+	trigger(PHP_SSP_START);
 
     pthread_mutex_init(&node_mutex, NULL);
 
@@ -278,8 +288,9 @@ int socket_start(){
 		inet_ntop(AF_INET, &pin.sin_addr, ptr->host, sizeof(ptr->host));
 		ptr->port=ntohs(pin.sin_port);
 
-		if(debug)
-			printf("\n\nAccept new connections (%d) for the host %s, port %d.\n\n",conn_fd,ptr->host,ptr->port);
+		if(debug){
+			php_printf("\nAccept new connections (%d) for the host %s, port %d.\n\n",conn_fd,ptr->host,ptr->port);
+		}
 
 		ptr->flag=true;
 

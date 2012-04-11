@@ -1,5 +1,5 @@
 #!/usr/bin/php -q
 <?php
 define('STD_CHARSET','utf-8');
-include_once('./console.php');"
+include_once('./console.php');
 ?>

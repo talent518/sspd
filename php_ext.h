@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#define PHP_SSP_DESCRIPTOR_RES_NAME "ssp user node"
 #define PHP_SSP_VERSION "1.2.1"
 
 #define PHP_SSP_START 0
@@ -18,8 +19,11 @@
 
 #define PHP_SSP_LEN 7
 
+extern int le_ssp_descriptor;
+
 extern function_entry ssp_functions[];
 extern zend_module_entry ssp_module_entry;
+
 #define phpext_ssp_ptr &ssp_module_entry
 
 #ifdef ZTS
@@ -46,7 +50,10 @@ static PHP_MINIT_FUNCTION(ssp);
 static PHP_GINIT_FUNCTION(ssp);
 static PHP_MINFO_FUNCTION(ssp);
 
+char *trigger(unsigned short eventtype,...);
+
 static PHP_FUNCTION(ssp_bind);
+static PHP_FUNCTION(ssp_info);
 static PHP_FUNCTION(ssp_send);
 static PHP_FUNCTION(ssp_close);
 
