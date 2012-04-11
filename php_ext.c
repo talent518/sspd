@@ -116,37 +116,35 @@ char *trigger(unsigned short eventtype,...){
 		return NULL;
 	}
 	va_list args;
-	zend_fcall_info fcall;
-	zval **params;
-	zval *retval;
-	int i;
+	zval ***params;
+	zval *retval=NULL,*call_func_handler,*res=NULL,*data=NULL;
+	int i,param_count;
 
-	fcall.size = sizeof(fcall);
-	fcall.function_table = EG(function_table);
-	fcall.function_name = _ssp_string_zval(SSP_G(bind)[eventtype]);
-	fcall.symbol_table = NULL;
-	fcall.object_ptr = NULL;
-	fcall.retval_ptr_ptr=&retval;
-	fcall.param_count=0;
+	call_func_handler = _ssp_string_zval(SSP_G(bind)[eventtype]);
 
 	va_start(args, eventtype);
 	switch(eventtype){
 		case PHP_SSP_START:
 		case PHP_SSP_STOP:
+			param_count=0;
+			params = safe_emalloc(sizeof(zval **),0,0);
 			break;
 		case PHP_SSP_RECEIVE:
 		case PHP_SSP_SEND:
-			fcall.param_count=2;
-			params = safe_emalloc(sizeof(zval *),2,0);
-			params[0]=_ssp_resource_zval(va_arg(args,node*));
-			params[1]=_ssp_string_zval(va_arg(args,char*));
+			param_count=2;
+			params = safe_emalloc(sizeof(zval **),2,0);
+			res=_ssp_resource_zval(va_arg(args,node*));
+			data=_ssp_string_zval(va_arg(args,char*));
+			params[0]=&res;
+			params[1]=&data;
 			break;
 		case PHP_SSP_CONNECT:
 		case PHP_SSP_CONNECT_DENIED:
 		case PHP_SSP_CLOSE:
-			fcall.param_count=1;
-			params = safe_emalloc(sizeof(zval *),1,0);
-			params[0]=_ssp_resource_zval(va_arg(args,node*));
+			param_count=1;
+			params = safe_emalloc(sizeof(zval **),1,0);
+			res=_ssp_resource_zval(va_arg(args,node*));
+			params[0]=&res;
 			break;
 		default:
 			perror("Unable to call handler");
@@ -154,26 +152,29 @@ char *trigger(unsigned short eventtype,...){
 	}
 	va_end(args);
 
-	fcall.params = safe_emalloc(sizeof(zval **),2,0);
-	for (i = 0; i < fcall.param_count; i++) {
-		fcall.params[i]=&params[i];
+	MAKE_STD_ZVAL(retval);
+	convert_to_string(retval);
+
+	php_printf("\ncall function:%s\n",Z_STRVAL_P(call_func_handler));
+	int result=call_user_function_ex(CG(function_table), NULL, call_func_handler, &retval, param_count, params, 0, NULL TSRMLS_CC);
+	php_printf("return result:%d\n\n",result==FAILURE);
+
+	for (i = 0; i < param_count; i++) {
+		zval_ptr_dtor(params[i]);
 	}
-
-	int result=zend_call_function(&fcall, NULL TSRMLS_CC);
-
-	php_printf("retval:%s\n",Z_STRVAL_P(retval));
 
 	if (result==FAILURE) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to call handler %s()", Z_STRVAL_P(fcall.function_name));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to call handler %s()", Z_STRVAL_P(call_func_handler));
 		return NULL;
 	} else {
-		return EG(exception) ? NULL : Z_STRVAL_P(retval);
+		//php_printf("function:%s,retval len:%d,retval:%s\n",Z_STRVAL_P(call_func_handler),Z_STRLEN_P(retval),Z_STRVAL_P(retval));
+		if(EG(exception)){
+			EG(exception)=NULL;
+			zend_exception_error(EG(exception), E_ALL TSRMLS_CC);
+			return NULL;
+		}
+		return Z_STRVAL_P(retval);
 	}
-
-	for (i = 0; i < fcall.param_count; i++) {
-		zval_ptr_dtor(&params[i]);
-	}
-	efree(params);
 }
 
 static PHP_FUNCTION(ssp_bind)
@@ -211,7 +212,7 @@ static PHP_FUNCTION(ssp_info){
 
 static PHP_FUNCTION(ssp_send)
 {
-	char *data,*_data;
+	char *data,*_data=NULL;
 	long data_len;
 	zval *res;
 	node *ptr;
@@ -225,7 +226,9 @@ static PHP_FUNCTION(ssp_send)
 		data=_data;
 		data_len=strlen(_data);
 	}
-	int ret=send(ptr->sockfd,data,data_len,0);
+	php_printf("ssp_send start");
+	long ret=send(ptr->sockfd,data,data_len,0);
+	php_printf("ssp_send end");
 	RETURN_LONG(ret);
 }
 

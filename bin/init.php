@@ -24,6 +24,7 @@ function socket_server_connect($ClientId){
 	$info=ssp_info($ClientId);
 	extract($info);
 	$data=array(
+		'onid'=>$sockfd,
 		'host'=>$host,
 		'port'=>$port,
 		'time'=>time(),
@@ -46,16 +47,16 @@ function socket_server_connect_denied($ClientId){
 }
 
 function socket_server_receive($ClientId,$data){
+	var_dump($ClientId,$data);
 	$info=ssp_info($ClientId);
-	var_dump($info);
 	extract($info);
 	$requests=xml_to_object($data,true,$error);
 	if(is_array($requests)){
 		foreach($requests as $request){
 			switch($request->type){
 				case 'Connect.Key':
-					MOD('user.online')->edit($ClientId,array('receiveKey'=>$request->getText()));
-					data_log( 'Received: "'.trim( $request ).'" from '.$ClientId );
+					MOD('user.online')->edit($sockfd,array('receiveKey'=>$request->getText()));
+					data_log( 'Received: "'.trim( $request ).'" from '.$sockfd );
 					continue 2;
 					break;
 				case 'Connect.Data':
@@ -66,12 +67,12 @@ function socket_server_receive($ClientId,$data){
 					break;
 			}
 
-			data_log( 'Received: "'.trim( $request ).'" from '.$ClientId );
+			data_log( 'Received: "'.trim( $request ).'" from '.$sockfd );
 
 			$request->ClientId=$ClientId;
 			$type=preg_replace("/^\.?([a-z\.]+)\.?$/i","\\1",$request->type);
 			$authTypes=array('user.login','user.register','user.lostpasswd');
-			if(!in_array(strtolower($type),$authTypes) && !MOD('user.online')->get_by_client($ClientId,'uid')){
+			if(!in_array(strtolower($type),$authTypes) && !MOD('user.online')->get_by_client($sockfd,'uid')){
 				$response=CTL('user')->login($ClientId);
 				ssp_send($ClientId,$response);
 				$response=null;
@@ -108,23 +109,22 @@ function socket_server_send($ClientId,$data){
 	$info=ssp_info($ClientId);
 	extract($info);
 	data_log('Sending: "'.$data.'" to: '.$sockfd);
-	$data=xml_to_object($data,false,$error);
+	$data=xml_to_object($data,false);
 	if($data->type!='Connect.Key'){
-		$key=MOD('user.online')->get_by_client($ClientId,'sendKey');
+		$key=MOD('user.online')->get_by_client($sockfd,'sendKey');
 		$return=new XML_Element('response');
 		$return->type='Connect.Data';
 		$return->setText(str_encode((string)$data,$key));
 	}else{
 		$return=$data;
 	}
-	if(is_array($error)){
-		server_log('XML_Parser_Error:'.var_export($error,TRUE));
-	}
 	return $return;
 }
 
 function socket_server_close($ClientId){
-	server_log( 'Close connection ( '.$ClientId.' ) from '.MOD('user.online')->get_by_client($ClientId,'host').' on port '.MOD('user.online')->get_by_client($ClientId,'port').'. Time at '.date('m-d H:i:s',MOD('user.online')->get_by_client($ClientId,'time')));
+	$info=ssp_info($ClientId);
+	extract($info);
+	server_log( 'Close connection ( '.$sockfd.' ) from '.$host.' on port '.$port.'. Time at '.date('m-d H:i:s',MOD('user.online')->get_by_client($sockfd,'time')));
 	$request=new XML_Element('request');
 	$request->ClientId=$ClientId;
 	CTL('user')->onLogout($request);

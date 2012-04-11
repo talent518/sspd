@@ -34,8 +34,7 @@ class ModUserOnline extends ModBase{
 		return empty($key)?$this->clients[$id]:$this->clients[$id][$key];
 	}
 	function add($data){
-		$data[$this->priKey]=$data['port'];
-		$this->clients[$data['port']]=$data;
+		$this->clients[$data[$this->priKey]]=$data;
 		return parent::add($data,false);
 	}
 	function edit($id,$data){

@@ -78,31 +78,36 @@ int del(node *head,int socket){
 void thread(node *ptr){
 	int i,len;
 	char *q;
-	char buff[BUFFER_MAX];
+	char buf[BUFFER_MAX];
 
 	trigger(PHP_SSP_CONNECT,ptr);
 
+	php_printf("flag:",ptr->flag);
+
 	while(ptr->flag)
 	{
-		memset(buff,0,sizeof(buff));
-		len=read(ptr->sockfd,buff,BUFFER_MAX);
+		memset(buf,0,sizeof(buf));
+		php_printf("start recv\n");
+		len=recv(ptr->sockfd,buf,BUFFER_MAX,0);
+		php_printf("end recv:%d\n",len);
 		if(len<0){
 			php_printf("Server Recieve Data Failed!\n");
 			break;
 		}
 		if(len==0)
 			break;
-		if((q=strchr(buff,'\n'))!=NULL)
+		buf[len]='\0';
+		if((q=strchr(buf,'\n'))!=NULL)
 			*q='\0';
 		if(debug){
-			php_printf("Received from client :%s\n\n",buff);
+			php_printf("Received from client :%s\n\n",buf);
 		}
-		trigger(PHP_SSP_RECEIVE,ptr,buff);
+		trigger(PHP_SSP_RECEIVE,ptr,buf);
 	}
 	if(debug){
 		php_printf("Close connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
 	}
-	trigger(PHP_SSP_CONNECT,ptr);
+	trigger(PHP_SSP_CLOSE,ptr);
 	del(head,ptr->sockfd);
 	pthread_exit(NULL);
 }
@@ -153,7 +158,10 @@ void socket_exit(int sid){
 	do{
 		p->flag=false;
 		close(p->sockfd);
+		trigger(PHP_SSP_CLOSE,p);
+		del(head,p->sockfd);
 		p->sockfd=0;
+		pthread_exit((void*)p->tid);
 		p=p->next;
 	}while(p!=NULL);
 	trigger(PHP_SSP_STOP);
@@ -203,7 +211,7 @@ int socket_start(){
 	if(ret<0){
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
-		printf("Not on the host %s bind port %d",head->host,head->port);
+		printf("Not on the host %s bind port %d",SSP_G(host),SSP_G(port));
 		return 1;
 	}
 
@@ -269,7 +277,7 @@ int socket_start(){
 	head->next=NULL;
 
 	if(debug){
-		php_printf("\nListen host for the %s, port %d.\n\n",head->host,head->port);
+		php_printf("\nListen host for the %s, port %d.\n",head->host,head->port);
 	}
 
 	trigger(PHP_SSP_START);
@@ -289,7 +297,7 @@ int socket_start(){
 		ptr->port=ntohs(pin.sin_port);
 
 		if(debug){
-			php_printf("\nAccept new connections (%d) for the host %s, port %d.\n\n",conn_fd,ptr->host,ptr->port);
+			php_printf("\nAccept new connections (%d) for the host %s, port %d.\n",conn_fd,ptr->host,ptr->port);
 		}
 
 		ptr->flag=true;
