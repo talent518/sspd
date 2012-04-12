@@ -82,8 +82,6 @@ void thread(node *ptr){
 
 	trigger(PHP_SSP_CONNECT,ptr);
 
-	php_printf("flag:",ptr->flag);
-
 	while(ptr->flag)
 	{
 		memset(buf,0,sizeof(buf));
@@ -96,13 +94,12 @@ void thread(node *ptr){
 		}
 		if(len==0)
 			break;
-		buf[len]='\0';
 		if((q=strchr(buf,'\n'))!=NULL)
 			*q='\0';
 		if(debug){
 			php_printf("Received from client :%s\n\n",buf);
 		}
-		trigger(PHP_SSP_RECEIVE,ptr,buf);
+		trigger(PHP_SSP_RECEIVE,ptr,&buf,&len);
 	}
 	if(debug){
 		php_printf("Close connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);

@@ -15,7 +15,6 @@ ssp_bind(SSP_CLOSE,'socket_server_close');
 ssp_bind(SSP_STOP,'socket_server_stop');
 
 function socket_server_start(){
-	echo 'Started server.',PHP_EOL;
 	server_log('Server started at '.date('m-d H:i:s',time()).PHP_EOL.'Listening on port '.SSP_PORT);
 	MOD('user.online')->clean();
 }
@@ -47,7 +46,7 @@ function socket_server_connect_denied($ClientId){
 }
 
 function socket_server_receive($ClientId,$data){
-	var_dump($ClientId,$data);
+	var_dump($ClientId,$data);return;
 	$info=ssp_info($ClientId);
 	extract($info);
 	$requests=xml_to_object($data,true,$error);
@@ -109,15 +108,16 @@ function socket_server_send($ClientId,$data){
 	$info=ssp_info($ClientId);
 	extract($info);
 	data_log('Sending: "'.$data.'" to: '.$sockfd);
-	$data=xml_to_object($data,false);
-	if($data->type!='Connect.Key'){
+	$xml=xml_to_object($data);
+	if($xml->type!='Connect.Key'){
 		$key=MOD('user.online')->get_by_client($sockfd,'sendKey');
 		$return=new XML_Element('response');
 		$return->type='Connect.Data';
-		$return->setText(str_encode((string)$data,$key));
+		$return->setText(str_encode($data,$key));
 	}else{
-		$return=$data;
+		$return=md5($data);
 	}
+	$xml=null;
 	return $return;
 }
 

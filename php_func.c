@@ -63,6 +63,8 @@
 #endif
 
 const char HARDCODED_INI[] =
+	"error_reporting = E_ALL & ~E_NOTICE\n"
+	"display_errors=On\n"
 	"html_errors=0\n"
 	"register_argc_argv=0\n"
 	"implicit_flush=1\n"

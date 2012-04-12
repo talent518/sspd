@@ -50,7 +50,7 @@ static PHP_MINIT_FUNCTION(ssp);
 static PHP_GINIT_FUNCTION(ssp);
 static PHP_MINFO_FUNCTION(ssp);
 
-char *trigger(unsigned short eventtype,...);
+int trigger(unsigned short eventtype,...);
 
 static PHP_FUNCTION(ssp_bind);
 static PHP_FUNCTION(ssp_info);

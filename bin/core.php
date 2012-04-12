@@ -2,7 +2,7 @@
 define('IN_SERVER',TRUE);
 defined('IS_DEBUG') or define('IS_DEBUG',false);
 
-IS_DEBUG?error_reporting(E_ALL & ~E_WARNING & ~E_NOTICE):error_reporting(0);
+//IS_DEBUG?error_reporting(E_ALL & ~E_WARNING & ~E_NOTICE):error_reporting(0);
 
 date_default_timezone_set('Asia/Shanghai');
 
