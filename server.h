@@ -31,6 +31,12 @@ typedef struct user{
 
 node *head;
 
+typedef struct _socket_package{
+	int length;
+	char *data;
+} socket_package;
+
+int socket_send(int sockfd,char *data,int data_len);
 int socket_start();
 int socket_stop();
 

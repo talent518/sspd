@@ -46,58 +46,55 @@ function socket_server_connect_denied($ClientId){
 }
 
 function socket_server_receive($ClientId,$data){
-	var_dump($ClientId,$data);return;
 	$info=ssp_info($ClientId);
 	extract($info);
-	$requests=xml_to_object($data,true,$error);
-	if(is_array($requests)){
-		foreach($requests as $request){
-			switch($request->type){
-				case 'Connect.Key':
-					MOD('user.online')->edit($sockfd,array('receiveKey'=>$request->getText()));
-					data_log( 'Received: "'.trim( $request ).'" from '.$sockfd );
-					continue 2;
-					break;
-				case 'Connect.Data':
-					$key=MOD('user.online')->get_by_client($ClientId,'receiveKey');
-					$request=xml_to_object(str_decode($request->getText(),$key));
-					break;
-				default:
-					break;
-			}
-
+	$request=xml_to_object($data,false,$error);
+	switch($request->type){
+		case 'Connect.Key':
+			MOD('user.online')->edit($sockfd,array('receiveKey'=>$request->getText()));
 			data_log( 'Received: "'.trim( $request ).'" from '.$sockfd );
+			continue 2;
+			break;
+		case 'Connect.Data':
+			$key=MOD('user.online')->get_by_client($ClientId,'receiveKey');
+			$request=xml_to_object(str_decode($request->getText(),$key));
+			break;
+		default:
+			break;
+	}
 
-			$request->ClientId=$ClientId;
-			$type=preg_replace("/^\.?([a-z\.]+)\.?$/i","\\1",$request->type);
-			$authTypes=array('user.login','user.register','user.lostpasswd');
-			if(!in_array(strtolower($type),$authTypes) && !MOD('user.online')->get_by_client($sockfd,'uid')){
-				$response=CTL('user')->login($ClientId);
-				ssp_send($ClientId,$response);
-				$response=null;
-				return;
-			}
-			$ctl=explode('.',$type);
-			if(count($ctl)>1){
-				$mod='on'.ucfirst(array_pop($ctl));
-				$ctl=implode('.',$ctl);
-				$ctl_obj=CTL($ctl);
-				if($ctl_obj===false){
-					server_log("Client $ClientId controller \"$ctl\" not exists!");
-				}elseif(method_exists($ctl_obj,$mod)){
-					$response=$ctl_obj->$mod($request);
-					if(substr($response,0,1)=='<')
-						ssp_send($ClientId,$response);
-					$response=null;
-				}else{
-					server_log("Client $ClientId controller \"$ctl\" for method \"$mod\" not exists!");
-				}
-			}else{
-				server_log("Client $ClientId type \"$type\" error!");
-			}
+	data_log( 'Received: "'.trim( $request ).'" from '.$sockfd );
+
+	$request->ClientId=$ClientId;
+	$type=preg_replace("/^\.?([a-z\.]+)\.?$/i","\\1",$request->type);
+	$authTypes=array('user.login','user.register','user.lostpasswd');
+	if(!in_array(strtolower($type),$authTypes) && !MOD('user.online')->get_by_client($sockfd,'uid')){
+		$response=CTL('user')->login($ClientId);
+		if($response instanceof XML_Element || substr($response,0,1)=='<'){
 			$request=null;
+			return $response;
 		}
 	}
+	$ctl=explode('.',$type);
+	if(count($ctl)>1){
+		$mod='on'.ucfirst(array_pop($ctl));
+		$ctl=implode('.',$ctl);
+		$ctl_obj=CTL($ctl);
+		if($ctl_obj===false){
+			server_log("Client $ClientId controller \"$ctl\" not exists!");
+		}elseif(method_exists($ctl_obj,$mod)){
+			$response=$ctl_obj->$mod($request);
+			if($response instanceof XML_Element || substr($response,0,1)=='<'){
+				$request=null;
+				return $response;
+			}
+		}else{
+			server_log("Client $ClientId controller \"$ctl\" for method \"$mod\" not exists!");
+		}
+	}else{
+		server_log("Client $ClientId type \"$type\" error!");
+	}
+	$request=null;
 	if(is_array($error)){
 		server_log('XML_Parser_Error:'.var_export($error,TRUE));
 	}
@@ -115,7 +112,7 @@ function socket_server_send($ClientId,$data){
 		$return->type='Connect.Data';
 		$return->setText(str_encode($data,$key));
 	}else{
-		$return=md5($data);
+		$return=$data;
 	}
 	$xml=null;
 	return $return;

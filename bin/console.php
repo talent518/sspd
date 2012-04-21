@@ -2,7 +2,7 @@
 require 'core.php';
 
 $socket=LIB('socket.client');
-$socket->connect('localhost',SERVER_PORT);
+$socket->connect('localhost',SSP_PORT);
 echo $socket->error,PHP_EOL;
 
 $exp=true;

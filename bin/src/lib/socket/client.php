@@ -89,7 +89,7 @@ class LibSocketClient{
 			else
 				$this->error= 'Server does not start!';
 		} else {
-			socket_set_nonblock($this->socket);
+			//socket_set_nonblock($this->socket);
 			socket_getsockname($this->socket,$this->client_host,$this->client_port);
 			if(IS_DEBUG)
 				$this->error= "Connected to Server for {$server_host}:{$server_port}.".PHP_EOL."Client connect for {$this->client_host}:{$this->client_port}.";
@@ -97,6 +97,22 @@ class LibSocketClient{
 				$this->error= 'Server is running.';
 		}
 		return $this->connected;
+	}
+
+	function int4_to_str($num=0){
+		$return='';
+		for($i=3;$i>=0;$i--){
+			$return.=chr(($num>>($i*8))&0xff);
+		}
+		return $return;
+	}
+
+	function str_to_int4($str=''){
+		$num=0;
+		for($i=3;$i>=0;$i--){
+			$num+=(ord($str{3-$i})&0xff)<<($i*8);
+		}
+		return $num;
 	}
 
 	/*
@@ -108,17 +124,12 @@ class LibSocketClient{
 	function read(){
 		if(!$this->is_connect())
 			return;
-		$data='';
-		while ($buf = @socket_read($this->socket, 2048)) {
-			$data.=$buf;
+		$len=@socket_recv($this->socket,$buf,2048,0);
+		if($len>0){
+			echo $this->str_to_int4(substr($buf,0,4)),PHP_EOL,PHP_EOL;
+			flush();
+			return substr($buf,4);
 		}
-		if( $buf === false ){
-			if(socket_last_error($this->socket)==SOCKET_EWOULDBLOCK)
-				socket_clear_error($this->socket);
-			else
-				$this->error= 'Could not read from server!';
-		}
-		return $data;
 	}
 
 	/*

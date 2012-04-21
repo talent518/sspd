@@ -76,9 +76,10 @@ int del(node *head,int socket){
 }
 
 void thread(node *ptr){
-	int i,len;
-	char *q;
+	int recved_len=0,len;
+	char *tmp;
 	char buf[BUFFER_MAX];
+	socket_package *package;
 
 	trigger(PHP_SSP_CONNECT,ptr);
 
@@ -94,12 +95,66 @@ void thread(node *ptr){
 		}
 		if(len==0)
 			break;
-		if((q=strchr(buf,'\n'))!=NULL)
-			*q='\0';
-		if(debug){
-			php_printf("Received from client :%s\n\n",buf);
+		if(len<4){
+			continue;
 		}
-		trigger(PHP_SSP_RECEIVE,ptr,&buf,&len);
+depackage:
+		if(recved_len==0){
+			package=(socket_package*)malloc(len);
+			memcpy(package,buf,len);
+			recved_len=len-sizeof(package->length);
+			if(package->length<recved_len){
+				//把多出的数据重新写回buf
+				len=recved_len-package->length;
+				tmp=estrndup(buf+recved_len-package->length,len);
+				memset(buf,0,sizeof(buf));
+				strncpy(buf,tmp,len);
+				recved_len=0;
+
+				trigger(PHP_SSP_RECEIVE,ptr,package->data,&(package->length));
+				if(package->length>0){
+					socket_send(ptr->sockfd,package->data,package->length);
+				}
+				free(package);
+
+				goto depackage;
+			}else if(package->length==recved_len){
+				recved_len=0;
+				if(debug){
+					php_printf("Received from client :%s\n\n",buf);
+				}
+				trigger(PHP_SSP_RECEIVE,ptr,package->data,&(package->length));
+				if(package->length>0){
+					socket_send(ptr->sockfd,package->data,package->length);
+				}
+				free(package);
+			}
+		}else{
+			if(package->length<recved_len+len){
+				strlcat(package->data,buf,package->length-recved_len);
+
+				//把多出的数据重新写回buf
+				len=recved_len+len-package->length;
+				tmp=estrndup(buf+package->length-recved_len,len);
+				memset(buf,0,sizeof(buf));
+				strncpy(buf,tmp,len);
+				recved_len=0;
+
+				trigger(PHP_SSP_RECEIVE,ptr,package->data,&(package->length));
+				if(package->length>0){
+					socket_send(ptr->sockfd,package->data,package->length);
+				}
+				free(package);
+
+				goto depackage;
+			}else if(package->length==recved_len+len){
+				recved_len=0;
+				strlcat(package->data,buf,len);
+				trigger(PHP_SSP_RECEIVE,ptr,package->data,&(package->length));
+			}else{
+				strlcat(package->data,buf,len);
+			}
+		}
 	}
 	if(debug){
 		php_printf("Close connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
@@ -107,6 +162,18 @@ void thread(node *ptr){
 	trigger(PHP_SSP_CLOSE,ptr);
 	del(head,ptr->sockfd);
 	pthread_exit(NULL);
+}
+
+int socket_send(int sockfd,char *data,int data_len){
+	socket_package *package;
+	package->length=data_len;
+	package->data=data;
+	int ret=send(sockfd,(char *)package,sizeof(data_len)+data_len,0);
+	if(ret!=sizeof(data_len)+data_len){
+		php_printf("data_len:%d,package_len:%d\n",data_len,sizeof(data_len)+data_len);
+	}
+	free(package);
+	return ret;
 }
 
 int socket_stop(){

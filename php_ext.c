@@ -162,7 +162,10 @@ int trigger(unsigned short eventtype,...){
 	ret=call_user_function(CG(function_table), NULL, _ssp_string_zval(call_func_name), retval, param_count, params TSRMLS_CC);
 	php_printf("return result:%d\n",ret==FAILURE);
 
-	if(param_count>1 && Z_TYPE_P(retval)==IS_STRING){
+	if(param_count>1){
+		if(Z_TYPE_P(retval)!=IS_STRING){
+			convert_to_string_ex(&retval);
+		}
 		php_printf("retval:%s\n",Z_STRVAL_P(retval));
 		char *_data=strdup(Z_STRVAL_P(retval));
 		*data=_data;
@@ -230,7 +233,7 @@ static PHP_FUNCTION(ssp_send)
 	}
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
 	trigger(PHP_SSP_SEND,ptr,&data,&data_len);
-	int ret=send(ptr->sockfd,data,data_len,0);
+	int ret=socket_send(ptr->sockfd,data,data_len);
 	RETURN_LONG(ret);
 }
 
