@@ -5,13 +5,24 @@
 int le_ssp_descriptor;
 
 /* {{{ arginfo */
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_setopt, 0, 0, 2)
+	ZEND_ARG_INFO(0, option)
+	ZEND_ARG_INFO(0, value)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_bind, 0, 0, 2)
 	ZEND_ARG_INFO(0, eventtype)
 	ZEND_ARG_INFO(0, callback)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 1)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_resource, 0, 0, 2)
+	ZEND_ARG_INFO(0, sockfd)
+	ZEND_ARG_INFO(0, is_bool)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 2)
 	ZEND_ARG_INFO(0, socket)
+	ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_send, 0, 0, 2)
@@ -26,7 +37,9 @@ ZEND_END_ARG_INFO()
 
 /* {{{ ssp_functions[] */
 function_entry ssp_functions[] = {
+	PHP_FE(ssp_setopt, arginfo_ssp_setopt)
 	PHP_FE(ssp_bind, arginfo_ssp_bind)
+	PHP_FE(ssp_resource, arginfo_ssp_resource)
 	PHP_FE(ssp_info, arginfo_ssp_info)
 	PHP_FE(ssp_send, arginfo_ssp_send)
 	PHP_FE(ssp_close, arginfo_ssp_close)
@@ -64,6 +77,13 @@ static PHP_MINIT_FUNCTION(ssp)
 	REGISTER_LONG_CONSTANT("SSP_CONNECT_DENIED",  PHP_SSP_CONNECT_DENIED,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_CLOSE",  PHP_SSP_CLOSE,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_STOP",  PHP_SSP_STOP,  CONST_CS | CONST_PERSISTENT);
+
+	REGISTER_LONG_CONSTANT("SSP_OPT_USER",  PHP_SSP_OPT_USER,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_OPT_PIDFILE",  PHP_SSP_OPT_PIDFILE,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_OPT_HOST",  PHP_SSP_OPT_HOST,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_OPT_PORT",  PHP_SSP_OPT_PORT,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_OPT_MAX",  PHP_SSP_OPT_MAX,  CONST_CS | CONST_PERSISTENT);
+	
 	le_ssp_descriptor = zend_register_list_destructors_ex(NULL, NULL, PHP_SSP_DESCRIPTOR_RES_NAME,module_number);
 	return SUCCESS;
 }
@@ -77,6 +97,7 @@ static PHP_GINIT_FUNCTION(ssp)
 	ssp_globals->pidfile = "/var/run/ssp.pid";
 	ssp_globals->host	 = "0.0.0.0";
 	ssp_globals->port	 = 8083;
+	ssp_globals->max	 = 1000;
 }
 /* }}} */
 
@@ -157,20 +178,24 @@ int trigger(unsigned short eventtype,...){
 	MAKE_STD_ZVAL(retval);
 	ZVAL_NULL(retval);
 
-	php_printf("\ncall function:%s\n",call_func_name);
+	if(debug)
+		php_printf("\ncall function:%s\n",call_func_name);
 	TSRMLS_FETCH();
 	ret=call_user_function(CG(function_table), NULL, _ssp_string_zval(call_func_name), retval, param_count, params TSRMLS_CC);
-	php_printf("return result:%d\n",ret==FAILURE);
+	if(debug)
+		php_printf("return result:%s\n",ret==FAILURE?"false":"true");
 
 	if(param_count>1){
 		if(Z_TYPE_P(retval)!=IS_STRING){
 			convert_to_string_ex(&retval);
 		}
-		php_printf("retval:%s\n",Z_STRVAL_P(retval));
+		if(debug)
+			php_printf("retval:%s\n",Z_STRVAL_P(retval));
 		char *_data=strdup(Z_STRVAL_P(retval));
 		*data=_data;
 		*data_len=Z_STRLEN_P(retval);
-		php_printf("data:%s\n",*data);
+		if(debug)
+			php_printf("data:%s\n",*data);
 	}
 
 	for (i = 0; i < param_count; i++) {
@@ -185,8 +210,47 @@ int trigger(unsigned short eventtype,...){
 		zend_exception_error(EG(exception), E_ALL TSRMLS_CC);
 		EG(exception)=NULL;
 	}
-	php_printf("return function:%s\n\n",call_func_name);
+	if(debug)
+		php_printf("return function:%s\n\n",call_func_name);
 	return ret;
+}
+
+static PHP_FUNCTION(ssp_setopt)
+{
+	int option;
+	zval *setval;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lz", &option, &setval) == FAILURE) {
+		php_printf("function ssp_setopt parameters error.\n");
+		RETURN_FALSE;
+	}
+	switch(option){
+		case PHP_SSP_OPT_USER:
+			if(Z_TYPE_P(setval)==IS_STRING){
+				SSP_G(user)=strdup(Z_STRVAL_P(setval));
+			}
+			break;
+		case PHP_SSP_OPT_PIDFILE:
+			if(Z_TYPE_P(setval)==IS_STRING){
+				SSP_G(pidfile)=strdup(Z_STRVAL_P(setval));
+			}
+			break;
+		case PHP_SSP_OPT_HOST:
+			if(Z_TYPE_P(setval)==IS_STRING){
+				SSP_G(host)=strdup(Z_STRVAL_P(setval));
+			}
+			break;
+		case PHP_SSP_OPT_PORT:
+			if(Z_TYPE_P(setval)==IS_LONG){
+				SSP_G(port)=Z_LVAL_P(setval);
+			}
+			break;
+		case PHP_SSP_OPT_MAX:
+			if(Z_TYPE_P(setval)==IS_LONG){
+				SSP_G(max)=Z_LVAL_P(setval);
+			}
+			break;
+	}
+	RETURN_TRUE;
 }
 
 static PHP_FUNCTION(ssp_bind)
@@ -205,20 +269,52 @@ static PHP_FUNCTION(ssp_bind)
 	SSP_G(bind)[eventtype]=strdup(callback);
 	RETURN_TRUE;
 }
+static PHP_FUNCTION(ssp_resource){
+	zend_bool is_port=0;
+	int sockfd;
+	node *ptr;
+	int key_len=0;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|b", &sockfd,&is_port) == FAILURE) {
+		php_printf("function ssp_resource parameters error.\n");
+		RETURN_FALSE;
+	}
+	ptr=find(sockfd,is_port);
+	if(ptr!=NULL){
+		return_value=_ssp_resource_zval(ptr);
+	}else{
+		RETURN_FALSE;
+	}
+}
 
 static PHP_FUNCTION(ssp_info){
 	zval *res;
 	node *ptr;
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &res) == FAILURE) {
+	char *key;
+	int key_len=0;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r|s", &res,&key,&key_len) == FAILURE) {
 		php_printf("function ssp_info parameters error.\n");
 		RETURN_FALSE;
 	}
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
-	array_init(return_value);
-	add_assoc_long(return_value,"sockfd",ptr->sockfd);
-	add_assoc_string(return_value,"host",ptr->host,1); /* cast to avoid gcc-warning */
-	add_assoc_long(return_value,"port",ptr->port);
-	add_assoc_long(return_value,"flag",ptr->flag);
+	if(key_len==0){
+		array_init(return_value);
+		add_assoc_long(return_value,"sockfd",ptr->sockfd);
+		add_assoc_string(return_value,"host",ptr->host,1); /* cast to avoid gcc-warning */
+		add_assoc_long(return_value,"port",ptr->port);
+		add_assoc_long(return_value,"flag",ptr->flag);
+	}else{
+		if(!strcasecmp(key,"sockfd")){
+			RETURN_LONG(ptr->sockfd);
+		}else if(!strcasecmp(key,"host")){
+			RETURN_STRING(strdup(ptr->host),strlen(ptr->host));
+		}else if(!strcasecmp(key,"port")){
+			RETURN_LONG(ptr->port);
+		}else if(!strcasecmp(key,"flag")){
+			RETURN_LONG(ptr->flag);
+		}else{
+			RETURN_NULL();
+		}
+	}
 }
 
 static PHP_FUNCTION(ssp_send)

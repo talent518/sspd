@@ -7,6 +7,7 @@ import('lib.xml');
 
 Class CtlStock extends CtlBase{
 	function onRemind($request){
+		$sockfd=ssp_info($request->ClientId,'sockfd');
 		$users=MOD('user.online')->get_list_by_where();
 		$count=count($users)-1;
 		$sends=0;
@@ -15,7 +16,7 @@ Class CtlStock extends CtlBase{
 		$response->stock=$request->stock;
 		$dateline=intval((string)$request->stock->dateline);
 		foreach($users as $r){
-			if($request->ClientId!==$r['onid']){
+			if($sockfd!==$r['onid']){
 				$response->stock->dateline=gmdate('m-d H:i',$dataline-$r['timezone']);
 				$this->send($r['onid'],$response);
 				$sends++;

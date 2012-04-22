@@ -19,6 +19,12 @@
 
 #define PHP_SSP_LEN 7
 
+#define PHP_SSP_OPT_USER 0
+#define PHP_SSP_OPT_PIDFILE 1
+#define PHP_SSP_OPT_HOST 2
+#define PHP_SSP_OPT_PORT 3
+#define PHP_SSP_OPT_MAX 4
+
 extern int le_ssp_descriptor;
 
 extern function_entry ssp_functions[];
@@ -31,10 +37,11 @@ extern zend_module_entry ssp_module_entry;
 #endif
 
 ZEND_BEGIN_MODULE_GLOBALS(ssp)
-	char *pidfile;
 	char *user;
+	char *pidfile;
 	char *host;
 	short int port;
+	unsigned int max;
 	char *bind[PHP_SSP_LEN];
 ZEND_END_MODULE_GLOBALS(ssp)
 
@@ -52,7 +59,9 @@ static PHP_MINFO_FUNCTION(ssp);
 
 int trigger(unsigned short eventtype,...);
 
+static PHP_FUNCTION(ssp_setopt);
 static PHP_FUNCTION(ssp_bind);
+static PHP_FUNCTION(ssp_resource);
 static PHP_FUNCTION(ssp_info);
 static PHP_FUNCTION(ssp_send);
 static PHP_FUNCTION(ssp_close);

@@ -301,12 +301,10 @@ int main(int argc, char *argv[])
 
 #ifdef HAVE_SIGNAL_H
 #if defined(SIGPIPE) && defined(SIG_IGN)
-	signal(SIGPIPE, SIG_IGN); /* ignore SIGPIPE in standalone mode so
-								that sockets created via fsockopen()
-								don't kill PHP if the remote site
-								closes it.  in apache|apxs mode apache
-								does that for us!  thies@thieso.net
-								20000419 */
+	signal(SIGPIPE, SIG_IGN);
+#endif
+#if defined(SIGCHLD) && defined(SIG_IGN)
+	signal(SIGCHLD,SIG_IGN);
 #endif
 #endif
 

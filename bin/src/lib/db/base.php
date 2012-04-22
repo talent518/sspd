@@ -147,13 +147,11 @@ class LibDbBase{
 			exit($message);
 		$dberror=$this->error();
 		$dberrno=$this->errno();
-		echo "<div style=\"position:absolute;font-size:11px;font-family:verdana,arial;background:#EBEBEB;padding:0.5em;\">
-				<b>MySQL Error</b><br>
-				<b>Message</b>: $message<br>
-				<b>SQL</b>: $sql<br>
-				<b>Error</b>: $dberror<br>
-				<b>Errno.</b>: $dberrno<br>
-				</div>";
+		echo PHP_EOL,PHP_EOL,"MySQL Error",PHP_EOL;
+		echo "\tMessage: $message",PHP_EOL;
+		echo "\tSQL: $sql",PHP_EOL;
+		echo "\tError: $dberror",PHP_EOL;
+		echo "\tErrno.: $dberrno",PHP_EOL,PHP_EOL;
 		exit;
 	}
 

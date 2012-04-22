@@ -10,8 +10,19 @@ define('SCK_WRITE_PACKET_SIZE',8192);
 define('SCK_READ_PACKET_SIZE',4096);
 define('SCK_READ_SELECT_TIMEOUT',1);
 
-define('EXT_POSIX',extension_loaded('posix'));
-define('EXT_PCNTL',extension_loaded('pcntl'));
+if(strtoupper(substr(PHP_OS, 3)) == 'WIN'){ 
+	extension_loaded('sockets') or dl('php_sockets.dll');
+}else{
+	extension_loaded('sockets') or dl('sockets.so'); 
+	extension_loaded('posix') or dl('posix.so'); 
+	extension_loaded('pcntl') or dl('pcntl.so'); 
+	extension_loaded('sysvsem') or dl('sysvsem.so'); 
+	extension_loaded('sysvshm') or dl('sysvshm.so'); 
+	extension_loaded('sysvmsg') or dl('sysvmsg.so'); 
+}
+
+define('EXT_POSIX',SERVER_THREAD_ENABLE && extension_loaded('posix'));
+define('EXT_PCNTL',SERVER_THREAD_ENABLE && extension_loaded('pcntl'));
 
 /*
  * SocketServer
@@ -197,6 +208,8 @@ class LibSocketServer{
         }
     }
 
+	private $mutex;
+
 	/*
 	 * start the server
 	 *
@@ -214,38 +227,44 @@ class LibSocketServer{
         declare(ticks=1);
 		$this->clientFD=array();
 		$this->clients=0;
-		if(EXT_POSIX && EXT_PCNTL){
+		if(EXT_PCNTL){
 			if(file_exists(PIDFILE)){
-				echo 'The wodome server is not started.',PHP_EOL;
+				echo 'Started wodome server.';
+				flush();
+				$cols=exec('tput cols');
+				echo str_repeat('.',$cols-34);
+				flush();
+				system('echo -e "\\E[33m"[Keeped]');
+				system('tput sgr0');
 				return false;
+			}else{
+				$pid=pcntl_fork();
 			}
-			$ppid=posix_getppid();
-			$pid=pcntl_fork();
 			if($pid==-1){
 				/* fork failed */
 				echo "fork failure!",PHP_EOL;
 				return false;
 			}elseif($pid>0){
 				/* close the parent */
-				echo 'Starting wodome server.',PHP_EOL;
-				$i=0;
-				while(!file_exists(PIDFILE) && $i++<10){sleep(1);}
-				return file_exists(PIDFILE);
+				echo 'Starting wodome server.';
+				usleep(100);
+				$cols=exec('tput cols');
+				echo str_repeat('.',$cols-35);
+				flush();
+				if($status=file_exists(PIDFILE)){
+					system('echo -e "\\E[32m"[Succeed]');
+				}else{
+					system('echo -e "\\E[31m".[Failed]');
+				}
+				system('tput sgr0');
+				return $status;
 			}else{
 				/* child becomes our daemon */
 				chdir($this->userHome);
 				umask(0);
 				$sid=posix_setsid();
 				if($sid<1)
-					return false;
-				$pid=posix_getpid();
-				LIB('io.file')->write(PIDFILE,$pid);
-				pcntl_signal(SIGHUP,array(&$this, 'signalHandler'));
-				pcntl_signal(SIGTERM,array(&$this, 'signalHandler'));
-				pcntl_signal(SIGINT,array(&$this, 'signalHandler'));
-				pcntl_signal(SIGKILL,array(&$this, 'signalHandler'));
-				pcntl_signal(SIGSTOP,array(&$this, 'signalHandler'));
-				pcntl_signal(SIGTSTP,array(&$this, 'signalHandler'));
+					exit(-1);
 			}
 		}
 		$this->initFD = @socket_create( AF_INET, SOCK_STREAM, SOL_TCP );
@@ -280,10 +299,25 @@ class LibSocketServer{
 			exit(-1);
 		}
 
-		$this->listened=true;
+		if(EXT_POSIX && ($pid=posix_getpid())){
+			LIB('io.file')->write(PIDFILE,$pid);
+			pcntl_signal(SIGHUP,array(&$this, 'signalHandler'));
+			pcntl_signal(SIGTERM,array(&$this, 'signalHandler'));
+			pcntl_signal(SIGINT,array(&$this, 'signalHandler'));
+			pcntl_signal(SIGKILL,array(&$this, 'signalHandler'));
+			pcntl_signal(SIGSTOP,array(&$this, 'signalHandler'));
+			pcntl_signal(SIGTSTP,array(&$this, 'signalHandler'));
+		}
 
 		$this->trigger('start');
 
+		$this->listen();
+
+		exit(0);
+	}
+
+	function listen(){
+		$this->listened=true;
 		while($this->listened){
 			$newClient=$this->acceptConnection($this->initFD);
 			if($newClient!==false && $this->maxClients>0 && $this->clients>$this->maxClients){
@@ -291,9 +325,9 @@ class LibSocketServer{
 				$this->closeConnect($newClient);
 			}
 			if(EXT_PCNTL){
-				pcntl_wait($status,WNOHANG);
-				if($newClient===false)
-					usleep(1000);
+				if($newClient===false){
+					usleep(100);
+				}
 				continue;
 			}
 			$readFDs=array_values($this->clientFD);
@@ -304,8 +338,7 @@ class LibSocketServer{
 				$this->readFromSocket($peer_port);
 			}
 		}
-		$this->stop();
-		exit(0);
+		$this->listened=false;
 	}
 
 	/*
@@ -368,7 +401,7 @@ class LibSocketServer{
 		if(EXT_PCNTL){
 			$pid=pcntl_fork();
 			if($pid===0){
-				while(is_resource($this->clientFD[$port])){
+				while(is_resource($this->clientFD[$port]) && (posix_getppid()>1)){
 					$readFD=array($csock);
 					if(socket_select($readFD,$null,$null,SCK_READ_SELECT_TIMEOUT)>0){
 						$this->readFromSocket($port);
@@ -378,7 +411,6 @@ class LibSocketServer{
 			}elseif($pid===-1){
 				echo "fork failure!",PHP_EOL;
 			}else{
-				//pcntl_wait($status,WUNTRACED);
 				return $port;
 			}
 		}else{
@@ -426,9 +458,29 @@ class LibSocketServer{
 	function stop(){
 		if(!$this->listened){
 			$result=false;
-			if(EXT_POSIX && file_exists(PIDFILE) && ($pid=LIB('io.file')->read(PIDFILE))){
-				echo 'Stopping wodome server.',PHP_EOL;
-				$result=posix_kill(intval($pid),SIGTERM);
+			if(EXT_POSIX){
+				echo 'Stopping WoDoMe server';
+				flush();
+				if(file_exists(PIDFILE) && ($pid=intval(LIB('io.file')->read(PIDFILE))) && posix_getsid($pid)){
+					$result=posix_kill($pid,SIGTERM);
+					$i=22;
+					while($result && ($pid==posix_getsid($pid))){
+						echo '.';
+						sleep(1);
+						$i++;
+					}
+					$cols=exec('tput cols');
+					echo str_repeat('.',$cols-12-$i);
+					flush();
+					system('echo -e "\\E[32m"[Succeed]');
+					system('tput sgr0');
+				}else{
+					$cols=exec('tput cols');
+					echo str_repeat('.',$cols-34);
+					flush();
+					system('echo -e "\\E[31m"[Failed]');
+					system('tput sgr0');
+				}
 				unlink(PIDFILE);
 			}else{
 				echo 'The wodome server is not started.',PHP_EOL;
@@ -442,8 +494,11 @@ class LibSocketServer{
 			$this->closeConnect($i);
 		}
 		@socket_close($this->initFD);
-		if(EXT_POSIX && EXT_PCNTL && file_exists(PIDFILE))
-			unlink(PIDFILE);
+		if(EXT_POSIX && EXT_PCNTL){
+			file_exists(PIDFILE) and unlink(PIDFILE);
+		}else{
+			echo 'Stopped WoDoMe server.';
+		}
 
 		$this->trigger('stop');
 		exit(0);
@@ -467,7 +522,7 @@ class LibSocketServer{
 	 * @param int   $clientId ID of the client
 	 * @param string $data   data to send
 	 */
-	function sendto( $clientId, $data){
+	function sendTo( $clientId, $data){
 		if( !isset( $this->clientFD[$clientId] ) || $this->clientFD[$clientId] == null )
 			return false;
 		if($this->events['send']!==null)
@@ -486,7 +541,7 @@ class LibSocketServer{
 		return $sent_len==$send_len;
 	}
 	function sendToClient($clientId, $data){
-		return sendto($clientId, $data);
+		return sendTo($clientId, $data);
 	}
 
 	/*
@@ -500,13 +555,13 @@ class LibSocketServer{
 		if( !empty( $exclude ) && !is_array( $exclude ) )
 		$exclude = array( $exclude );
 
-		for( $i = 0; $i < count( $this->clientFD ); $i++ ){
+		foreach(array_keys($this->clientFD) as $key){
 			if( !in_array( $i, $exclude ) ){
-				$this->sendto($i,$data);
+				$this->sendTo($i,$data);
 			}
 		}
 	}
 	function sendToAll($data, $exclude = array()){
-		return sendToClient($data, $exclude);
+		return $this->send($data, $exclude);
 	}
 }

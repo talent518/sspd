@@ -34,7 +34,7 @@ class ModUserOnline extends ModBase{
 		return empty($key)?$this->clients[$id]:$this->clients[$id][$key];
 	}
 	function add($data){
-		$this->clients[$data[$this->priKey]]=$data;
+		$this->clients[$data['onid']]=$data;
 		return parent::add($data,false);
 	}
 	function edit($id,$data){
@@ -63,5 +63,18 @@ class ModUserOnline extends ModBase{
 	}
 	function clean(){
 		DB()->delete($this->table,'1>0');
-	}
+	}/*
+	function get_list_by_where($where='',$limit=0){
+		$query=DB()->select(array(
+				'table'=>$this->table,
+				'field'=>'*',
+				'where'=>$where,
+				'order'=>$this->order,
+				'limit'=>$limit
+			),SQL_SELECT_QUERY);
+		while($row=DB()->row($query)){
+			$list[$row[$this->priKey]]=$this->users[$row['uid']]=$this->clients[$row[$this->priKey]]=$row;
+		}
+		return $list;
+	}*/
 }

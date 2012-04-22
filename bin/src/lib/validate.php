@@ -76,7 +76,7 @@ $messages=array(
 
 $valid = new validate($datas,$rules,$messages);
 echo '<pre>';
-print_r($valid->errors);
+print_r($valid->key,$valid->error);
 echo '</pre>';
 */
 
@@ -88,6 +88,7 @@ class LibValidate{
 		'email'=>'电子邮件格式不正确',
 		'integer'=>'不是一个正整数',
 		'float'=>'不合法的浮点数',
+		'ufloat'=>'不合法的无符号浮点数',
 		'min'=>'不能小于{0}的正整数',
 		'max'=>'不能大于{0}的正整数',
 		'range'=>'只能在{0}和{1}之间的正整数',
@@ -118,13 +119,16 @@ class LibValidate{
 	function check($data,$rules,$messages=array()){
 		if(!$messages && is_array($this->error)){
 			$messages=$this->error;
-			$pkey=$this->key;
 		}
 		foreach($rules as $key=>$rule){
-			$this->key=(empty($pkey)?null:$pkey.'.').$key;
+			$this->key=$key;
 			foreach($rule as $k=>$v){
 				$this->error = !empty($messages[$key][$k])?$messages[$key][$k]:$this->messages[strtolower($k)];
-				if(method_exists(&$this,$k) && !$this->$k($data[$key],$v)){
+				if(!method_exists($this,$k)){
+					$this->error=sprintf('规则“%s”中的 "%s"验证方法未定义！',$key,$k);
+					return false;
+				}
+				if(!$this->$k($data[$key],$v)){
 					return false;
 				}
 			}
@@ -154,25 +158,25 @@ class LibValidate{
 	//整数
 	function integer($integer){
 		if(!$this->required($integer)) return true;
-		return preg_match("^[\+\-]?[0-9]*$",$integer);
+		return preg_match("/^[\+\-]?[0-9]*$/",$integer);
 	}
 
 	//无符号整数
 	function uinteger($integer){
 		if(!$this->required($integer)) return true;
-		return preg_match("^[0-9]*$",$integer);
+		return preg_match("/^[0-9]*$/",$integer);
 	}
 
 	//浮点数
 	function float($float){
 		if(!$this->required($float)) return true;
-		return preg_match("^[\+\-]?[0-9]*\.[0-9]*$",$float);
+		return preg_match("/^[\+\-]?[0-9]+(\.[0-9]+)?$/",$float);
 	}
 
 	//无符号浮点数
 	function ufloat($ufloat){
 		if(!$this->required($ufloat)) return true;
-		return preg_match("^[0-9]*\.[0-9]*$",$ufloat);
+		return preg_match("/^[0-9]+(\.[0-9]+)?$/",$ufloat);
 	}
 
 	//最小
@@ -200,33 +204,33 @@ class LibValidate{
 	//手机
 	function mobile($phone){
 		if(!$this->required($phone)) return true;
-		return preg_match("^1(3|5|8)[0-9]{9}$",$phone);
+		return preg_match("/^1(3|5|8)[0-9]{9}$/",$phone);
 	}
 
 	//电话号
 	function phone($phone){
 		if(!$this->required($phone)) return true;
-		return preg_match("^([0-9]{3,4}-?)?[0-9]{5,9}(-[0-9]{1,4})?$",$phone);
+		return preg_match("/^([0-9]{3,4}-?)?[0-9]{5,9}(-[0-9]{1,4})?$/",$phone);
 	}
 
 	//IP地址
 	function ip($ip){
 		if(!$this->required($ip)) return true;
-		return preg_match("^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$",$ip);
+		return preg_match("/^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/",$ip);
 	}
 
 	//字符最小长度
 	function minlength($data,$len){
 		if(!$this->required($data)) return true;
 		$this->error=str_replace('{0}',$len,$this->error);
-		return LIB('string')->len($data)>=$len;
+		return L('string')->len($data)>=$len;
 	}
 
 	//字符最大长度
 	function maxlength($data,$len){
 		if(!$this->required($data)) return true;
 		$this->error=str_replace('{0}',$len,$this->error);
-		return LIB('string')->len($data)<=$len;
+		return L('string')->len($data)<=$len;
 	}
 
 	//字符长度范围
@@ -234,14 +238,14 @@ class LibValidate{
 		if(!$this->required($data)) return true;
 		list($min,$max)=explode(',',$value);
 		$this->error=str_replace('{1}',$max,str_replace('{0}',$min,$this->error));
-		return $min<=LIB('string')->len($data) && LIB('string')->len($data)<=$max;
+		return $min<=L('string')->len($data) && L('string')->len($data)<=$max;
 	}
 
 	//字符固定长度
 	function length($data,$len){
 		if(!$this->required($data)) return true;
 		$this->error=str_replace('{0}',$len,$this->error);
-		return LIB('string')->len($data)==$len;
+		return L('string')->len($data)==$len;
 	}
 
 	//URL地址
@@ -253,11 +257,11 @@ class LibValidate{
 	//日期时间
 	function date($data){
 		if(!$this->required($data)) return true;
-		if(preg_match("^[1-9][0-9]{3}\-[0-1]?[0-9]\-[0-3]?[0-9]$",$data)){
+		if(preg_match("/^[1-9][0-9]{3}\-[0-1]?[0-9]\-[0-3]?[0-9]$/",$data)){
 			list($year,$month,$day)=explode('-',$data);
-		}elseif(preg_match("^[1-9][0-9]{3}/[0-1][0-9]/[0-3][0-9]$",$data)){
+		}elseif(preg_match("/^[1-9][0-9]{3}/[0-1][0-9]/[0-3][0-9]$/",$data)){
 			list($year,$month,$day)=explode('/',$data);
-		}elseif(preg_match("^[0-1][0-9]/[0-3][0-9]/[1-9][0-9]{3}$",$data)){
+		}elseif(preg_match("/^[0-1][0-9]/[0-3][0-9]/[1-9][0-9]{3}$/",$data)){
 			list($month,$day,$year)=explode('/',$data);
 		}else{
 			return false;
@@ -281,7 +285,7 @@ class LibValidate{
 	//自定义
 	function custom($data,$value){
 		if(!$this->required($data)) return true;
-		return preg_match($value,$data);
+		return preg_match("/".$value."/",$data);
 	}
 
 	//查询
@@ -291,7 +295,6 @@ class LibValidate{
 			list($table,$where)=$value;
 		}else{
 			$table=$value;
-			$data=addslashes($data);
 			$where="`$this->key`='$data'";
 		}
 		return DB()->count($table,$where)==0;
@@ -300,25 +303,25 @@ class LibValidate{
 	//URL地址
 	function chinese($data){
 		if(!$this->required($data)) return true;
-		return preg_match("^[\x21-\x7E\x0391-\xFFE5]+$",$data);
+		return preg_match("/^[\x21-\x7E\x0391-\xFFE5]+$/",$data);
 	}
 
 	//URL地址
 	function english($data){
 		if(!$this->required($data)) return true;
-		return preg_match("^[\x21-\x7E]+$",$data);
+		return preg_match("/^[\x21-\x7E]+$/",$data);
 	}
 
 	//URL地址
 	function username($data){
 		if(!$this->required($data)) return true;
-		return preg_match("/[a-zA-Z\x0391-\xFFE5][a-zA-Z0-9_\x0391-\xFFE5]+$/i",$data);
+		return preg_match("/^[a-zA-Z\x0391-\xFFE5][a-zA-Z0-9_\x0391-\xFFE5]+$/",$data);
 	}
 
 	//URL地址
 	function password($data){
 		if(!$this->required($data)) return true;
-		return preg_match("^[a-z0-9_]+$",$data);
+		return preg_match("/^[a-z0-9_]+$/i",$data);
 	}
 
 	/**
@@ -342,7 +345,7 @@ class LibValidate{
 	*/
 	function idcard($idCard,$sex){
 		if(empty($idCard)) return true;
-		if(!preg_match("/^[0-9]{17}[0-9xX]$/i",$idCard)) return false;
+		if(!preg_match("/^[0-9]{17}[0-9xX]$/",$idCard)) return false;
 		if($this->IdCardVP($idCard)) return false;
 		if (strlen($idCard) == 15) {
 			return $this->IdCardVB15($idCard) && $sex==$this->IdCardVSex($idCard);
@@ -414,7 +417,7 @@ class LibValidate{
 	*/
 	function IdCardVP($idCard){
 		$region =  substr($idCard,0,6);
-		$city=MOD('area')->get($region);
+		$city=M('area')->get($region);
 		return empty($city);
 	}
 }

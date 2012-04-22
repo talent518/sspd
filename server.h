@@ -13,7 +13,6 @@
 #include <ctype.h>
 #include <pthread.h>
 
-
 #define BUFFER_MAX 1024
 #define T_MAX 20
 
@@ -30,11 +29,7 @@ typedef struct user{
 } node;
 
 node *head;
-
-typedef struct _socket_package{
-	int length;
-	char *data;
-} socket_package;
+node *find(int sockfd,bool is_port);
 
 int socket_send(int sockfd,char *data,int data_len);
 int socket_start();

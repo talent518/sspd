@@ -209,7 +209,7 @@ class XML_Element extends stdClass{
 		$this->hasAttr=true;
 	}
 	function __toString(){
-		$return=($this->hasAttr || $this->__text===null?object_to_xml($this):$this->__text);
+		$return=($this->hasAttr || $this->__text===null?object_to_xml($this,false):$this->__text);
 		//var_dump($return);
 		return $return;
 	}

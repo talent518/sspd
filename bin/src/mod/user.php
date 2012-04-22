@@ -33,7 +33,7 @@ class ModUser extends ModBase{
 	protected $messages=array(
 		'gid'=>array(
 			'required'=>'用户组不能为空',
-			'integer'=>'用户组不是一个整数',
+			'uinteger'=>'用户组不是一个整数',
 			'min'=>'请选择用户组'
 		),
 		'username'=>array(
@@ -82,7 +82,7 @@ class ModUser extends ModBase{
 		}
 		return false;
 	}
-	function get_tree_by_group($gid){
+	function get_list_by_group($gid){
 		$group=MOD('user.group')->get($gid);
 		return DB()->select(array(
 			'table'=>$this->table.' u',

@@ -9,11 +9,7 @@ class ModBase{
 	protected $order;
 	protected $rules;
 	protected $messages;
-	function __construct(){
-		$this->ModBase();
-	}
-	function ModBase(){
-	}
+
 	function check($data){
 		$valid=LIB('validate');
 		if($valid->check($data,$this->rules,$this->messages)){

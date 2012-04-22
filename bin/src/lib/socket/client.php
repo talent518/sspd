@@ -12,7 +12,7 @@ define('SOCKET_CLIENT_AUTHOR','ABao <talent518@live.cn>');
  *
  * @version 1.0.0
  * @author ABao <talent518@live.cn>
- * @package SocketClient
+ * @package class_socket_client
  */
 class LibSocketClient{
 
@@ -33,11 +33,13 @@ class LibSocketClient{
 	 */
 	private $client_host,$client_port;
 
+	private $sendKey,$receiveKey;
+
 	/**
 	 * error message
 	 * @var string $error
 	 */
-	var $error = '';
+	var $isLogin=false,$error = '';
 
 	protected $socket;
 
@@ -59,6 +61,7 @@ class LibSocketClient{
 
 	function __construct(){
 		extension_loaded('sockets') or die('sockets:Extension does not exist!');
+		import('lib.xml');
 	}
 
 	public function is_connect(){
@@ -93,24 +96,47 @@ class LibSocketClient{
 			socket_getsockname($this->socket,$this->client_host,$this->client_port);
 			if(IS_DEBUG)
 				$this->error= "Connected to Server for {$server_host}:{$server_port}.".PHP_EOL."Client connect for {$this->client_host}:{$this->client_port}.";
-			else
+			else{
 				$this->error= 'Server is running.';
+			}
+			$sendKey=$this->randstr(128);
+			$request=new XML_Element('request');
+			$request->type='Connect.Key';
+			$request->setText($sendKey);
+			$this->write((string)$request);
+			$this->sendKey=$sendKey;
+
+			$response=$this->read();
+			if($response->type=='Connect.Key'){
+				$this->receiveKey=$response->getText();
+			}
 		}
 		return $this->connected;
 	}
 
+	function randstr($len=6){
+		$chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+		$max=strlen($chars);
+		// ÖÐÎÄËæ»ú×Ö
+		$str ='';
+		for($i=0;$i<$len;$i++){
+		  $str.= $chars{rand(0,$max)};
+		}
+		return $str;
+	}
+
 	function int4_to_str($num=0){
 		$return='';
-		for($i=3;$i>=0;$i--){
-			$return.=chr(($num>>($i*8))&0xff);
+		for($i=0;$i<4;$i++){
+			$return.=chr(($num>>((3-$i)*8))&0xff);
 		}
 		return $return;
 	}
 
 	function str_to_int4($str=''){
 		$num=0;
-		for($i=3;$i>=0;$i--){
-			$num+=(ord($str{3-$i})&0xff)<<($i*8);
+		for($i=0;$i<4;$i++){
+			$num+=(ord($str{$i})&0xff)<<((3-$i)*8);
 		}
 		return $num;
 	}
@@ -122,14 +148,37 @@ class LibSocketClient{
 	 * @return string
 	 */
 	function read(){
-		if(!$this->is_connect())
-			return;
-		$len=@socket_recv($this->socket,$buf,2048,0);
-		if($len>0){
-			echo $this->str_to_int4(substr($buf,0,4)),PHP_EOL,PHP_EOL;
-			flush();
-			return substr($buf,4);
+		if(!$this->is_connect()){
+			$this->error= 'Could not read from server!';
+			return false;
 		}
+		$len=@socket_recv($this->socket,$buf,4,0);
+		$recv_len=$this->str_to_int4($buf);
+		$recved_len=0;
+		$data='';
+		if($len>0 && $recv_len>0){
+			while ($len=@socket_recv($this->socket,$buf,$recv_len-$recved_len,0)){
+				if($len>0)
+					$recved_len+=$len;
+				$data.=$buf;
+				if($recved_len==$recv_len){
+					echo 'len:',$len,',buf:',$buf,PHP_EOL;
+					break;
+				}
+			}
+		}
+		if(IS_DEBUG){
+			echo 'recv_len:',$recv_len,',read:',$data,PHP_EOL;
+		}
+		if($data){
+			$response=xml_to_object($data);
+			if($this->receiveKey && $response->type=='Connect.Data'){
+				$data=str_decode($response->getText(),$this->receiveKey);
+				$response=xml_to_object($data);
+			}
+			return $response;
+		}
+		return false;
 	}
 
 	/*
@@ -143,7 +192,19 @@ class LibSocketClient{
 			$this->error= 'Could not write to server!';
 			return false;
 		}
-		return @socket_write($this->socket, $in, strlen($in));
+		if(IS_DEBUG){
+			echo 'write:',$in,PHP_EOL;
+		}
+		if($this->sendKey){
+			$request=new XML_Element('request');
+			$request->type='Connect.Data';
+			$request->setText(str_encode((string)$in,$this->sendKey));
+			$in=(string)$request;
+		}else{
+			$in=(string)$in;
+		}
+		$ln=strlen($in);
+		return @socket_send($this->socket, $this->int4_to_str($ln).$in, $ln+4,0);
 	}
 
 	/*

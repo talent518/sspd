@@ -8,7 +8,7 @@ Class CtlBase{
 		list($uid,$password)=(count($auth)<2?array(0,''):$auth);
 	}
 	function send($i,$request){
-		return ssp_send($i,$request);
+		return ssp_send(is_resource($i)?$i:ssp_resource($i,false),(string)$request);
 	}
 	function close($i){
 		return ssp_close($i);

@@ -5,19 +5,19 @@ if(!defined('IN_SERVER'))
 import('ctl.base');
 import('lib.xml');
 
-Class CtlNews extends CtlBase{
+Class CtlThread extends CtlBase{
 	function url_replace($url){
 		return preg_match("/^(https?|ftp|gopher|news|telnet|rtsp|mms|callto|bctp|thunder|qqdl|synacast)\:\/\//",$url)?$url:WEB_URL.$url;
 	}
 	function onCategory($request){
 		$xml=new XML_Element('response');
-		$xml->type='News.Category';
+		$xml->type='Thread.Category';
 		$xml->{0}=new XML_Element('category');
 		$xml->{0}->gid=0;
 		$xml->{0}->title='所有信息';
 		$counts=0;$creads=0;
-		$groups=MOD('news.group')->get_list_by_where();
-		$reads=MOD('news')->get_user_by_reads(is_object($request)?MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid'):$request+0);
+		$groups=MOD('thread.group')->get_list_by_where();
+		$reads=MOD('thread')->get_user_by_reads(is_object($request)?MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid'):$request+0);
 		foreach($groups as $r){
 			$xml->$r['gid']=new XML_Element('category');
 			$xml->$r['gid']->gid=$r['gid'];
@@ -33,9 +33,16 @@ Class CtlNews extends CtlBase{
 		$xml->{0}->counts=$counts;
 		return $xml;
 	}
+	function _get_summary_by_content($content){
+		$content = preg_replace(array("/\[attach\].*?\[\/attach\]/", "/\&[a-z]+\;/i", "/\<script.*?\<\/script\>/"), '', $content);
+		$content = preg_replace("/\[.*?\]/", '', $content);
+		$content = preg_replace("/[\r\n\t ]{2,}/", ' ', strip_tags($content));
+		$content = LIB('string')->cut(trim($content),0,200);
+		return $content;
+	}
 	function onList($request,$gid=0,$page=1,$size=10){
 		$xml=new XML_Element('response');
-		$xml->type='News.List';
+		$xml->type='Thread.List';
 		if(is_object($request)){
 			$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
 			$gid=(string)$request->params->gid+0;
@@ -48,61 +55,61 @@ Class CtlNews extends CtlBase{
 		$size=($size<10)?10:(int)$size;
 		$page=($page<1)?1:(int)$page;
 		$limit=(($page-1)*$size).','.$size;
-		$newsList=MOD('news')->get_list_by_user($uid,$gid,$limit);
+		$threadList=MOD('thread')->get_list_by_user($uid,$gid,$limit);
 		$timezone=MOD('user.online')->get_by_user($uid,'timezone');
-		foreach($newsList as $r){
+		foreach($threadList as $r){
+			$r['summary']=$this->_get_summary_by_content($r['content']);
+			$r['content']=null;
+			unset($r['content']);
 			$r['dateline']=gmdate('m-d H:i',$r['dateline']-$timezone);
 			if($r['isread'] && $r['readtime'])
 				$r['readtime']=gmdate('m-d H:i',$r['readtime']-$timezone);
-			$xml->$r['aid']=array_to_xml($r,'news');
+			$xml->$r['tid']=array_to_xml($r,'thread');
 		}
 		return $xml;
 	}
 	function onView($request){
 		$response=new XML_Element('response');
-		$aid=(string)($request->params->aid)+0;
-		if($news=MOD('news')->get($aid)){
+		$tid=(string)($request->params->tid)+0;
+		if($thread=MOD('thread')->get($tid)){
 			$data=array(
 					'uid'=>MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid'),
-					'aid'=>$news['aid'],
+					'tid'=>$thread['tid'],
 					'isread'=>1,
 					'readtime'=>time(),
 				);
-			MOD('user.news')->add($data,false,true);
-			$cat=MOD('news.group')->get($news['gid']);
-			$response->type='News.View.Succeed';
+			MOD('user.thread')->add($data,false,true);
+			$cat=MOD('thread.group')->get($thread['gid']);
+			$response->type='Thread.View.Succeed';
 			$response->category=array_to_xml($cat,'category');
-			$content=$news['content'];
-			$news['content']=null;
-			unset($news['content']);
-			$news['dateline']=gmdate('m-d H:i',$news['dateline']-MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'timezone'));
-			$response->news=array_to_xml($news,'news');
+			$content=MOD('thread.coder')->coder($thread['tid'],$data['uid'],$thread['uid'],$thread['content']);
+			$thread['content']=null;
+			unset($thread['content']);
+			$thread['dateline']=gmdate('m-d H:i',$thread['dateline']-MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'timezone'));
+			$response->thread=array_to_xml($thread,'thread');
 			$content=preg_replace("/\<img\s+src\=\"(.+?)\"/ie","'<img src=\"'.\$this->url_replace('\\1').'\"'",$content);
-			$response->news->setText($content);
+			$response->thread->setText($content);
 		}else{
-			$response->type='News.View.Failed';
+			$response->type='Thread.View.Failed';
 			$response->setText('信息不存在！');
 		}
 		return $response;
 	}
 	function onRemind($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$users=MOD('user.online')->get_list_by_where();
-		$count=count($users)-1;
+		$users=MOD('user.online')->get_list_by_where('onid!='.ssp_info($request->ClientId,'sockfd'));
+		$count=count($users);
 		$sends=0;
 		$response=new XML_Element('response');
-		$response->type='Remind.News';
-		$response->news=$request->news;
-		$dateline=intval((string)$request->news->dateline);
+		$response->type='Remind.Thread';
+		$response->thread=$request->thread;
+		$dateline=intval((string)$request->thread->dateline);
 		foreach($users as $r){
-			if($sockfd!==$r['onid']){
-				$response->news->dateline=gmdate('m-d H:i',$dataline-$r['timezone']);
-				$this->send($r['onid'],$response);
+			$response->thread->dateline=gmdate('m-d H:i',$dataline-$r['timezone']);
+			if($this->send($r['onid'],$response))
 				$sends++;
-			}
 		}
 		$response=new XML_Element('response');
-		$response->type='News.Remind.Succeed';
+		$response->type='Thread.Remind.Succeed';
 		$response->setText('提醒成功！有'.sprintf('%s/%s',$sends,$count).'收到了通知！');
 		return $response;
 	}

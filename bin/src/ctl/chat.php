@@ -7,9 +7,11 @@ import('lib.xml');
 
 Class CtlChat extends CtlBase{
 	function onSend($request){
+		$info=ssp_info($request->ClientId);
+		extract($info);
 		$params=&$request->params;
 
-		$fromUid=MOD('user.online')->get_by_client($request->ClientId,'uid');
+		$fromUid=MOD('user.online')->get_by_client($sockfd,'uid');
 		$fromUser=MOD('user')->get_by_profile($fromUid);
 
 		$toUid=(string)$params->uid+0;

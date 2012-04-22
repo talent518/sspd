@@ -8,6 +8,7 @@ import('lib.xml');
 
 Class CtlUser extends CtlBase{
 	function onLogin($request){
+		$sockfd=ssp_info($request->ClientId,'sockfd');
 		$params=&$request->params;
 		$auth=explode("\t",str_decode($params->auth));
 		if(count($auth)==2)
@@ -37,7 +38,7 @@ Class CtlUser extends CtlBase{
 
 		$response=new XML_Element('response');
 		if($uid<0){
-			MOD('user.online')->edit($request->ClientId,array('logintimes'=>MOD('user.online')->get_by_client($request->ClientId,'logintimes')+1));
+			MOD('user.online')->edit($sockfd,array('logintimes'=>MOD('user.online')->get_by_client($sockfd,'logintimes')+1));
 		}
 		if($uid==-1){
 			$response->type='User.Login.Failed';
@@ -62,7 +63,7 @@ Class CtlUser extends CtlBase{
 				'logintime'=>time(),
 				'timezone'=>(string)$params->timezone+0,
 			);
-			MOD('user.online')->edit($request->ClientId,$data);
+			MOD('user.online')->edit($sockfd,$data);
 			if($user=MOD('user')->get($uid)){
 				$profile=MOD('user.profile')->get($uid);
 				$setting=MOD('user.setting')->get($uid);
@@ -79,13 +80,13 @@ Class CtlUser extends CtlBase{
 					'username'=>$username,
 					'password'=>$password,
 					'email'=>$email,
-					'regip'=>MOD('user.online')->get_by_client($request->ClientId,'host'),
+					'regip'=>MOD('user.online')->get_by_client($sockfd,'host'),
 					'regtime'=>time(),
 				);
 				MOD('user')->add($user);
 			}
 			$response->type='User.Login.Succeed';
-			if((string)($params->is_simple)!='true'){
+			if((string)($request->is_simple)!='true'){
 				$response->user=new XML_Element('user');
 
 				$response->user->auth=str_encode($uid."\t".$password);
@@ -98,15 +99,35 @@ Class CtlUser extends CtlBase{
 				$response->user->midavatar=avatar($uid,'middle');
 				$response->user->maxavatar=avatar($uid,'big');
 
+				$response->user->infotype=WEB_INFO_TYPE;
+
 				$profile['nickname']=empty($profile['nickname'])?$username:$profile['nickname'];
 				$response->user->profile=array_to_xml($profile,'profile');
 				$response->user->setting=array_to_xml($setting,'setting');
+				switch(WEB_INFO_TYPE){
+					case 'news':
+						$response->categoryList=CTL('news')->onCategory($uid);
+						$response->categoryList->setTag('categoryList');
+						unset($response->categoryList->type);
 
-				if($userTree=$this->userTree($user['gid'])){
-					$response->userTree=$userTree;
+						$response->newsList=CTL('news')->onList($uid);
+						$response->newsList->setTag('newsList');
+						unset($response->newsList->type);
+						
+						break;
+					case 'thread':
+						$response->categoryList=CTL('thread')->onCategory($uid);
+						$response->categoryList->setTag('categoryList');
+						unset($response->categoryList->type);
+
+						$response->threadList=CTL('thread')->onList($uid);
+						$response->threadList->setTag('threadList');
+						unset($response->threadList->type);
+
+						break;
+					default:
+						break;
 				}
-
-				$response->newsTree=$this->newsTree($uid);
 			}else{
 				$response->setText('登录成功！');
 			}
@@ -179,14 +200,15 @@ Class CtlUser extends CtlBase{
 		return $response;
 	}
 	function logout($ClientId){
-		$uid=MOD('user.online')->get_by_client($ClientId,'uid');
+		$sockfd=ssp_info($ClientId,'sockfd');
+		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
 		if($uid>0){
 			$onlinetime=time()-MOD('user.online')->get_by_user($uid,'logintime');
 			$data=array(
 				'onlinetime'=>'`onlinetime`+'.$onlinetime,
 			);
 			MOD('user')->edit($uid,$data,false,false);
-			MOD('user.online')->drop($ClientId,true);
+			MOD('user.online')->drop($sockfd,true);
 			return true;
 		}
 		return false;
@@ -195,15 +217,15 @@ Class CtlUser extends CtlBase{
 		$params=&$request->params;
 		$response=new XML_Element('response');
 		$data=array(
-			'username'=>trim($params->username),
-			'password'=>trim($params->password),
-			'email'=>trim($params->email),
+			'username'=>$params->username,
+			'password'=>$params->password,
+			'email'=>$params->email,
 			'regip'=>MOD('user.online')->get_by_client($request->ClientId,'host'),
 			'regtime'=>time(),
 		);
 		if(MOD('user')->register($data)){
 			$response->type='User.Register.Succeed';
-			$response->username=$data['username'];
+			$response->username=(string)$data['username'];
 			$response->setText('注册成功！');
 		}else{
 			$response->type='User.Register.Failed';
@@ -211,7 +233,60 @@ Class CtlUser extends CtlBase{
 		}
 		return $response;
 	}
-	function onEdit($request){
+	function onLostpasswd($request){
+		$params=&$request->params;
+		$response=new XML_Element('response');
+
+		$username=(string)($params->username);
+		$email=(string)($params->email);
+
+		list($uid,$_username,$_email)=uc_get_user($username,0);
+		if($username!=$_username || $email!=$_email){
+			$response->type='User.Lostpasswd.Succeed';
+			$response->setText('您填写的账户资料不匹配，不能使用取回密码功能，如有疑问请与管理员联系');
+		}else{
+			$password=LIB('string')->rand(8,STRING_RAND_BOTH);
+			$status=uc_user_edit($username,null,$password,$email,1);
+			switch($status){
+				case 1:
+					$title=WEB_TITLE;
+					if(MOD('mail')->send($params->email,'找回密码已成功！',"恭喜您！<br/>
+　　您在“{$title}”注册的帐户，找回密码已成功！<br/>
+<br/>
+帐户信息如下：<br/>
+　　用户ID：$uid<br/>
+　　用户名：$username<br/>
+　　密码：$password<br/>
+　　邮箱地址：$email")){
+						$message='你的密码发送E-Mail到“'.$email.'”成功！';break;
+					}else{
+						$status=-1;
+						$message='你的密码发送E-Mail到“'.$email.'”失败！';break;
+					}
+					$response->username=$username;
+				case 0:
+					$message='没有做任何修改！';break;
+				case -1:
+					$message='旧密码不正确！';break;
+				case -4:
+					$message='Email 格式有误！';break;
+				case -5:
+					$message='Email 不允许注册！';break;
+				case -6:
+					$message='该 Email 已经被注册！';break;
+				case -7:
+					$message='没有做任何修改！';break;
+				case -8:
+					$message='该用户受保护无权限更改！';break;
+			}
+			if($status<0){
+				$response->type='User.Lostpasswd.Failed';
+			}else{
+				$response->type='User.Lostpasswd.Succeed';
+			}
+			$response->setText($message);
+		}
+		return $response;
 	}
 	function onSetting($request){
 		$keys=array();
@@ -240,7 +315,7 @@ Class CtlUser extends CtlBase{
 				$data[$key]=(string)$value;
 			}
 		}
-		$uid=MOD('user.online')->get_by_client($request->ClientId,'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
 		if($profile=MOD('user.profile')->get($uid)){
 			MOD('user.profile')->edit($uid,$data);
 		}else{
@@ -250,6 +325,21 @@ Class CtlUser extends CtlBase{
 		$response=new XML_Element('response');
 		$response->type='User.Profile.Succeed';
 		$response->setText('保存成功！');
+		return $response;
+	}
+	function onAvatar($request){
+		$uid=MOD('user.online')->get_by_client($request->ClientId,'uid');
+		$response=new XML_Element('response');
+		$response->type='User.Avatar';
+		$response->avatar=new XML_Element('avatar');
+		$response->avatar->min=avatar($uid,'small');
+		$response->avatar->mid=avatar($uid,'middle');
+		$response->avatar->max=avatar($uid,'big');
+		$args=uc_avatar($uid,'virtual', 0);
+		$response->args=new XML_Element('args');
+		for($i=0;$i<count($args);$i+=2){
+			$response->args->{$args[$i]}=$args[$i+1];
+		}
 		return $response;
 	}
 }

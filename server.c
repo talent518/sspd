@@ -35,6 +35,23 @@ int shl_cols(){
 	return ret;
 }
 
+node *find(int sockfd,bool is_port){
+	node *p,*ptr=NULL;
+	p=head;
+	while(p->next!=NULL){
+		p=p->next;
+		if(is_port && p->port==sockfd){
+			ptr=p;
+			break;
+		}
+		if(!is_port && p->sockfd==sockfd){
+			ptr=p;
+			break;
+		}
+	}
+	return ptr;
+}
+
 int insert(node *head,node *ptr){
 	pthread_mutex_lock(&node_mutex);
 	node *p;
@@ -75,85 +92,59 @@ int del(node *head,int socket){
 	return 0;
 }
 
+int recv_int(int sockfd){
+	char *buf;
+	int len=0,ret,i;
+	buf=(char*)malloc(sizeof(int));
+	bzero(buf,sizeof(int));
+	ret=recv(sockfd,buf,sizeof(int),0);
+	if(ret!=sizeof(int)){
+		return 0;
+	}
+	for(i=0;i<4;i++){
+		len+=(buf[i]&0xff)<<((3-i)*8);
+	}
+	return len;
+}
+
 void thread(node *ptr){
-	int recved_len=0,len;
-	char *tmp;
-	char buf[BUFFER_MAX];
-	socket_package *package;
+	int recv_len=0,recved_len=0,len,i;
+	char *package;
 
 	trigger(PHP_SSP_CONNECT,ptr);
 
-	while(ptr->flag)
-	{
-		memset(buf,0,sizeof(buf));
-		php_printf("start recv\n");
-		len=recv(ptr->sockfd,buf,BUFFER_MAX,0);
-		php_printf("end recv:%d\n",len);
-		if(len<0){
+	while(ptr->flag){
+		if(recved_len==0){
+			recv_len=recv_int(ptr->sockfd);
+			if(recv_len>0){
+				package=(char*)malloc(sizeof(char*)*recv_len);
+			}
+		}
+		if(recv_len<1){
+			len=-1;
+		}else{
+			len=recv(ptr->sockfd,package+recved_len,recv_len-recved_len,0);
+		}
+		if(len<0 && debug){
 			php_printf("Server Recieve Data Failed!\n");
 			break;
 		}
 		if(len==0)
 			break;
-		if(len<4){
-			continue;
+		if(debug){
+			php_printf("Received from client :%s\n\n",package);
 		}
-depackage:
-		if(recved_len==0){
-			package=(socket_package*)malloc(len);
-			memcpy(package,buf,len);
-			recved_len=len-sizeof(package->length);
-			if(package->length<recved_len){
-				//把多出的数据重新写回buf
-				len=recved_len-package->length;
-				tmp=estrndup(buf+recved_len-package->length,len);
-				memset(buf,0,sizeof(buf));
-				strncpy(buf,tmp,len);
-				recved_len=0;
 
-				trigger(PHP_SSP_RECEIVE,ptr,package->data,&(package->length));
-				if(package->length>0){
-					socket_send(ptr->sockfd,package->data,package->length);
-				}
-				free(package);
+		recved_len+=len;
 
-				goto depackage;
-			}else if(package->length==recved_len){
-				recved_len=0;
-				if(debug){
-					php_printf("Received from client :%s\n\n",buf);
-				}
-				trigger(PHP_SSP_RECEIVE,ptr,package->data,&(package->length));
-				if(package->length>0){
-					socket_send(ptr->sockfd,package->data,package->length);
-				}
-				free(package);
+		if(recved_len==recv_len){
+			trigger(PHP_SSP_RECEIVE,ptr,&package,&recv_len);
+			if(recv_len>0){
+				trigger(PHP_SSP_SEND,ptr,&package,&recv_len);
 			}
-		}else{
-			if(package->length<recved_len+len){
-				strlcat(package->data,buf,package->length-recved_len);
-
-				//把多出的数据重新写回buf
-				len=recved_len+len-package->length;
-				tmp=estrndup(buf+package->length-recved_len,len);
-				memset(buf,0,sizeof(buf));
-				strncpy(buf,tmp,len);
-				recved_len=0;
-
-				trigger(PHP_SSP_RECEIVE,ptr,package->data,&(package->length));
-				if(package->length>0){
-					socket_send(ptr->sockfd,package->data,package->length);
-				}
-				free(package);
-
-				goto depackage;
-			}else if(package->length==recved_len+len){
-				recved_len=0;
-				strlcat(package->data,buf,len);
-				trigger(PHP_SSP_RECEIVE,ptr,package->data,&(package->length));
-			}else{
-				strlcat(package->data,buf,len);
-			}
+			socket_send(ptr->sockfd,package,recv_len);
+			free(package);
+			recved_len=0;
 		}
 	}
 	if(debug){
@@ -165,14 +156,19 @@ depackage:
 }
 
 int socket_send(int sockfd,char *data,int data_len){
-	socket_package *package;
-	package->length=data_len;
-	package->data=data;
-	int ret=send(sockfd,(char *)package,sizeof(data_len)+data_len,0);
-	if(ret!=sizeof(data_len)+data_len){
+	char *package;
+	package=(char*)malloc(sizeof(data_len)+data_len);
+	int i;
+	for(i=0;i<4;i++){
+		package[i]=data_len>>((3-i)*8);
+	}
+
+	memcpy(package+sizeof(data_len),data,data_len);
+
+	int ret=send(sockfd,package,sizeof(data_len)+data_len,0);
+	if(ret!=sizeof(data_len)+data_len && debug){
 		php_printf("data_len:%d,package_len:%d\n",data_len,sizeof(data_len)+data_len);
 	}
-	free(package);
 	return ret;
 }
 
@@ -189,12 +185,13 @@ int socket_stop(){
 		fclose(fp);
 		if(pid==getsid(pid)){
 			ret=kill(pid,SIGTERM);
-			while(ret && getsid(pid)){
-				printf(".");
-				flush();
-				sleep(1);
-				i++;
+			int status,wait_pid;
+			wait_pid = waitpid(pid, &status, WNOHANG|WUNTRACED);
+#ifdef WIFEXITED
+			if(!WIFEXITED(status)){
+				kill(pid,SIGKILL);
 			}
+#endif
 			while(cols-9>i){
 				printf(".");
 				flush();
@@ -219,16 +216,21 @@ int socket_stop(){
 void socket_exit(int sid){
 	node *p;
 	p=head;
-	do{
-		p->flag=false;
-		close(p->sockfd);
-		trigger(PHP_SSP_CLOSE,p);
-		del(head,p->sockfd);
-		p->sockfd=0;
-		pthread_exit((void*)p->tid);
+	pthread_mutex_lock(&node_mutex);
+	while(p->next!=NULL){
 		p=p->next;
-	}while(p!=NULL);
+		p->flag=false;
+		p->sockfd=0;
+		pthread_exit(&p->tid);
+		trigger(PHP_SSP_CLOSE,p);
+		close(p->sockfd);
+	};
+	close(head->sockfd);
+	head->flag=false;
+	head->sockfd=0;
+	pthread_mutex_unlock(&node_mutex);
 	trigger(PHP_SSP_STOP);
+	unlink(SSP_G(pidfile));
 	exit(0);
 }
 
@@ -249,9 +251,6 @@ int socket_start(){
 		i++;
 	}
 	flush();
-
-	signal(SIGPIPE,SIG_IGN);
-	signal(SIGCHLD,SIG_IGN);
 
 	signal(SIGHUP,socket_exit);
 	signal(SIGTERM,socket_exit);
@@ -275,7 +274,7 @@ int socket_start(){
 	if(ret<0){
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
-		printf("Not on the host %s bind port %d",SSP_G(host),SSP_G(port));
+		printf("Not on the host %s bind port %d\n",SSP_G(host),SSP_G(port));
 		return 1;
 	}
 
@@ -318,6 +317,15 @@ int socket_start(){
 		sleep(1);
 		return 0;
 	}
+
+#ifdef HAVE_SIGNAL_H
+#if defined(SIGPIPE) && defined(SIG_IGN)
+	signal(SIGPIPE, SIG_IGN);
+#endif
+#if defined(SIGCHLD) && defined(SIG_IGN)
+	signal(SIGCHLD,SIG_IGN);
+#endif
+#endif
 
 	setuid(pwnam->pw_uid);
 	setgid(pwnam->pw_gid);
