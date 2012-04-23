@@ -21,6 +21,11 @@ function commend($cmdstr){
 		case 'connect':
 			$socket->close();
 			$socket->connect(array_shift($cmds),array_shift($cmds));
+			if($socket->is_connect()){
+				echo correct_charset('连接成功！'),PHP_EOL;
+			}else{
+				echo correct_charset('连接失败！'),PHP_EOL;
+			}
 			break;
 		case 'login';
 			if($socket->is_connect()){

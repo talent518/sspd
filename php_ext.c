@@ -189,13 +189,18 @@ int trigger(unsigned short eventtype,...){
 		if(Z_TYPE_P(retval)!=IS_STRING){
 			convert_to_string_ex(&retval);
 		}
-		if(debug)
-			php_printf("retval:%s\n",Z_STRVAL_P(retval));
-		char *_data=strdup(Z_STRVAL_P(retval));
-		*data=_data;
-		*data_len=Z_STRLEN_P(retval);
-		if(debug)
-			php_printf("data:%s\n",*data);
+		if(Z_STRLEN_P(retval)>0){
+			if(debug)
+				php_printf("retval:%s\n",Z_STRVAL_P(retval));
+			char *_data=strndup(Z_STRVAL_P(retval),Z_STRLEN_P(retval));
+			*data=_data;
+			*data_len=Z_STRLEN_P(retval);
+			if(debug)
+				php_printf("data:%s\n",*data);
+		}else{
+			*data=NULL;
+			*data_len=0;
+		}
 	}
 
 	for (i = 0; i < param_count; i++) {
@@ -204,14 +209,14 @@ int trigger(unsigned short eventtype,...){
 	zval_ptr_dtor(&retval);
 
 	if (ret!=SUCCESS) {
-		php_error(E_WARNING, "Unable to call handler %s()", call_func_name);
+		php_error(E_WARNING, "Unable to call handler %s()\n", call_func_name);
 	}
 	if(EG(exception)){
 		zend_exception_error(EG(exception), E_ALL TSRMLS_CC);
 		EG(exception)=NULL;
 	}
 	if(debug)
-		php_printf("return function:%s\n\n",call_func_name);
+		php_printf("return function:%s\n",call_func_name);
 	return ret;
 }
 
@@ -220,7 +225,6 @@ static PHP_FUNCTION(ssp_setopt)
 	int option;
 	zval *setval;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lz", &option, &setval) == FAILURE) {
-		php_printf("function ssp_setopt parameters error.\n");
 		RETURN_FALSE;
 	}
 	switch(option){
@@ -259,7 +263,6 @@ static PHP_FUNCTION(ssp_bind)
 	char *callback;
 	long callback_len;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ls", &eventtype, &callback, &callback_len) == FAILURE) {
-		php_printf("function ssp_bind parameters error.\n");
 		RETURN_FALSE;
 	}
 	if(eventtype>PHP_SSP_LEN){
@@ -273,14 +276,12 @@ static PHP_FUNCTION(ssp_resource){
 	zend_bool is_port=0;
 	int sockfd;
 	node *ptr;
-	int key_len=0;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|b", &sockfd,&is_port) == FAILURE) {
-		php_printf("function ssp_resource parameters error.\n");
 		RETURN_FALSE;
 	}
 	ptr=find(sockfd,is_port);
 	if(ptr!=NULL){
-		return_value=_ssp_resource_zval(ptr);
+		ZEND_REGISTER_RESOURCE(return_value,ptr,le_ssp_descriptor);
 	}else{
 		RETURN_FALSE;
 	}
@@ -292,7 +293,6 @@ static PHP_FUNCTION(ssp_info){
 	char *key;
 	int key_len=0;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r|s", &res,&key,&key_len) == FAILURE) {
-		php_printf("function ssp_info parameters error.\n");
 		RETURN_FALSE;
 	}
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
@@ -324,7 +324,6 @@ static PHP_FUNCTION(ssp_send)
 	zval *res;
 	node *ptr;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs", &res, &data, &data_len) == FAILURE) {
-		php_printf("function ssp_send parameters error.\n");
 		RETURN_FALSE;
 	}
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
@@ -338,7 +337,6 @@ static PHP_FUNCTION(ssp_close)
 	zval *res;
 	node *ptr;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &res) == FAILURE) {
-		php_printf("function ssp_info parameters error.\n");
 		RETURN_FALSE;
 	}
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);

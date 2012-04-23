@@ -99,6 +99,7 @@ class LibSocketClient{
 			else{
 				$this->error= 'Server is running.';
 			}
+
 			$sendKey=$this->randstr(128);
 			$request=new XML_Element('request');
 			$request->type='Connect.Key';
@@ -117,7 +118,7 @@ class LibSocketClient{
 	function randstr($len=6){
 		$chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 		$max=strlen($chars);
-		// ÖĞÎÄËæ»ú×Ö
+		// ä¸­æ–‡éšæœºå­—
 		$str ='';
 		for($i=0;$i<$len;$i++){
 		  $str.= $chars{rand(0,$max)};
@@ -152,6 +153,7 @@ class LibSocketClient{
 			$this->error= 'Could not read from server!';
 			return false;
 		}
+		$buf='';
 		$len=@socket_recv($this->socket,$buf,4,0);
 		$recv_len=$this->str_to_int4($buf);
 		$recved_len=0;

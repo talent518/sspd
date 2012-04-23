@@ -142,10 +142,8 @@ function ssp_close_handler($ClientId){
 	$info=ssp_info($ClientId);
 	extract($info);
 	server_log( 'Close connection ( '.$sockfd.' ) from '.$host.' on port '.$port.'. Time at '.date('m-d H:i:s',MOD('user.online')->get_by_client($sockfd,'time')));
-	$request=new XML_Element('request');
-	$request->ClientId=$ClientId;
-	CTL('user')->onLogout($request);
 	MOD('user.online')->drop($sockfd);
+	server_log('Closed connection2('.$sockfd.')');
 }
 
 function ssp_stop_handler(){

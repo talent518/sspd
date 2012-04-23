@@ -98,7 +98,11 @@ int recv_int(int sockfd){
 	buf=(char*)malloc(sizeof(int));
 	bzero(buf,sizeof(int));
 	ret=recv(sockfd,buf,sizeof(int),0);
-	if(ret!=sizeof(int)){
+	if(ret<1){
+		return ret;
+	}
+	if(ret!=sizeof(int) && debug){
+		php_printf("recv_int recv length error:%d\n",ret);
 		return 0;
 	}
 	for(i=0;i<4;i++){
@@ -121,7 +125,7 @@ void thread(node *ptr){
 			}
 		}
 		if(recv_len<1){
-			len=-1;
+			len=recv_len;
 		}else{
 			len=recv(ptr->sockfd,package+recved_len,recv_len-recved_len,0);
 		}
@@ -131,18 +135,15 @@ void thread(node *ptr){
 		}
 		if(len==0)
 			break;
-		if(debug){
-			php_printf("Received from client :%s\n\n",package);
-		}
 
 		recved_len+=len;
 
-		if(recved_len==recv_len){
+		if(recved_len==recv_len && recv_len>0){
 			trigger(PHP_SSP_RECEIVE,ptr,&package,&recv_len);
 			if(recv_len>0){
 				trigger(PHP_SSP_SEND,ptr,&package,&recv_len);
+				socket_send(ptr->sockfd,package,recv_len);
 			}
-			socket_send(ptr->sockfd,package,recv_len);
 			free(package);
 			recved_len=0;
 		}
@@ -167,7 +168,7 @@ int socket_send(int sockfd,char *data,int data_len){
 
 	int ret=send(sockfd,package,sizeof(data_len)+data_len,0);
 	if(ret!=sizeof(data_len)+data_len && debug){
-		php_printf("data_len:%d,package_len:%d\n",data_len,sizeof(data_len)+data_len);
+		php_printf("Send error data_len:%d,package_len:%d\n",data_len,sizeof(data_len)+data_len);
 	}
 	return ret;
 }
@@ -186,7 +187,7 @@ int socket_stop(){
 		if(pid==getsid(pid)){
 			ret=kill(pid,SIGTERM);
 			int status,wait_pid;
-			wait_pid = waitpid(pid, &status, WNOHANG|WUNTRACED);
+			wait_pid=waitpid(pid,&status,0);
 #ifdef WIFEXITED
 			if(!WIFEXITED(status)){
 				kill(pid,SIGKILL);
@@ -220,17 +221,13 @@ void socket_exit(int sid){
 	while(p->next!=NULL){
 		p=p->next;
 		p->flag=false;
-		p->sockfd=0;
-		pthread_exit(&p->tid);
 		trigger(PHP_SSP_CLOSE,p);
 		close(p->sockfd);
 	};
-	close(head->sockfd);
 	head->flag=false;
-	head->sockfd=0;
-	pthread_mutex_unlock(&node_mutex);
+	close(head->sockfd);
 	trigger(PHP_SSP_STOP);
-	unlink(SSP_G(pidfile));
+	pthread_mutex_unlock(&node_mutex);
 	exit(0);
 }
 
@@ -362,6 +359,9 @@ int socket_start(){
 
 	while(head->flag){
 		conn_fd=accept(listen_fd,(struct sockaddr *)&pin,&len);
+		if(conn_fd<0){
+			break;
+		}
 		ptr=(node *)malloc(sizeof(node));
 		ptr->sockfd=conn_fd;
 
