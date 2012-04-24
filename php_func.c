@@ -157,7 +157,7 @@ static void sapi_cli_flush(void *server_context) /* {{{ */
 static void sapi_cli_register_variables(zval *track_vars_array TSRMLS_DC) /* {{{ */
 {
 	unsigned int len;
-	char   *docroot = "";
+	char   *docroot;
 
 	/* In CGI mode, we consider the environment to be a part of the server
 	 * variables
@@ -259,7 +259,7 @@ static void sapi_cli_ini_defaults(HashTable *configuration_hash)
 /* {{{ sapi_module_struct cli_sapi_module
  */
 sapi_module_struct cli_sapi_module = {
-	"cli",							/* name */
+	"SSP",							/* name */
 	"Command Line Interface",    	/* pretty name */
 
 	php_cli_startup,				/* startup */

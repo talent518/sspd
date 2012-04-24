@@ -104,6 +104,7 @@ static void php_cli_usage(char *argv0)
 				"       start       start ssp service\n"
 				"       stop        stop ssp service\n"
 				"       restart     restart ssp service\n"
+				"       status      ssp service status\n"
 				"       uninstall   uninstall ssp service\n"
 				"\n"
 				, prog, prog, prog, prog, prog, prog);
@@ -441,8 +442,8 @@ int main(int argc, char *argv[])
 				}
 
 				request_started = 1;
-				php_printf("PHP %s (%s) (built: %s %s) %s\nCopyright (c) 1997-2011 The PHP Group\n%s",
-					PHP_VERSION, sapi_module.name, __DATE__, __TIME__,
+				php_printf("PHP %s (%s %s) (built: %s %s) %s\nCopyright (c) 1997-2011 The Abao\n%s",
+					PHP_VERSION, sapi_module.name,PHP_SSP_VERSION, __DATE__, __TIME__,
 #if ZEND_DEBUG && defined(HAVE_GCOV)
 					"(DEBUG GCOV)",
 #elif ZEND_DEBUG
@@ -472,7 +473,7 @@ int main(int argc, char *argv[])
 			switch (c) {
 
 			case 'f': /* parse file */
-				script_file = php_optarg;
+				script_file = strdup(php_optarg);
 				break;
 
 			case 'r': /* run code from command line */
@@ -504,7 +505,7 @@ int main(int argc, char *argv[])
 		/* only set script_file if not set already and not in direct mode and not at end of parameter list */
 		if (argc > php_optind) 
 		{
-			serv_opt=argv[php_optind];
+			serv_opt=strdup(argv[php_optind]);
 			php_optind++;
 		}
 		if (script_file) {
@@ -588,6 +589,8 @@ int main(int argc, char *argv[])
 			socket_stop();
 		}else if(strcmp(serv_opt,"start")==0){
 			socket_start();
+		}else if(strcmp(serv_opt,"status")==0){
+			socket_status();
 		}else if(strcmp(serv_opt,"install")==0){
 		}else if(strcmp(serv_opt,"uninstall")==0){
 		}else{

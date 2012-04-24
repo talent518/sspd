@@ -1,5 +1,5 @@
 <?PHP
-require 'core.php';
+require dirname(__FILE__).DIRECTORY_SEPARATOR.'core.php';
 require SRC_DIR.'function_server.php';
 
 import('lib.xml');
@@ -9,9 +9,7 @@ $users=$clients=array();
 if(defined('SSP_USER')){
 	ssp_setopt(SSP_OPT_HOST,SSP_USER);
 }
-if(defined('SSP_PIDFILE')){
-	ssp_setopt(SSP_OPT_PIDFILE,SSP_PIDFILE);
-}
+ssp_setopt(SSP_OPT_PIDFILE,ROOT.'log'.DIR_SEP.'ssp.pid');
 if(defined('SSP_HOST')){
 	ssp_setopt(SSP_OPT_HOST,SSP_HOST);
 }
@@ -147,6 +145,5 @@ function ssp_close_handler($ClientId){
 }
 
 function ssp_stop_handler(){
-	echo 'Stoped server.',PHP_EOL;
 	server_log('Server Stoped at '.date('H:i:s',time()));
 }

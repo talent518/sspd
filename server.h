@@ -34,5 +34,6 @@ node *find(int sockfd,bool is_port);
 int socket_send(int sockfd,char *data,int data_len);
 int socket_start();
 int socket_stop();
+int socket_status();
 
 #endif

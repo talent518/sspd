@@ -7,7 +7,7 @@
 #include <stdbool.h>
 
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp user node"
-#define PHP_SSP_VERSION "1.2.1"
+#define PHP_SSP_VERSION "v1.0.1"
 
 #define PHP_SSP_START 0
 #define PHP_SSP_RECEIVE 1

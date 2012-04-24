@@ -173,6 +173,35 @@ int socket_send(int sockfd,char *data,int data_len){
 	return ret;
 }
 
+int socket_status(){
+	FILE *fp;
+	int pid,ret,i=19,cols=COLS;
+
+	printf("SSP server status");
+	flush();
+
+	while(cols-9>i){
+		printf(".");
+		flush();
+		i++;
+	}
+
+	fp=fopen(SSP_G(pidfile),"r+");
+	if(fp!=NULL){
+		fscanf(fp,"%d",&pid);
+		fclose(fp);
+		if(pid==getsid(pid)){
+			system("echo -e \"\\E[32m\"[Running]");
+			system("tput sgr0");
+			return 1;
+		}
+		unlink(SSP_G(pidfile));
+	}
+	system("echo -e \"\\E[31m\"[stopped]");
+	system("tput sgr0");
+	return 0;
+}
+
 int socket_stop(){
 	FILE *fp;
 	int pid,ret,i=19,cols=COLS;
@@ -189,8 +218,8 @@ int socket_stop(){
 			int status,wait_pid;
 			wait_pid=waitpid(pid,&status,0);
 #ifdef WIFEXITED
-			if(!WIFEXITED(status)){
-				kill(pid,SIGKILL);
+			if(wait_pid>0 && !WIFEXITED(status)){
+				kill(wait_pid,SIGKILL);
 			}
 #endif
 			while(cols-9>i){

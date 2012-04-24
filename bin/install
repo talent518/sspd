@@ -1,0 +1,17 @@
+#!/usr/bin/php -q
+<?php
+
+$SERV_NAME=(($_SERVER['argc']==2 && preg_patch("/[a-z0-9-_]+/i"))?$_SERVER['argv'][1]:'ssp');
+
+system('rm -f /etc/init.d/'.$SERV_NAME);
+
+$content=file_get_contents('./ssp-serv');
+$content=str_replace('{SSP_DIR}',dirname(__FILE__),$content);
+file_put_contents('/etc/init.d/'.$SERV_NAME,$content);
+
+system('chmod 773 /etc/init.d/'.$SERV_NAME);
+system('chkconfig --add '.$SERV_NAME);
+system('chkconfig --level 345 '.$SERV_NAME.' on');
+
+echo 'Install completed.',PHP_EOL;
+?>
