@@ -223,14 +223,14 @@ class LibValidate{
 	function minlength($data,$len){
 		if(!$this->required($data)) return true;
 		$this->error=str_replace('{0}',$len,$this->error);
-		return L('string')->len($data)>=$len;
+		return LIB('string')->len($data)>=$len;
 	}
 
 	//字符最大长度
 	function maxlength($data,$len){
 		if(!$this->required($data)) return true;
 		$this->error=str_replace('{0}',$len,$this->error);
-		return L('string')->len($data)<=$len;
+		return LIB('string')->len($data)<=$len;
 	}
 
 	//字符长度范围
@@ -238,14 +238,14 @@ class LibValidate{
 		if(!$this->required($data)) return true;
 		list($min,$max)=explode(',',$value);
 		$this->error=str_replace('{1}',$max,str_replace('{0}',$min,$this->error));
-		return $min<=L('string')->len($data) && L('string')->len($data)<=$max;
+		return $min<=LIB('string')->len($data) && LIB('string')->len($data)<=$max;
 	}
 
 	//字符固定长度
 	function length($data,$len){
 		if(!$this->required($data)) return true;
 		$this->error=str_replace('{0}',$len,$this->error);
-		return L('string')->len($data)==$len;
+		return LIB('string')->len($data)==$len;
 	}
 
 	//URL地址
@@ -315,7 +315,7 @@ class LibValidate{
 	//URL地址
 	function username($data){
 		if(!$this->required($data)) return true;
-		return preg_match("/^[a-zA-Z\x0391-\xFFE5][a-zA-Z0-9_\x0391-\xFFE5]+$/",$data);
+		return preg_match("/^[a-zA-Z\x0391-\xFFE5][a-zA-Z0-9_\-\x0391-\xFFE5]+$/",$data);
 	}
 
 	//URL地址

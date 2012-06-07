@@ -56,14 +56,13 @@ Class CtlThread extends CtlBase{
 		$page=($page<1)?1:(int)$page;
 		$limit=(($page-1)*$size).','.$size;
 		$threadList=MOD('thread')->get_list_by_user($uid,$gid,$limit);
-		$timezone=MOD('user.online')->get_by_user($uid,'timezone');
 		foreach($threadList as $r){
 			$r['summary']=$this->_get_summary_by_content($r['content']);
 			$r['content']=null;
 			unset($r['content']);
-			$r['dateline']=gmdate('m-d H:i',$r['dateline']-$timezone);
+			$r['dateline']=udate('m-d H:i',$r['dateline'],$uid);
 			if($r['isread'] && $r['readtime'])
-				$r['readtime']=gmdate('m-d H:i',$r['readtime']-$timezone);
+				$r['readtime']=udate('m-d H:i',$r['readtime'],$uid);
 			$xml->$r['tid']=array_to_xml($r,'thread');
 		}
 		return $xml;
@@ -85,7 +84,7 @@ Class CtlThread extends CtlBase{
 			$content=MOD('thread.coder')->coder($thread['tid'],$data['uid'],$thread['uid'],$thread['content']);
 			$thread['content']=null;
 			unset($thread['content']);
-			$thread['dateline']=gmdate('m-d H:i',$thread['dateline']-MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'timezone'));
+			$thread['dateline']=cdate('m-d H:i',$thread['dateline'],$request->ClientId);
 			$response->thread=array_to_xml($thread,'thread');
 			$content=preg_replace("/\<img\s+src\=\"(.+?)\"/ie","'<img src=\"'.\$this->url_replace('\\1').'\"'",$content);
 			$response->thread->setText($content);
@@ -104,7 +103,7 @@ Class CtlThread extends CtlBase{
 		$response->thread=$request->thread;
 		$dateline=intval((string)$request->thread->dateline);
 		foreach($users as $r){
-			$response->thread->dateline=gmdate('m-d H:i',$dataline-$r['timezone']);
+			$response->thread->dateline=cdate('m-d H:i',$dataline,$request->ClientId);
 			if($this->send($r['onid'],$response))
 				$sends++;
 		}

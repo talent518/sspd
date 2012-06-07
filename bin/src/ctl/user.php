@@ -29,7 +29,10 @@ Class CtlUser extends CtlBase{
 				$isuid=3;
 			else{
 				$isuid=0;
-				return;
+				$response=new XML_Element('response');
+				$response->type='User.Login.Failed';
+				$response->setText('用户名格式不合法！');
+				return $response;
 			}
 			$username=trim($params->username);
 			$password=md5($params->password);
@@ -57,13 +60,6 @@ Class CtlUser extends CtlBase{
 				$this->send($exitId,$exitLogin);
 				$this->close($exitId);
 			}
-			$data=array(
-				'uid'=>$uid,
-				'logintimes'=>0,
-				'logintime'=>time(),
-				'timezone'=>(string)$params->timezone+0,
-			);
-			MOD('user.online')->edit($sockfd,$data);
 			if($user=MOD('user')->get($uid)){
 				$profile=MOD('user.profile')->get($uid);
 				$setting=MOD('user.setting')->get($uid);
@@ -71,20 +67,38 @@ Class CtlUser extends CtlBase{
 					'username'=>$username,
 					'password'=>$password,
 					'email'=>$email,
+					'prevlogtime'=>$user['logtime'],
+					'logtime'=>time(),
 				);
 				MOD('user')->edit($uid,$data,false);
+				$user['prevlogtime']=$data['prevlogtime'];
+				$user['logtime']=$data['logtime'];
 			}else{
 				$user=array(
 					'uid'=>$uid,
-					'gid'=>3,
+					'gid'=>USER_REG_GID,
 					'username'=>$username,
 					'password'=>$password,
 					'email'=>$email,
 					'regip'=>MOD('user.online')->get_by_client($sockfd,'host'),
 					'regtime'=>time(),
+					'prevlogtime'=>time(),
+					'logtime'=>time(),
 				);
-				MOD('user')->add($user);
+				if(!MOD('user')->add($user)){
+					$response->type='User.Login.Failed';
+					$response->setText(MOD('user')->error?MOD('user')->error:'未知登录错误！');
+					return $response;
+				}
 			}
+			$data=array(
+				'uid'=>$uid,
+				'gid'=>$user['gid'],
+				'logintimes'=>0,
+				'logintime'=>time(),
+				'timezone'=>(string)$params->timezone+0,
+			);
+			MOD('user.online')->edit($sockfd,$data);
 			$response->type='User.Login.Succeed';
 			if((string)($request->is_simple)!='true'){
 				$response->user=new XML_Element('user');
@@ -99,11 +113,11 @@ Class CtlUser extends CtlBase{
 				$response->user->midavatar=avatar($uid,'middle');
 				$response->user->maxavatar=avatar($uid,'big');
 
-				$response->user->infotype=WEB_INFO_TYPE;
-
 				$profile['nickname']=empty($profile['nickname'])?$username:$profile['nickname'];
 				$response->user->profile=array_to_xml($profile,'profile');
 				$response->user->setting=array_to_xml($setting,'setting');
+				$response->user->prevlogtime=udate('Y-m-d H:i:s',$user['prevlogtime'],$uid);
+				$response->user->logtime=udate('Y-m-d H:i:s',$user['logtime'],$uid);
 				switch(WEB_INFO_TYPE){
 					case 'news':
 						$response->categoryList=CTL('news')->onCategory($uid);
@@ -172,7 +186,7 @@ Class CtlUser extends CtlBase{
 		}
 		$newsTree=MOD('news')->get_tree_by_user($uid);
 		foreach($newsTree as $r){
-			$r['dateline']=gmdate('m-d H:i',$r['dateline']-MOD('user.online')->get_by_user($uid,'timezone'));
+			$r['dateline']=udate('m-d H:i',$r['dateline'],$uid);
 			$xml->$r['gid']->$r['aid']=array_to_xml($r,'news');
 		}
 		return $xml;
@@ -185,7 +199,6 @@ Class CtlUser extends CtlBase{
 			$response->type='User.Logout.Failed';
 		}
 		return $response;
-		//return $this->login($request->ClientId);
 	}
 	function login($ClientId){
 		$response=new XML_Element('response');
@@ -220,7 +233,7 @@ Class CtlUser extends CtlBase{
 			'username'=>$params->username,
 			'password'=>$params->password,
 			'email'=>$params->email,
-			'regip'=>MOD('user.online')->get_by_client($request->ClientId,'host'),
+			'regip'=>MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'host'),
 			'regtime'=>time(),
 		);
 		if(MOD('user')->register($data)){
@@ -328,7 +341,8 @@ Class CtlUser extends CtlBase{
 		return $response;
 	}
 	function onAvatar($request){
-		$uid=MOD('user.online')->get_by_client($request->ClientId,'uid');
+		$sockfd=ssp_info($request->ClientId,'sockfd');
+		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
 		$response=new XML_Element('response');
 		$response->type='User.Avatar';
 		$response->avatar=new XML_Element('avatar');
@@ -339,6 +353,17 @@ Class CtlUser extends CtlBase{
 		$response->args=new XML_Element('args');
 		for($i=0;$i<count($args);$i+=2){
 			$response->args->{$args[$i]}=$args[$i+1];
+		}
+		return $response;
+	}
+	function onPriv($request){
+		$response=new XML_Element('response');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		if(UGK($uid,(string)($request->params->key))){
+			$response->type='User.Priv.Succeed';
+		}else{
+			$response->type='User.Priv.Failed';
+			$response->setText(USER_NOPRIV_MSG);
 		}
 		return $response;
 	}

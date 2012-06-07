@@ -18,7 +18,7 @@ class ModUserOnline extends ModBase{
 				if($this->users[$id][$this->priKey]>0){
 					$this->clients[$this->users[$id][$this->priKey]]=&$this->users[$id];
 				}
-			}elseif(!extension_loaded('pcntl')){
+			}else{
 				$this->users[$id]=array();
 			}
 		}
@@ -52,6 +52,7 @@ class ModUserOnline extends ModBase{
 		if($isUser){
 			$data=array(
 				'uid'=>0,
+				'gid'=>0,
 				'logintimes'=>0,
 				'logintime'=>0,
 				'timezone'=>0,

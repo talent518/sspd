@@ -49,7 +49,7 @@ class ModUser extends ModBase{
 		),
 	);
 	function register(&$data){
-		$data['gid']=3;
+		$data['gid']=USER_REG_GID;
 		if($this->check($data)){
 			$uid=uc_user_register($data['username'],$data['password'],$data['email'],null,null,$data['regip']);
 			if($uid>0){

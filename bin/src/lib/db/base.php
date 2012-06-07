@@ -41,15 +41,23 @@ class LibDbBase{
 		list($table,$alias)=explode(' ',$table);
 		$sql='SELECT '.$field.' FROM '.$this->tname($table).($alias?" as `$alias`":'');
 		if($join){
-			$joins=$ons=array();
-			foreach($join as $k=>$v){
-				list($t,$a)=explode(' ',$k);
-				$t=$this->tname($t);
-				$joins[]="$t as `$a`";
-				$ons[]=$v;
+			if($join_split){
+				foreach($join as $k=>$v){
+					list($t,$a)=explode(' ',$k);
+					$t=$this->tname($t);
+					$sql.=' LEFT JOIN('.$t.' AS `'.$a.'`)ON('.$v.')';
+				}
+			}else{
+				$joins=$ons=array();
+				foreach($join as $k=>$v){
+					list($t,$a)=explode(' ',$k);
+					$t=$this->tname($t);
+					$joins[]="$t as `$a`";
+					$ons[]=$v;
+				}
+				$sql.=' LEFT JOIN('.implode(',',$joins).')ON('.implode(' AND ',$ons).')';
+				$joins=$ons=null;
 			}
-			$sql.=' LEFT JOIN('.implode(',',$joins).')ON('.implode(' AND ',$ons).')';
-			$joins=$ons=null;
 		}
 		if($where)
 			$sql.=' WHERE '.$where;

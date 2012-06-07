@@ -6,6 +6,7 @@ class ModBase{
 	var $key,$error;
 	protected $table;
 	protected $priKey;
+	protected $forKey;
 	protected $order;
 	protected $rules;
 	protected $messages;
@@ -37,23 +38,26 @@ class ModBase{
 				'where'=>$where
 			),SQL_SELECT_ONLY);
 	}
-	function get_list_by_where($where='',$limit=0){
+	function get_list_by_where($where='',$limit=0,$order=''){
 		return DB()->select(array(
 				'table'=>$this->table,
 				'field'=>'*',
-				'where'=>$where,
-				'order'=>$this->order,
+				'where'=>is_int($where)?$this->forKey.'='.($where+0):$where,
+				'order'=>$order?$order:$this->order,
 				'limit'=>$limit
-			),SQL_SELECT_LIST);
+			),SQL_SELECT_LIST,$this->priKey);
 	}
-	function add(&$data,$isCheck=true,$isReplace=false){
+	function count($where){
+		return DB()->count($this->table,is_int($where)?$this->forKey.'='.($where+0):$where);
+	}
+	function add($data,$isCheck=true,$isReplace=false){
 		if(!$isCheck || $this->check($data)){
 			DB()->insert($this->table,saddslashes($data),$isReplace);
 			return true;
 		}
 		return false;
 	}
-	function edit($id,&$data,$isCheck=true,$isString=true){
+	function edit($id,$data,$isCheck=true,$isString=true){
 		if($id<=0)
 			return false;
 		if(!$isCheck || $this->check($data)){
@@ -70,5 +74,11 @@ class ModBase{
 			return true;
 		}
 		return false;
+	}
+	function update($data,$where,$isString=true){
+		DB()->update($this->table,$data,is_int($where)?$this->priKey.'='.$where:$where,$isString);
+	}
+	function delete($where){
+		DB()->delete($this->table,is_int($where)?$this->priKey.'='.$where:$where);
 	}
 }

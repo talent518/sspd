@@ -4,7 +4,7 @@ defined('IS_DEBUG') or define('IS_DEBUG',false);
 
 IS_DEBUG?error_reporting(E_ALL & ~E_WARNING & ~E_NOTICE):error_reporting(0);
 
-date_default_timezone_set('Asia/Shanghai');
+date_default_timezone_set('PRC');
 
 define('DIR_SEP',DIRECTORY_SEPARATOR);
 define('ROOT',dirname(__FILE__).DIR_SEP);
@@ -216,4 +216,28 @@ function str_encode($string,$key=SSP_KEY,$expiry=0){
 
 function str_decode($string,$key=SSP_KEY,$expiry=0){
 	return LIB('crypt')->decode((string)$string,$key,$expiry);
+}
+
+function udate($format,$time,$uid){
+	return gmdate($format,$time+MOD('user.online')->get_by_user($uid,'timezone'));
+}
+
+function cdate($format,$time,$cid){
+	return gmdate($format,$time+MOD('user.online')->get_by_client(ssp_info($cid,'sockfd'),'timezone'));
+}
+
+function UGK($uid,$key=''){
+	$gid=MOD('user.online')->get_by_user($uid,'gid');
+	$group=MOD('user.group')->get($gid);
+	return empty($key)?$group:$group[$key];
+}
+
+function get_limit($page,$size,$count){
+	$size=($size<10?10:(int)$size);
+	$page=($page<1?1:(int)$page);
+	$pages=(int)($count/$size)+($count%$size?1:0);
+	if($pages>1 && $page>$pages){
+		$page=$pages;
+	}
+	return (($page-1)*$size).','.$size;
 }

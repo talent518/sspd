@@ -49,11 +49,10 @@ Class CtlNews extends CtlBase{
 		$page=($page<1)?1:(int)$page;
 		$limit=(($page-1)*$size).','.$size;
 		$newsList=MOD('news')->get_list_by_user($uid,$gid,$limit);
-		$timezone=MOD('user.online')->get_by_user($uid,'timezone');
 		foreach($newsList as $r){
-			$r['dateline']=gmdate('m-d H:i',$r['dateline']-$timezone);
+			$r['dateline']=udate('m-d H:i',$r['dateline'],$uid);
 			if($r['isread'] && $r['readtime'])
-				$r['readtime']=gmdate('m-d H:i',$r['readtime']-$timezone);
+				$r['readtime']=udate('m-d H:i',$r['readtime'],$uid);
 			$xml->$r['aid']=array_to_xml($r,'news');
 		}
 		return $xml;
@@ -75,7 +74,7 @@ Class CtlNews extends CtlBase{
 			$content=$news['content'];
 			$news['content']=null;
 			unset($news['content']);
-			$news['dateline']=gmdate('m-d H:i',$news['dateline']-MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'timezone'));
+			$news['dateline']=cdate('m-d H:i',$news['dateline'],$request->ClientId);
 			$response->news=array_to_xml($news,'news');
 			$content=preg_replace("/\<img\s+src\=\"(.+?)\"/ie","'<img src=\"'.\$this->url_replace('\\1').'\"'",$content);
 			$response->news->setText($content);
@@ -96,7 +95,7 @@ Class CtlNews extends CtlBase{
 		$dateline=intval((string)$request->news->dateline);
 		foreach($users as $r){
 			if($sockfd!==$r['onid']){
-				$response->news->dateline=gmdate('m-d H:i',$dataline-$r['timezone']);
+				$response->news->dateline=cdate('m-d H:i',$dataline,$request->ClientId);
 				$this->send($r['onid'],$response);
 				$sends++;
 			}
