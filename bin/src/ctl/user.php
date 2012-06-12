@@ -62,7 +62,6 @@ Class CtlUser extends CtlBase{
 			}
 			if($user=MOD('user')->get($uid)){
 				$profile=MOD('user.profile')->get($uid);
-				$setting=MOD('user.setting')->get($uid);
 				$data=array(
 					'username'=>$username,
 					'password'=>$password,
@@ -74,6 +73,7 @@ Class CtlUser extends CtlBase{
 				$user['prevlogtime']=$data['prevlogtime'];
 				$user['logtime']=$data['logtime'];
 			}else{
+				$servday=0;
 				$user=array(
 					'uid'=>$uid,
 					'gid'=>USER_REG_GID,
@@ -99,6 +99,19 @@ Class CtlUser extends CtlBase{
 				'timezone'=>(string)$params->timezone+0,
 			);
 			MOD('user.online')->edit($sockfd,$data);
+			if(UGK($uid,'use_expiry',false)){
+				$expiry=MOD('user.setting')->get($uid,'expiry');
+				$servday=ceil(($expiry-$user['logtime'])/86400);
+				if($servday<=0){
+					MOD('user.online')->drop($sockfd,true);
+					$response->type='User.Login.Failed';
+					$response->setText('服务已过期！请即时续费！');
+					return $response;
+				}
+			}else{
+				$servday='无限';
+			}
+
 			$response->type='User.Login.Succeed';
 			if((string)($request->is_simple)!='true'){
 				$response->user=new XML_Element('user');
@@ -115,33 +128,10 @@ Class CtlUser extends CtlBase{
 
 				$profile['nickname']=empty($profile['nickname'])?$username:$profile['nickname'];
 				$response->user->profile=array_to_xml($profile,'profile');
-				$response->user->setting=array_to_xml($setting,'setting');
+				$response->user->setting=new XML_Element('setting');
+				$response->user->setting->servday=$servday;
 				$response->user->prevlogtime=udate('Y-m-d H:i:s',$user['prevlogtime'],$uid);
 				$response->user->logtime=udate('Y-m-d H:i:s',$user['logtime'],$uid);
-				switch(WEB_INFO_TYPE){
-					case 'news':
-						$response->categoryList=CTL('news')->onCategory($uid);
-						$response->categoryList->setTag('categoryList');
-						unset($response->categoryList->type);
-
-						$response->newsList=CTL('news')->onList($uid);
-						$response->newsList->setTag('newsList');
-						unset($response->newsList->type);
-						
-						break;
-					case 'thread':
-						$response->categoryList=CTL('thread')->onCategory($uid);
-						$response->categoryList->setTag('categoryList');
-						unset($response->categoryList->type);
-
-						$response->threadList=CTL('thread')->onList($uid);
-						$response->threadList->setTag('threadList');
-						unset($response->threadList->type);
-
-						break;
-					default:
-						break;
-				}
 			}else{
 				$response->setText('登录成功！');
 			}

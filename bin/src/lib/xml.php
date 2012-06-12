@@ -22,7 +22,7 @@ if(!defined('IN_SERVER'))
  * @param string $xml
  * @return XML_Element对象
  */
-function &xml_to_object($xml,$isMultiRoot=false,&$error=false){
+function xml_to_object($xml,$isMultiRoot=false,&$error=false){
 	$data=$xml;
 	if($isMultiRoot){
 		$tags=array();
@@ -168,7 +168,7 @@ function object_to_xml(&$object,$head=true){
 	return $return;
 }
 
-function &array_to_xml($array,$tagname,$textkey=''){
+function array_to_xml($array,$tagname,$textkey=''){
 	if(!is_array($array)){
 		return;
 	}

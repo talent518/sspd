@@ -13,7 +13,7 @@ class ModThreadGroup extends ModBase{
 	protected $messages=array(
 	);
 	private $groups=array();
-	function &get($id){
+	function get($id){
 		if(!isset($groups[$id])){
 			$groups[$id]=parent::get($id);
 		}

@@ -11,21 +11,36 @@ class ModUserSetting extends ModBase{
 	protected $order;
 	private $users=array();
 	function get($uid,$key=''){
-		if(!$this->users[$uid]){
+		if(!isset($this->users[$uid])){
+			ssp_mutex_lock();
 			$this->users[$uid]=parent::get($uid);
+			if(empty($this->users[$uid])){
+				$this->users[$uid]=null;
+				unset($this->users[$uid]);
+			}
+			ssp_mutex_unlock();
 		}
 		return $key?$this->users[$uid][$key]:$this->users[$uid];
 	}
 	function set($uid,$key,$value=0){
+		$is_exist=isset($this->users[$uid]);
+		ssp_mutex_lock();
 		$this->users[$uid][$key]=$value;
+		ssp_mutex_unlock();
 		$data=array();
 		$data[$key]=$value;
 		$data[$key.'_dateline']=time();
-		if(empty($this->users[$uid])){
+		if(!$this->exists($uid)){
 			$data['uid']=$uid;
 			return $this->add($data,false);
 		}else{
 			return $this->edit($uid,$data,false,false);
 		}
+	}
+	function clean($uid){
+		ssp_mutex_lock();
+		$this->users[$uid]=null;
+		unset($this->users[$uid]);
+		ssp_mutex_unlock();
 	}
 }

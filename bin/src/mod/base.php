@@ -21,17 +21,17 @@ class ModBase{
 			return false;
 		}
 	}
-	function &exists($id){
+	function exists($id){
 		return $id!==0?DB()->select(array(
 				'table'=>$this->table,
 				'field'=>$this->priKey,
 				'where'=>$this->priKey.'='.($id+0)
 			),SQL_SELECT_ONLY,$this->priKey):0;
 	}
-	function &get($id){
+	function get($id){
 		return $id!==0?$this->get_by_where($this->priKey.'='.($id+0)):false;
 	}
-	function &get_by_where($where=''){
+	function get_by_where($where=''){
 		return DB()->select(array(
 				'table'=>$this->table,
 				'field'=>'*',

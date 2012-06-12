@@ -63,6 +63,8 @@ static PHP_FUNCTION(ssp_setopt);
 static PHP_FUNCTION(ssp_bind);
 static PHP_FUNCTION(ssp_resource);
 static PHP_FUNCTION(ssp_info);
+static PHP_FUNCTION(ssp_mutex_lock);
+static PHP_FUNCTION(ssp_mutex_unlock);
 static PHP_FUNCTION(ssp_send);
 static PHP_FUNCTION(ssp_close);
 

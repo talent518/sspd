@@ -46,7 +46,7 @@ function CFG(){
 	}
 }
 
-function &DB(){
+function DB(){
 	static $db;
 	if(!$db){
 		$db=LIB('Db.'.DB_TYPE);
@@ -226,18 +226,23 @@ function cdate($format,$time,$cid){
 	return gmdate($format,$time+MOD('user.online')->get_by_client(ssp_info($cid,'sockfd'),'timezone'));
 }
 
-function UGK($uid,$key=''){
+function UGK($uid,$key,$isCheckExpiry=true){
 	$gid=MOD('user.online')->get_by_user($uid,'gid');
 	$group=MOD('user.group')->get($gid);
-	return empty($key)?$group:$group[$key];
+	if($isCheckExpiry && $group['use_expiry'] && MOD('user.setting')->get($uid,'expiry')<time()){
+		return 0;
+	}
+	return $group[$key];
 }
 
 function get_limit($page,$size,$count){
-	$size=($size<10?10:(int)$size);
-	$page=($page<1?1:(int)$page);
+	$size=abs($size<10?10:(int)$size);
+	$page=abs($page<1?1:(int)$page);
+	$count=abs((int)$count);
 	$pages=(int)($count/$size)+($count%$size?1:0);
 	if($pages>1 && $page>$pages){
 		$page=$pages;
 	}
-	return (($page-1)*$size).','.$size;
+	$start=($page-1)*$size;
+	return ($start<0?0:$start).','.$size;
 }

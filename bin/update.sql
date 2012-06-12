@@ -68,3 +68,9 @@ ALTER TABLE `fenxihui`.`cs_user_group` CHANGE `inverst` `invest` TINYINT(1) UNSI
 ALTER TABLE `fenxihui`.`cs_user_setting`   
   CHANGE `inverst` `invest` TINYINT(1) UNSIGNED NOT NULL  COMMENT '是否同意条款（投资组合）',
   CHANGE `inverst_dateline` `invest_dateline` INT(11) NOT NULL  COMMENT '同意时间（投资组合）';
+
+ALTER TABLE `fenxihui`.`ssp_user_group`   
+  ADD COLUMN `use_expiry` TINYINT(1) UNSIGNED NOT NULL AFTER `userlistgroup`;
+ALTER TABLE `fenxihui`.`ssp_user_setting`   
+  ADD COLUMN `expiry` INT NOT NULL  COMMENT '过期时间' AFTER `uid`,
+  ADD COLUMN `expiry_dateline` INT NOT NULL  COMMENT '开通时间' AFTER `expiry`;

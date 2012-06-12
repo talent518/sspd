@@ -3,6 +3,7 @@
 #include <error.h>
 
 int le_ssp_descriptor;
+pthread_mutex_t ssp_mutex;
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_setopt, 0, 0, 2)
@@ -25,6 +26,16 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 2)
 	ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mutex_lock, 0, 0, 0)
+	ZEND_ARG_INFO(0, socket)
+	ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mutex_unlock, 0, 0, 0)
+	ZEND_ARG_INFO(0, socket)
+	ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_send, 0, 0, 2)
 	ZEND_ARG_INFO(0, socket)
 	ZEND_ARG_INFO(0, message)
@@ -41,6 +52,8 @@ function_entry ssp_functions[] = {
 	PHP_FE(ssp_bind, arginfo_ssp_bind)
 	PHP_FE(ssp_resource, arginfo_ssp_resource)
 	PHP_FE(ssp_info, arginfo_ssp_info)
+	PHP_FE(ssp_mutex_lock, arginfo_ssp_mutex_lock)
+	PHP_FE(ssp_mutex_unlock, arginfo_ssp_mutex_unlock)
 	PHP_FE(ssp_send, arginfo_ssp_send)
 	PHP_FE(ssp_close, arginfo_ssp_close)
 	{NULL, NULL, NULL}
@@ -98,6 +111,7 @@ static PHP_GINIT_FUNCTION(ssp)
 	ssp_globals->host	 = "0.0.0.0";
 	ssp_globals->port	 = 8083;
 	ssp_globals->max	 = 1000;
+    pthread_mutex_init(&ssp_mutex, NULL);
 }
 /* }}} */
 
@@ -315,6 +329,15 @@ static PHP_FUNCTION(ssp_info){
 			RETURN_NULL();
 		}
 	}
+}
+
+static PHP_FUNCTION(ssp_mutex_lock){
+	pthread_mutex_lock(&ssp_mutex);
+	RETURN_NULL();
+}
+static PHP_FUNCTION(ssp_mutex_unlock){
+	pthread_mutex_unlock(&ssp_mutex);
+	RETURN_NULL();
 }
 
 static PHP_FUNCTION(ssp_send)

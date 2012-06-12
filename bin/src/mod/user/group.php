@@ -14,10 +14,25 @@ class ModUserGroup extends ModBase{
 	protected $messages=array(
 	);
 	private $groups=array();
-	function &get($id){
-		if(!isset($groups[$id])){
-			$groups[$id]=parent::get($id);
+	function get($id){
+		if(!isset($this->groups[$id])){
+			ssp_mutex_lock();
+			$this->groups[$id]=parent::get($id);
+			ssp_mutex_unlock();
 		}
-		return $groups[$id];
+		return $this->groups[$id];
+	}
+	function edit($id,$data,$isCheck=true,$isString=true){
+		ssp_mutex_lock();
+		$this->groups[$id]=array_replace($this->groups[$id],$data);
+		ssp_mutex_unlock();
+		return parent::edit($id,$data,$isCheck,$isString);
+	}
+	function drop($id){
+		ssp_mutex_lock();
+		$this->groups[$id]=null;
+		unset($this->groups[$id]);
+		ssp_mutex_unlock();
+		return parent::drop($id);
 	}
 }

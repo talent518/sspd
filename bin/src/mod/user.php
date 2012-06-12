@@ -48,7 +48,7 @@ class ModUser extends ModBase{
 			'query'=>'电子邮件“{0}”已被注册',
 		),
 	);
-	function register(&$data){
+	function register($data){
 		$data['gid']=USER_REG_GID;
 		if($this->check($data)){
 			$uid=uc_user_register($data['username'],$data['password'],$data['email'],null,null,$data['regip']);

@@ -9,7 +9,7 @@ class ModThreadField extends ModBase{
 	protected $priKey='tid';
 	protected $order='';
 	private $groups=array();
-	function &get($id){
+	function get($id){
 		if(!isset($groups[$id])){
 			$groups[$id]=parent::get($id);
 		}
