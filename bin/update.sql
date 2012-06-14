@@ -74,3 +74,25 @@ ALTER TABLE `fenxihui`.`ssp_user_group`
 ALTER TABLE `fenxihui`.`ssp_user_setting`   
   ADD COLUMN `expiry` INT NOT NULL  COMMENT '过期时间' AFTER `uid`,
   ADD COLUMN `expiry_dateline` INT NOT NULL  COMMENT '开通时间' AFTER `expiry`;
+
+CREATE TABLE `ssp_user_gold` (
+  `ugid` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `uid` int(10) unsigned NOT NULL,
+  `gid` int(10) unsigned NOT NULL,
+  `isread` tinyint(3) unsigned NOT NULL,
+  `readtime` int(11) NOT NULL,
+  PRIMARY KEY (`ugid`),
+  UNIQUE KEY `uid_gid` (`uid`,`gid`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+CREATE TABLE `ssp_user_invest` (
+  `uiid` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `uid` int(10) unsigned NOT NULL,
+  `iid` int(10) unsigned NOT NULL,
+  `isread` tinyint(3) unsigned NOT NULL,
+  `readtime` int(11) NOT NULL,
+  PRIMARY KEY (`uiid`),
+  UNIQUE KEY `uid_iid` (`uid`,`iid`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+ALTER TABLE `fenxihui`.`ssp_user_stock`   
+  ADD COLUMN `isread` TINYINT(1) UNSIGNED NOT NULL  COMMENT '是否已读' AFTER `evaldate`,
+  ADD COLUMN `readtime` INT NOT NULL  COMMENT '阅读时间' AFTER `isread`;

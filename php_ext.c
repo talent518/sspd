@@ -95,7 +95,8 @@ static PHP_MINIT_FUNCTION(ssp)
 	REGISTER_LONG_CONSTANT("SSP_OPT_PIDFILE",  PHP_SSP_OPT_PIDFILE,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_OPT_HOST",  PHP_SSP_OPT_HOST,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_OPT_PORT",  PHP_SSP_OPT_PORT,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_OPT_MAX",  PHP_SSP_OPT_MAX,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_OPT_MAX_CLIENTS",  PHP_SSP_OPT_MAX_CLIENTS,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_OPT_MAX_RECVS",  PHP_SSP_OPT_MAX_RECVS,  CONST_CS | CONST_PERSISTENT);
 	
 	le_ssp_descriptor = zend_register_list_destructors_ex(NULL, NULL, PHP_SSP_DESCRIPTOR_RES_NAME,module_number);
 	return SUCCESS;
@@ -110,7 +111,8 @@ static PHP_GINIT_FUNCTION(ssp)
 	ssp_globals->pidfile = "/var/run/ssp.pid";
 	ssp_globals->host	 = "0.0.0.0";
 	ssp_globals->port	 = 8083;
-	ssp_globals->max	 = 1000;
+	ssp_globals->maxclients	 = 1000;
+	ssp_globals->maxrecvs	 = 2*1024*1024;
     pthread_mutex_init(&ssp_mutex, NULL);
 }
 /* }}} */
@@ -145,8 +147,8 @@ static zval *_ssp_string_zval(const char *str)
 	return ret;
 }
 
-int trigger(unsigned short eventtype,...){
-	if(SSP_G(bind)[eventtype]==NULL){
+int trigger(unsigned short type,...){
+	if(SSP_G(bind)[type]==NULL){
 		return FAILURE;
 	}
 	zval **params,*retval;
@@ -157,10 +159,10 @@ int trigger(unsigned short eventtype,...){
 	char **data=NULL;
 	long *data_len;
 
-	call_func_name=SSP_G(bind)[eventtype];
+	call_func_name=SSP_G(bind)[type];
 
-	va_start(args,eventtype);
-	switch(eventtype){
+	va_start(args,type);
+	switch(type){
 		case PHP_SSP_START:
 		case PHP_SSP_STOP:
 			param_count=0;
@@ -184,33 +186,35 @@ int trigger(unsigned short eventtype,...){
 			params[0]=_ssp_resource_zval(ptr);
 			break;
 		default:
-			perror("Unable to call handler");
+			perror("Trigger type not exists!");
 			break;
 	}
 	va_end(args);
 
 	MAKE_STD_ZVAL(retval);
 	ZVAL_NULL(retval);
-
-	if(debug)
-		php_printf("\ncall function:%s\n",call_func_name);
+#ifdef PHP_SSP_DEBUG
+	php_printf("\ncall function:%s\n",call_func_name);
+#endif
 	TSRMLS_FETCH();
 	ret=call_user_function(CG(function_table), NULL, _ssp_string_zval(call_func_name), retval, param_count, params TSRMLS_CC);
-	if(debug)
-		php_printf("return result:%s\n",ret==FAILURE?"false":"true");
-
+#ifdef PHP_SSP_DEBUG
+	php_printf("return result:%s\n",ret==FAILURE?"false":"true");
+#endif
 	if(param_count>1){
 		if(Z_TYPE_P(retval)!=IS_STRING){
 			convert_to_string_ex(&retval);
 		}
 		if(Z_STRLEN_P(retval)>0){
-			if(debug)
-				php_printf("retval:%s\n",Z_STRVAL_P(retval));
+#ifdef PHP_SSP_DEBUG
+			php_printf("retval:%s\n",Z_STRVAL_P(retval));
+#endif
 			char *_data=strndup(Z_STRVAL_P(retval),Z_STRLEN_P(retval));
 			*data=_data;
 			*data_len=Z_STRLEN_P(retval);
-			if(debug)
-				php_printf("data:%s\n",*data);
+#ifdef PHP_SSP_DEBUG
+			php_printf("data:%s\n",*data);
+#endif
 		}else{
 			*data=NULL;
 			*data_len=0;
@@ -229,8 +233,9 @@ int trigger(unsigned short eventtype,...){
 		zend_exception_error(EG(exception), E_ALL TSRMLS_CC);
 		EG(exception)=NULL;
 	}
-	if(debug)
-		php_printf("return function:%s\n",call_func_name);
+#ifdef PHP_SSP_DEBUG
+	php_printf("return function:%s\n",call_func_name);
+#endif
 	return ret;
 }
 
@@ -262,9 +267,14 @@ static PHP_FUNCTION(ssp_setopt)
 				SSP_G(port)=Z_LVAL_P(setval);
 			}
 			break;
-		case PHP_SSP_OPT_MAX:
+		case PHP_SSP_OPT_MAX_CLIENTS:
 			if(Z_TYPE_P(setval)==IS_LONG){
-				SSP_G(max)=Z_LVAL_P(setval);
+				SSP_G(maxclients)=Z_LVAL_P(setval);
+			}
+			break;
+		case PHP_SSP_OPT_MAX_RECVS:
+			if(Z_TYPE_P(setval)==IS_LONG){
+				SSP_G(maxrecvs)=Z_LVAL_P(setval);
 			}
 			break;
 	}

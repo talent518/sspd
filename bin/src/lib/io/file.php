@@ -29,21 +29,24 @@ class LibIoFile{
 
 	function read($file){
 		if($fp=@fopen($file, 'rb')){
+			flock($fp,LOCK_SH);
 			$content=@fread($fp, filesize($file));
+			flock($fp,LOCK_UN);
 			@fclose($fp);
 		}
 		return($content);
 	}
 
-	function write($file,$content){
+	function write($file,$content,$isAppend=false){
 		$path=pathinfo($file,PATHINFO_DIRNAME);
 		if(!is_dir($path)){
 			mkdir($path,777,true) or die('Create directory failed'.(IS_DEBUG?':'.$path.'.':'!'));
 		}
 
-		if($fp=@fopen($file,'wb')){
-			flock($fp,2);
+		if($fp=@fopen($file,$isAppend?'ab':'wb')){
+			flock($fp,LOCK_EX);
 			fwrite($fp,$content);
+			flock($fp,LOCK_UN);
 			fclose($fp);
 			return true;
 		}else

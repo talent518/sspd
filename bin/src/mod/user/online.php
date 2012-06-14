@@ -38,11 +38,14 @@ class ModUserOnline extends ModBase{
 		return empty($key)?$this->clients[$id]:$this->clients[$id][$key];
 	}
 	function add($data){
-		$this->clients[$data['onid']]=$data;
+		$this->clients[$data[$this->priKey]]=$data;
 		return parent::add($data,false);
 	}
 	function edit($id,$data){
 		ssp_mutex_lock();
+		$_uid=$this->clients[$id]['uid'];
+		$this->users[$_uid]=null;
+		unset($this->users[$_uid]);
 		$this->clients[$id]=array_replace($this->clients[$id],$data);
 		$uid=$this->clients[$id]['uid'];
 		if($uid>0){
@@ -72,20 +75,12 @@ class ModUserOnline extends ModBase{
 		}
 	}
 	function clean(){
-		$this->clients=$this->users=array();
-		DB()->delete($this->table,'1>0');
-	}/*
-	function get_list_by_where($where='',$limit=0){
-		$query=DB()->select(array(
-				'table'=>$this->table,
-				'field'=>'*',
-				'where'=>$where,
-				'order'=>$this->order,
-				'limit'=>$limit
-			),SQL_SELECT_QUERY);
-		while($row=DB()->row($query)){
-			$list[$row[$this->priKey]]=$this->users[$row['uid']]=$this->clients[$row[$this->priKey]]=$row;
+		foreach(array_keys($this->clients) as $id){
+			$this->drop($id);
 		}
-		return $list;
-	}*/
+		ssp_mutex_lock();
+		$this->clients=$this->users=array();
+		ssp_mutex_unlock();
+		$this->delete('1>0');
+	}
 }

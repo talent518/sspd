@@ -9,7 +9,7 @@ class ModGold extends ModBase{
 	protected $table='gold';
 	protected $priKey='gid';
 	protected $forKey='uid';
-	protected $order='dateline DESC,gid DESC';
+	protected $order='gid DESC';
 	protected $rules=array(
 		'title'=>array(
 			'required'=>true,
@@ -60,4 +60,16 @@ class ModGold extends ModBase{
 			'required'=>'卖出条件由不能为空',
 		),
 	);
+	function get_list_by_user($uid,$isToday=true,$limit=null){
+		return DB()->select(array(
+			'table'=>$this->table.' g',
+			'field'=>'g.*,IF(ug.`isread`=1,1,0) AS `isread`,ug.readtime',
+			'join'=>array(
+				'user_gold ug'=>'g.gid=ug.gid AND ug.uid='.$uid,
+			),
+			'where'=>($isToday?'g.dateline>'.@strtotime('today'):''),
+			'order'=>'ug.isread,g.gid DESC',
+			'limit'=>$limit,
+		),SQL_SELECT_LIST);
+	}
 }

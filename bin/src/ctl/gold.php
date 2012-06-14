@@ -55,13 +55,9 @@ Class CtlGold extends CtlBase{
 			$xml->setText(USER_NOPRIV_MSG);
 			return $xml;
 		}
-		if($isToday){
-			$time=@strtotime('today');
-			$where='dateline>'.$time.' AND dateline<86400+'.$time;
-		}
 		$xml->counts=MOD('gold')->count($where);
 		$limit=get_limit($page,$size,$xml->counts);
-		$goldList=MOD('gold')->get_list_by_where($where,$limit);
+		$goldList=MOD('gold')->get_list_by_user($uid,$isToday!=0,$limit);
 		foreach($goldList as $r){
 			$r['code']=substr('000000'.$r['code'],-6);
 			$r['dateline']=udate('m-d H:i',$r['dateline'],$uid);
@@ -93,6 +89,17 @@ Class CtlGold extends CtlBase{
 		if(MOD('gold')->add($data)){
 			$response->type='Gold.Add.Succeed';
 			$response->setText('提交成功！');
+
+			$data['gid']=DB()->insert_id();
+
+			$remind=new XML_Element('response');
+			$remind->type='Remind.Gold';
+			$remind->remind=array_to_xml($data,'remind');
+			foreach(MOD('user.online')->get_list_by_where('uid>0 AND uid!='.$uid) as $sf=>$r){
+				if(UGK($r['uid'],'gold')){
+					ssp_send($sf,$remind);
+				}
+			}
 		}elseif($error=MOD('gold')->error){
 			$response->type='Gold.Add.Failed';
 			$response->setText($error);
@@ -118,6 +125,7 @@ Class CtlGold extends CtlBase{
 			$gold['code']=substr('000000'.$gold['code'],-6);
 			$gold['dateline']=udate('Y-m-d H:i',$gold['dateline'],$uid);
 			$response->gold=array_to_xml($gold,'gold');
+			MOD('user.gold')->add(array('uid'=>$uid,'gid'=>$gid,'isread'=>1,'readtime'=>time()),false,true);
 		}else{
 			$response->type='Gold.View.Failed';
 			$response->setText('优选金股记录不存在!');

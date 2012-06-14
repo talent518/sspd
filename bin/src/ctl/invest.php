@@ -61,7 +61,7 @@ Class CtlInvest extends CtlBase{
 		}
 		$xml->counts=MOD('invest')->count($where);
 		$limit=get_limit($page,$size,$xml->counts);
-		$investList=MOD('invest')->get_list_by_where($where,$limit);
+		$investList=MOD('invest')->get_list_by_user($uid,$isToday!=0,$limit);
 		foreach($investList as $r){
 			$r['code']=substr('000000'.$r['code'],-6);
 			$r['dateline']=udate('m-d H:i',$r['dateline'],$uid);
@@ -101,6 +101,17 @@ Class CtlInvest extends CtlBase{
 			MOD('invest.stock')->update(array('iid'=>DB()->insert_id()),'isid IN('.iimplode($isids).')');
 			$response->type='Invest.Add.Succeed';
 			$response->setText('保存成功！');
+
+			$data['gid']=DB()->insert_id();
+
+			$remind=new XML_Element('response');
+			$remind->type='Remind.Invest';
+			$remind->remind=array_to_xml($data,'remind');
+			foreach(MOD('user.online')->get_list_by_where('uid>0 AND uid!='.$uid) as $sf=>$r){
+				if(UGK($r['uid'],'invest')){
+					ssp_send($sf,$remind);
+				}
+			}
 		}elseif($error=MOD('invest')->error){
 			$response->type='Invest.Add.Failed';
 			$response->setText($error);
@@ -158,6 +169,7 @@ Class CtlInvest extends CtlBase{
 				$r['code']=substr('000000'.$r['code'],-6);
 				$response->$isid=array_to_xml($r,'stock');
 			}
+			MOD('user.invest')->add(array('uid'=>$uid,'iid'=>$iid,'isread'=>1,'readtime'=>time()),false,true);
 		}else{
 			$response->type='Invest.View.Failed';
 			$response->setText('投资组合记录不存在!');

@@ -83,11 +83,11 @@ int del(node *head,int socket){
 			p->next=q->next;
 			free(q);
 			close(socket);
+			node_num--;
 			break;
 		}else
 			p=p->next;
 	}
-	node_num--;
 	pthread_mutex_unlock(&node_mutex);
 	return 0;
 }
@@ -102,13 +102,18 @@ int recv_int(int sockfd){
 		return ret;
 	}
 	if(ret!=sizeof(int) && debug){
-		php_printf("recv_int recv length error:%d\n",ret);
+		php_printf("Server Recieve Package Header Failed:%d\n",ret);
 		return 0;
 	}
 	for(i=0;i<4;i++){
 		len+=(buf[i]&0xff)<<((3-i)*8);
 	}
-	return len;
+	if(len>0){
+		return len;
+	}else{
+		php_printf("Server Recieve Package Header Error:%d\n",len);
+		return len;
+	}
 }
 
 void thread(node *ptr){
@@ -116,21 +121,28 @@ void thread(node *ptr){
 	char *package;
 
 	trigger(PHP_SSP_CONNECT,ptr);
+	if(node_num>SSP_G(maxclients)){
+		trigger(PHP_SSP_CONNECT_DENIED,ptr);
+		ptr->flag=false;
+	}
 
 	while(ptr->flag){
 		if(recved_len==0){
 			recv_len=recv_int(ptr->sockfd);
 			if(recv_len>0){
+				if(recv_len>SSP_G(maxrecvs)){
+					php_printf("Server Recieve Package Length Must %d<=%d!\n",recv_len,SSP_G(maxrecvs));
+					break;
+				}
 				package=(char*)malloc(sizeof(char*)*recv_len);
+			}else{
+				break;
 			}
 		}
-		if(recv_len<1){
-			len=recv_len;
-		}else{
-			len=recv(ptr->sockfd,package+recved_len,recv_len-recved_len,0);
-		}
+
+		len=recv(ptr->sockfd,package+recved_len,recv_len-recved_len,0);
 		if(len<0 && debug){
-			php_printf("Server Recieve Data Failed!\n");
+			php_printf("Server Recieve Package Data Failed!\n");
 			break;
 		}
 		if(len==0)
@@ -147,9 +159,6 @@ void thread(node *ptr){
 			free(package);
 			recved_len=0;
 		}
-	}
-	if(debug){
-		php_printf("Close connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
 	}
 	trigger(PHP_SSP_CLOSE,ptr);
 	del(head,ptr->sockfd);
@@ -168,7 +177,7 @@ int socket_send(int sockfd,char *data,int data_len){
 
 	int ret=send(sockfd,package,sizeof(data_len)+data_len,0);
 	if(ret!=sizeof(data_len)+data_len && debug){
-		php_printf("Send error data_len:%d,package_len:%d\n",data_len,sizeof(data_len)+data_len);
+		php_printf("Send DAta Error! Length:%d,Package Length:%d\n",data_len,sizeof(data_len)+data_len);
 	}
 	return ret;
 }

@@ -94,6 +94,17 @@ Class CtlStock extends CtlBase{
 		if(MOD('user.stock')->add($data)){
 			$response->type='Stock.Add.Succeed';
 			$response->setText('提交成功！');
+
+			$data['sid']=DB()->insert_id();
+
+			$remind=new XML_Element('response');
+			$remind->type='Remind.OS';
+			$remind->remind=array_to_xml($data,'remind');
+			foreach(MOD('user.online')->get_list_by_where('uid>0 AND uid!='.$uid) as $sf=>$r){
+				if(UGK($r['uid'],'stock_eval')){
+					ssp_send($sf,$remind);
+				}
+			}
 		}elseif($error=MOD('user.stock')->error){
 			$response->type='Stock.Add.Failed';
 			$response->setText($error);
@@ -119,6 +130,9 @@ Class CtlStock extends CtlBase{
 				$stock['evalusername']=$user['username'];
 				$stock['evaldate']=udate('Y-m-d H:i',$stock['evaldate'],$uid);
 				$stock['evalavatar']=avatar($stock['evaluid'],'small');
+				if(!$stock['isread']){
+					MOD('user.stock')->update(array('isread'=>1,'readtime'=>time()),$sid,false);
+				}
 				$response->state='view';
 			}elseif(UGK($uid,'stock_eval')){
 				$response->state='eval';
@@ -155,6 +169,15 @@ Class CtlStock extends CtlBase{
 		}elseif(MOD('user.stock')->edit($sid,$data,false)){
 			$response->type='Stock.Eval.Succeed';
 			$response->setText('提交成功！');
+			$stock=MOD('user.stock')->get($sid);
+			if($sf=MOD('user.online')->get_by_user($stock['uid'],'onid')){
+				$remind=new XML_Element('response');
+				$remind->type='Remind.OS';
+				$remind->remind=array_to_xml($stock,'remind');
+				if(UGK($stock['uid'],'stock_add')){
+					ssp_send($sf,$remind);
+				}
+			}
 		}elseif($error=MOD('user.stock')->error){
 			$response->type='Stock.Eval.Failed';
 			$response->setText($error);

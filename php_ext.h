@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+//#define PHP_SSP_DEBUG
+
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp user node"
 #define PHP_SSP_VERSION "v1.0.1"
 
@@ -23,7 +25,8 @@
 #define PHP_SSP_OPT_PIDFILE 1
 #define PHP_SSP_OPT_HOST 2
 #define PHP_SSP_OPT_PORT 3
-#define PHP_SSP_OPT_MAX 4
+#define PHP_SSP_OPT_MAX_CLIENTS 4
+#define PHP_SSP_OPT_MAX_RECVS 5
 
 extern int le_ssp_descriptor;
 
@@ -41,7 +44,8 @@ ZEND_BEGIN_MODULE_GLOBALS(ssp)
 	char *pidfile;
 	char *host;
 	short int port;
-	unsigned int max;
+	int maxclients;
+	int maxrecvs;
 	char *bind[PHP_SSP_LEN];
 ZEND_END_MODULE_GLOBALS(ssp)
 
@@ -57,7 +61,7 @@ static PHP_MINIT_FUNCTION(ssp);
 static PHP_GINIT_FUNCTION(ssp);
 static PHP_MINFO_FUNCTION(ssp);
 
-int trigger(unsigned short eventtype,...);
+int trigger(unsigned short type,...);
 
 static PHP_FUNCTION(ssp_setopt);
 static PHP_FUNCTION(ssp_bind);

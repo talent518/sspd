@@ -70,7 +70,7 @@ class ModBase{
 		if($id<=0)
 			return false;
 		if($this->exists($id)==$id){
-			DB()->delete($this->table,$this->priKey.'='.($id+0));
+			$this->delete($id+0);
 			return true;
 		}
 		return false;

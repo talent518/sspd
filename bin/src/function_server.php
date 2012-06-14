@@ -6,7 +6,7 @@ function data_log($message){
 	if(empty($message))
 		return false;
 	if(IS_DEBUG){
-		echo correct_charset($message),PHP_EOL;
+		echo PHP_EOL,correct_charset($message),PHP_EOL;
 		flush();
 	}else{
 		return write_log('data',$message);
@@ -17,7 +17,7 @@ function server_log($message){
 	if(empty($message))
 		return false;
 	if(IS_DEBUG){
-		echo correct_charset($message),PHP_EOL;
+		echo PHP_EOL,correct_charset($message),PHP_EOL;
 		flush();
 	}else{
 		return write_log('server',$message);
@@ -26,10 +26,13 @@ function server_log($message){
 
 function write_log($type,$message){
 	static $types;
-	if(!$types)
+	if(!$types){
 		$types=array();
+	}
 	if(!isset($types[$type]) && file_exists(LOG_DIR.$type.'_size.log')){
+		ssp_mutex_lock();
 		$types[$type]=LIB('io.file')->read(LOG_DIR.$type.'_size.log')+0;
+		ssp_mutex_unlock();
 	}
 
 	$n=(isset($types[$type])?$types[$type]:1);
@@ -41,17 +44,12 @@ function write_log($type,$message){
 	}
 
 	if($types[$type]!=$n){
+		ssp_mutex_lock();
+		$types[$type]=$n;
+		ssp_mutex_unlock();
 		LIB('io.file')->write(LOG_DIR.$type.'-size.log',$n);
 	}
-
-	if(!$fp=fopen($file,'ab')){
-		return false;
-	}
-	$message.=PHP_EOL;
-	if(fwrite($fp,$message,strlen($message))===false)
-		return false;
-	fclose($fp);
-	return true;
+	return LIB('io.file')->write($file,$message.PHP_EOL.PHP_EOL,true);
 }
 
 //检查头像是否上传

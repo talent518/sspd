@@ -101,7 +101,7 @@ Class CtlUser extends CtlBase{
 			MOD('user.online')->edit($sockfd,$data);
 			if(UGK($uid,'use_expiry',false)){
 				$expiry=MOD('user.setting')->get($uid,'expiry');
-				$servday=ceil(($expiry-$user['logtime'])/86400);
+				$servday=round(($expiry-$user['logtime'])/86400,1);
 				if($servday<=0){
 					MOD('user.online')->drop($sockfd,true);
 					$response->type='User.Login.Failed';
@@ -132,6 +132,8 @@ Class CtlUser extends CtlBase{
 				$response->user->setting->servday=$servday;
 				$response->user->prevlogtime=udate('Y-m-d H:i:s',$user['prevlogtime'],$uid);
 				$response->user->logtime=udate('Y-m-d H:i:s',$user['logtime'],$uid);
+				$remind=MOD('count')->remind($uid);
+				$response->remind=array_to_xml($remind,'remind');
 			}else{
 				$response->setText('登录成功！');
 			}

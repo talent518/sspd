@@ -11,11 +11,11 @@ case $1 in
   start|stop|restart|status)
     $SSP_BIN $1
     ;;
-  serv_dir)
+  path)
     echo "{SSP_DIR}"
     ;;
   *)
-    echo $"Usage: $0 {start|stop|restart|status|serv_dir}"
+    echo $"Usage: $0 {start|stop|restart|status|path}"
     exit 2
 esac
 

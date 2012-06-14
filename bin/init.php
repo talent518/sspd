@@ -16,8 +16,11 @@ if(defined('SSP_HOST')){
 if(defined('SSP_PORT')){
 	ssp_setopt(SSP_OPT_PORT,SSP_PORT);
 }
-if(defined('SSP_MAX')){
-	ssp_setopt(SSP_OPT_MAX,SSP_MAX);
+if(defined('SSP_MAX_CLIENTS')){
+	ssp_setopt(SSP_OPT_MAX_CLIENTS,SSP_MAX_CLIENTS);
+}
+if(defined('SSP_MAX_RECVS')){
+	ssp_setopt(SSP_OPT_MAX_RECVS,SSP_MAX_RECVS);
 }
 
 ssp_bind(SSP_START,'ssp_start_handler');
@@ -55,7 +58,7 @@ function ssp_connect_denied_handler($ClientId){
 	server_log('Too many connections.');
 	$response=new XML_Element('response');
 	$response->type='Connect.Denied';
-	$response->setText('服务器连接太多，请等待再试！');
+	$response->setText('服务器连接正在排对中……');
 	ssp_send($ClientId,(string)$response);
 }
 
@@ -141,7 +144,6 @@ function ssp_close_handler($ClientId){
 	extract($info);
 	server_log( 'Close connection ( '.$sockfd.' ) from '.$host.' on port '.$port.'. Time at '.date('m-d H:i:s',MOD('user.online')->get_by_client($sockfd,'time')));
 	MOD('user.online')->drop($sockfd);
-	server_log('Closed connection2('.$sockfd.')');
 }
 
 function ssp_stop_handler(){
