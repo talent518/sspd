@@ -96,3 +96,5 @@ CREATE TABLE `ssp_user_invest` (
 ALTER TABLE `fenxihui`.`ssp_user_stock`   
   ADD COLUMN `isread` TINYINT(1) UNSIGNED NOT NULL  COMMENT '是否已读' AFTER `evaldate`,
   ADD COLUMN `readtime` INT NOT NULL  COMMENT '阅读时间' AFTER `isread`;
+
+ALTER TABLE `fenxihui`.`ssp_user_setting` ADD COLUMN `sendkey` VARCHAR(20) NOT NULL COMMENT '直播发送键' AFTER `invest_dateline`, ADD COLUMN `sendkey_dateline` INT NOT NULL COMMENT '直播发送键设置时间' AFTER `sendkey`;

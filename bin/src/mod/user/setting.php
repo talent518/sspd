@@ -34,7 +34,7 @@ class ModUserSetting extends ModBase{
 			$data['uid']=$uid;
 			return $this->add($data,false);
 		}else{
-			return $this->edit($uid,$data,false,false);
+			return $this->edit($uid,$data,false);
 		}
 	}
 	function clean($uid){

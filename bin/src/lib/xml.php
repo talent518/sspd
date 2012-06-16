@@ -207,13 +207,46 @@ class XML_Element extends stdClass{
 		$this->{$this->__length++}=$child;
 		$this->hasAttr=true;
 	}
+	function removeChild($child){
+		foreach($this as $k=>$v){
+			if($child==$v){
+				$this->$k=null;
+				unset($this->$k);
+				return $k;
+			}
+		}
+		return false;
+	}
+	function removeChildAt($key){
+		if(property_exists($this,$key)){
+			$ret=$this->$key;
+			$this->$key=null;
+			unset($this->$key);
+			return $ret;
+		}else{
+			return false;
+		}
+	}
+	function addAttr($k,$v){
+		$this->$k=$v;
+	}
+	function removeAttr($k){
+		return $this->removeChildAt($k);
+	}
+	function getAttr($k){
+		if($this->$k instanceof XML_Element){
+			$this->$k->getText();
+		}else{
+			return $this->$k;
+		}
+	}
 	function __set($key,$value){
 		$this->$key=$value;
 		$this->hasAttr=true;
 	}
 	function __toString(){
-		$return=($this->hasAttr || $this->__text===null?object_to_xml($this):$this->__text);
+		$return=($this->hasAttr?object_to_xml($this):$this->__text);
 		//var_dump($return);
-		return $return;
+		return (string)$return;
 	}
 }

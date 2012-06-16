@@ -120,6 +120,7 @@ function ssp_receive_handler($ClientId,$data){
 		$error=null;
 	}
 	$data=null;
+	return "";
 }
 
 function ssp_send_handler($ClientId,$data){

@@ -9,6 +9,10 @@ Class CtlBroadcast extends CtlBase{
 	function onState($request){
 		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
 		$response=new XML_Element('response');
+		$response->sendKey=MOD('user.setting')->get($uid,'sendkey');
+		if(empty($response->sendKey)){
+			$response->sendKey='Click';
+		}
 		if(UGK($uid,'broadcast_add')){
 			$response->type='Broadcast.State.Succeed';
 			$response->state='add';
@@ -93,7 +97,7 @@ Class CtlBroadcast extends CtlBase{
 
 		$data=array(
 			'uid'=>$uid,
-			'message'=>(string)($request->params->rtf),
+			'message'=>object_to_xml($request->params->rtf),
 			'dateline'=>time(),
 			'dateday'=>@strtotime('today'),
 		);
@@ -124,8 +128,11 @@ Class CtlBroadcast extends CtlBase{
 			$response->type='Broadcast.Send.Failed';
 			$response->setText('发送失败！');
 		}
-		$response->dateline=$message['dateline'];
 		return $response;
+	}
+	function onSendKey($request){
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		MOD('user.setting')->set($uid,'sendkey',(string)($request->params->key));
 	}
 	function onClose($request){
 		$sockfd=ssp_info($request->ClientId,'sockfd');

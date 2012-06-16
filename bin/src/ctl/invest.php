@@ -107,9 +107,9 @@ Class CtlInvest extends CtlBase{
 			$remind=new XML_Element('response');
 			$remind->type='Remind.Invest';
 			$remind->remind=array_to_xml($data,'remind');
-			foreach(MOD('user.online')->get_list_by_where('uid>0 AND uid!='.$uid) as $sf=>$r){
+			foreach(MOD('user.online')->get_list_by_where('uid>0') as $sf=>$r){
 				if(UGK($r['uid'],'invest')){
-					ssp_send($sf,$remind);
+					$this->send($sf,$remind);
 				}
 			}
 		}elseif($error=MOD('invest')->error){
