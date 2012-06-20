@@ -94,7 +94,6 @@ Class CtlGold extends CtlBase{
 
 			$remind=new XML_Element('response');
 			$remind->type='Remind.Gold';
-			$remind->remind=array_to_xml($data,'remind');
 			foreach(MOD('user.online')->get_list_by_where('uid>0') as $sf=>$r){
 				if(UGK($r['uid'],'gold')){
 					$this->send($sf,$remind);

@@ -76,25 +76,63 @@ ALTER TABLE `fenxihui`.`ssp_user_setting`
   ADD COLUMN `expiry_dateline` INT NOT NULL  COMMENT '开通时间' AFTER `expiry`;
 
 CREATE TABLE `ssp_user_gold` (
-  `ugid` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `uid` int(10) unsigned NOT NULL,
-  `gid` int(10) unsigned NOT NULL,
-  `isread` tinyint(3) unsigned NOT NULL,
-  `readtime` int(11) NOT NULL,
+  `ugid` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `uid` INT(10) UNSIGNED NOT NULL,
+  `gid` INT(10) UNSIGNED NOT NULL,
+  `isread` TINYINT(3) UNSIGNED NOT NULL,
+  `readtime` INT(11) NOT NULL,
   PRIMARY KEY (`ugid`),
   UNIQUE KEY `uid_gid` (`uid`,`gid`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+) ENGINE=MYISAM DEFAULT CHARSET=utf8;
 CREATE TABLE `ssp_user_invest` (
-  `uiid` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `uid` int(10) unsigned NOT NULL,
-  `iid` int(10) unsigned NOT NULL,
-  `isread` tinyint(3) unsigned NOT NULL,
-  `readtime` int(11) NOT NULL,
+  `uiid` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `uid` INT(10) UNSIGNED NOT NULL,
+  `iid` INT(10) UNSIGNED NOT NULL,
+  `isread` TINYINT(3) UNSIGNED NOT NULL,
+  `readtime` INT(11) NOT NULL,
   PRIMARY KEY (`uiid`),
   UNIQUE KEY `uid_iid` (`uid`,`iid`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+) ENGINE=MYISAM DEFAULT CHARSET=utf8;
 ALTER TABLE `fenxihui`.`ssp_user_stock`   
   ADD COLUMN `isread` TINYINT(1) UNSIGNED NOT NULL  COMMENT '是否已读' AFTER `evaldate`,
   ADD COLUMN `readtime` INT NOT NULL  COMMENT '阅读时间' AFTER `isread`;
 
 ALTER TABLE `fenxihui`.`ssp_user_setting` ADD COLUMN `sendkey` VARCHAR(20) NOT NULL COMMENT '直播发送键' AFTER `invest_dateline`, ADD COLUMN `sendkey_dateline` INT NOT NULL COMMENT '直播发送键设置时间' AFTER `sendkey`;
+
+ALTER TABLE `fenxihui`.`ssp_user_online` ADD COLUMN `consult` TINYINT(1) UNSIGNED NOT NULL AFTER `broadcast`;
+ALTER TABLE `fenxihui`.`ssp_user_group` ADD COLUMN `consult` TINYINT(1) UNSIGNED NOT NULL AFTER `invest_add`, ADD COLUMN `consult_ask` TINYINT(1) UNSIGNED NOT NULL AFTER `consult`, ADD COLUMN `consult_reply` TINYINT(1) UNSIGNED NOT NULL AFTER `consult_ask`;
+ALTER TABLE `fenxihui`.`ssp_user_group` DROP COLUMN `consult_ask`;
+ALTER TABLE `fenxihui`.`ssp_user_group` CHANGE `consult` `consult_ask` TINYINT(1) UNSIGNED NOT NULL; 
+CREATE TABLE `ssp_user_consult` (
+  `ucid` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT '直播ID',
+  `from_uid` int(10) unsigned NOT NULL COMMENT '发送者用户ID',
+  `to_uid` int(10) unsigned NOT NULL COMMENT '接收者用户ID',
+  `message` text NOT NULL COMMENT '消息内容',
+  `dateline` int(11) NOT NULL COMMENT '发布时间',
+  `dateday` int(11) NOT NULL COMMENT '发布日期',
+  `isread` tinyint(1) unsigned NOT NULL COMMENT '是否已读',
+  PRIMARY KEY (`ucid`),
+  KEY `uid` (`from_uid`),
+  KEY `dateday` (`dateday`),
+  KEY `ruid` (`to_uid`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+CREATE TABLE `ssp_user_serv` (
+  `cuid` INT(10) UNSIGNED NOT NULL COMMENT '客户用户ID',
+  `uid` INT(10) UNSIGNED NOT NULL COMMENT '分析师用户ID',
+  `gid` INT(10) UNSIGNED NOT NULL COMMENT '客户分组ID',
+  `nickname` VARCHAR(20) NOT NULL COMMENT '客户名称',
+  `remark` VARCHAR(100) NOT NULL COMMENT '客户备注',
+  `isopen` TINYINT(1) UNSIGNED NOT NULL COMMENT '是否打开对话窗口',
+  PRIMARY KEY (`cuid`)
+) ENGINE=MYISAM DEFAULT CHARSET=utf8;
+CREATE TABLE `ssp_user_serv_group` (
+  `gid` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '客户分组ID',
+  `name` VARCHAR(20) NOT NULL COMMENT '客户分组名',
+  `remark` VARCHAR(100) NOT NULL COMMENT '客户分组备注',
+  PRIMARY KEY (`gid`)
+) ENGINE=MYISAM DEFAULT CHARSET=utf8;
+INSERT INTO `ssp_user_serv_group` (`gid`, `name`, `remark`) VALUES('1','季度','季度(1800)');
+INSERT INTO `ssp_user_serv_group` (`gid`, `name`, `remark`) VALUES('2','半年','半年(3600)');
+INSERT INTO `ssp_user_serv_group` (`gid`, `name`, `remark`) VALUES('3','全年','全年(5800)');
+ALTER TABLE `fenxihui`.`ssp_user_serv` ADD COLUMN `unreads` INT UNSIGNED NOT NULL COMMENT '未读数' AFTER `isopen`;
+ALTER TABLE `fenxihui`.`ssp_user_consult` CHANGE `uid` `from_uid` INT(10) UNSIGNED NOT NULL COMMENT '发送者用户ID', CHANGE `ruid` `to_uid` INT(10) UNSIGNED NOT NULL COMMENT '接收者用户ID';

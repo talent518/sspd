@@ -39,6 +39,7 @@ class ModCount{
 			'os'=>DB()->count('user_stock',UGK($uid,'stock_eval')?'evaluid=0 OR evaluid=-'.$uid:'evaluid>0 AND isread=0 AND uid='.$uid),
 			'gold'=>$this->gold($uid),
 			'invest'=>$this->invest($uid),
+			'consult'=>(UGK($uid,'consult_reply') || UGK($uid,'consult_ask'))?MOD('user.consult')->count('isread=0 AND to_uid='.$uid):0,
 		);
 	}
 

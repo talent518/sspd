@@ -99,7 +99,6 @@ Class CtlStock extends CtlBase{
 
 			$remind=new XML_Element('response');
 			$remind->type='Remind.OS';
-			$remind->remind=array_to_xml($data,'remind');
 			foreach(MOD('user.online')->get_list_by_where('uid>0') as $sf=>$r){
 				if(UGK($r['uid'],'stock_eval')){
 					$this->send($sf,$remind);
@@ -173,7 +172,6 @@ Class CtlStock extends CtlBase{
 			if($sf=MOD('user.online')->get_by_user($stock['uid'],'onid')){
 				$remind=new XML_Element('response');
 				$remind->type='Remind.OS';
-				$remind->remind=array_to_xml($stock,'remind');
 				if(UGK($stock['uid'],'stock_add')){
 					$this->send($sf,$remind);
 				}

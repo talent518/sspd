@@ -140,33 +140,6 @@ Class CtlUser extends CtlBase{
 		}
 		return $response;
 	}
-	function userTree($gid){
-		if($userTree=MOD('user')->get_tree_by_group($gid)){
-			$group=MOD('user.group')->get($gid);
-			$isTree=strpos($group['userlistgroup'],',')!==false;
-			$xml=($isTree?new XML_Element('userTree'):array());
-			foreach($userTree as $r){
-				$g=MOD('user.group')->get($r['gid']);
-				$r['nickname']=empty($r['nickname'])?$r['username']:$r['nickname'];
-				unset($r['gid'],$r['username']);
-				$r['avatar']=avatar($r['uid'],'small');
-				if($isTree){
-					$tags=$g['gname'].'s';
-					if(!$xml->$tags){
-						$xml->$tags=new XML_Element($tags);
-						$xml->$tags->gid=$g['gid'];
-						$xml->$tags->name=$g['gname'];
-						$xml->$tags->label=$g['title'];
-					}
-					$xml->$tags->$r['uid']=array_to_xml($r,$g['gname']);
-				}else{
-					$xml[$r['uid']]=array_to_xml($r,$g['gname']);
-				}
-			}
-			return $xml;
-		}
-		return false;
-	}
 	function newsTree($uid){
 		$xml=new XML_Element('newsTree');
 		$groups=MOD('news.group')->get_list_by_where();
@@ -348,15 +321,8 @@ Class CtlUser extends CtlBase{
 		}
 		return $response;
 	}
-	function onPriv($request){
-		$response=new XML_Element('response');
+	function onSendKey($request){
 		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
-		if(UGK($uid,(string)($request->params->key))){
-			$response->type='User.Priv.Succeed';
-		}else{
-			$response->type='User.Priv.Failed';
-			$response->setText(USER_NOPRIV_MSG);
-		}
-		return $response;
+		MOD('user.setting')->set($uid,'sendkey',(string)($request->params->key));
 	}
 }

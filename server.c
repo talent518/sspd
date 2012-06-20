@@ -148,6 +148,12 @@ void thread(node *ptr){
 		if(len==0)
 			break;
 
+		if(strncmp(package,"<?xml ",6)!=0){
+			free(package);
+			recved_len=0;
+			continue;
+		}
+
 		recved_len+=len;
 
 		if(recved_len==recv_len && recv_len>0){

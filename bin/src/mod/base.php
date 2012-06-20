@@ -22,21 +22,24 @@ class ModBase{
 		}
 	}
 	function exists($id){
-		return $id!==0?DB()->select(array(
+		return $id!==0?$this->exists_by_where($this->priKey.'='.($id+0)):0;
+	}
+	function exists_by_where($where){
+		return $where?DB()->select(array(
 				'table'=>$this->table,
 				'field'=>$this->priKey,
-				'where'=>$this->priKey.'='.($id+0)
+				'where'=>$where,
 			),SQL_SELECT_ONLY,$this->priKey):0;
 	}
-	function get($id){
-		return $id!==0?$this->get_by_where($this->priKey.'='.($id+0)):false;
+	function get($id,$key=''){
+		return $id!==0?$this->get_by_where($this->priKey.'='.($id+0),$key):false;
 	}
-	function get_by_where($where=''){
+	function get_by_where($where='',$key=''){
 		return DB()->select(array(
 				'table'=>$this->table,
-				'field'=>'*',
+				'field'=>$key?"`{$key}`":'*',
 				'where'=>$where
-			),SQL_SELECT_ONLY);
+			),SQL_SELECT_ONLY,$key);
 	}
 	function get_list_by_where($where='',$limit=0,$order=''){
 		return DB()->select(array(
