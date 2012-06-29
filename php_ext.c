@@ -3,6 +3,7 @@
 #include <error.h>
 
 int le_ssp_descriptor;
+int le_ssp_mutex_descriptor;
 pthread_mutex_t ssp_mutex;
 
 /* {{{ arginfo */
@@ -26,14 +27,19 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 2)
 	ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mutex_create, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mutex_destroy, 0, 0, 1)
+	ZEND_ARG_INFO(0, mutex)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mutex_lock, 0, 0, 0)
-	ZEND_ARG_INFO(0, socket)
-	ZEND_ARG_INFO(0, key)
+	ZEND_ARG_INFO(0, mutex)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mutex_unlock, 0, 0, 0)
-	ZEND_ARG_INFO(0, socket)
-	ZEND_ARG_INFO(0, key)
+	ZEND_ARG_INFO(0, mutex)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_send, 0, 0, 2)
@@ -52,6 +58,8 @@ function_entry ssp_functions[] = {
 	PHP_FE(ssp_bind, arginfo_ssp_bind)
 	PHP_FE(ssp_resource, arginfo_ssp_resource)
 	PHP_FE(ssp_info, arginfo_ssp_info)
+	PHP_FE(ssp_mutex_create, arginfo_ssp_mutex_create)
+	PHP_FE(ssp_mutex_destroy, arginfo_ssp_mutex_destroy)
 	PHP_FE(ssp_mutex_lock, arginfo_ssp_mutex_lock)
 	PHP_FE(ssp_mutex_unlock, arginfo_ssp_mutex_unlock)
 	PHP_FE(ssp_send, arginfo_ssp_send)
@@ -83,6 +91,8 @@ zend_module_entry ssp_module_entry = {
 /* {{{ MINIT */
 static PHP_MINIT_FUNCTION(ssp)
 {
+	REGISTER_STRING_CONSTANT("SSP_VERSION",  PHP_SSP_VERSION,  CONST_CS | CONST_PERSISTENT);
+
 	REGISTER_LONG_CONSTANT("SSP_START",  PHP_SSP_START,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_RECEIVE",  PHP_SSP_RECEIVE,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_SEND",  PHP_SSP_SEND,  CONST_CS | CONST_PERSISTENT);
@@ -99,6 +109,7 @@ static PHP_MINIT_FUNCTION(ssp)
 	REGISTER_LONG_CONSTANT("SSP_OPT_MAX_RECVS",  PHP_SSP_OPT_MAX_RECVS,  CONST_CS | CONST_PERSISTENT);
 	
 	le_ssp_descriptor = zend_register_list_destructors_ex(NULL, NULL, PHP_SSP_DESCRIPTOR_RES_NAME,module_number);
+	le_ssp_mutex_descriptor = zend_register_list_destructors_ex(NULL, NULL, PHP_SSP_MUTEX_DESCRIPTOR_RES_NAME,module_number);
 	return SUCCESS;
 }
 /* }}} */
@@ -341,12 +352,57 @@ static PHP_FUNCTION(ssp_info){
 	}
 }
 
+static PHP_FUNCTION(ssp_mutex_create){
+	pthread_mutex_t *mutex;
+	mutex=(pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+	if(pthread_mutex_init(mutex,NULL)==0){
+		//php_printf("create mutex,%d\n",mutex);
+		ZEND_REGISTER_RESOURCE(return_value,mutex,le_ssp_mutex_descriptor);
+	}else{
+		RETURN_FALSE;
+	}
+}
+static PHP_FUNCTION(ssp_mutex_destroy){
+	zval *res;
+	pthread_mutex_t *mutex;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &res) == FAILURE) {
+		RETURN_FALSE;
+	}
+	ZEND_FETCH_RESOURCE(mutex,pthread_mutex_t*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_mutex_descriptor);
+	pthread_mutex_destroy(mutex);
+	//php_printf("destroy mutex,%d\n",mutex);
+	RETURN_NULL();
+}
 static PHP_FUNCTION(ssp_mutex_lock){
-	pthread_mutex_lock(&ssp_mutex);
+	zval *res=NULL;
+	pthread_mutex_t *mutex;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|r", &res) == FAILURE) {
+		RETURN_FALSE;
+	}
+	if(res){
+		ZEND_FETCH_RESOURCE(mutex,pthread_mutex_t*, &res, -1, PHP_SSP_MUTEX_DESCRIPTOR_RES_NAME,le_ssp_mutex_descriptor);
+		pthread_mutex_lock(mutex);
+		//php_printf("lock mutex,%d\n",mutex);
+	}else{
+		pthread_mutex_lock(&ssp_mutex);
+		//php_printf("lock ssp_mutex\n");
+	}
 	RETURN_NULL();
 }
 static PHP_FUNCTION(ssp_mutex_unlock){
-	pthread_mutex_unlock(&ssp_mutex);
+	zval *res=NULL;
+	pthread_mutex_t *mutex;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|r", &res) == FAILURE) {
+		RETURN_FALSE;
+	}
+	if(res){
+		ZEND_FETCH_RESOURCE(mutex,pthread_mutex_t*, &res, -1, PHP_SSP_MUTEX_DESCRIPTOR_RES_NAME,le_ssp_mutex_descriptor);
+		pthread_mutex_unlock(mutex);
+		//php_printf("unlock mutex,%d\n",mutex);
+	}else{
+		pthread_mutex_unlock(&ssp_mutex);
+		//php_printf("unlock ssp_mutex\n");
+	}
 	RETURN_NULL();
 }
 
@@ -378,12 +434,3 @@ static PHP_FUNCTION(ssp_close)
 	close(ptr->sockfd);
 	del(head,ptr->sockfd);
 }
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: noet sw=4 ts=4 fdm=marker
- * vim<600: noet sw=4 ts=4
- */

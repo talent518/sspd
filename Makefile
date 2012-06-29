@@ -1,9 +1,3 @@
-#
-# $Header$
-#
-# See http://phi.lv?p=240
-#
-
 CC=gcc
 
 PHP_DIR = /usr
@@ -27,7 +21,3 @@ $(BIN_DIR)/%.o: %.c
 clean:
 	@rm -rf $(BIN_DIR)/*.o
 	@rm -rf $(BIN_DIR)/ssp
-
-#
-# $Log$
-#

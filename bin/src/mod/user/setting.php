@@ -10,23 +10,34 @@ class ModUserSetting extends ModBase{
 	protected $priKey='uid';
 	protected $order;
 	private $users=array();
-	function get($uid,$key=''){
-		if(!isset($this->users[$uid])){
-			ssp_mutex_lock();
-			$this->users[$uid]=parent::get($uid);
-			if(empty($this->users[$uid])){
-				$this->users[$uid]=null;
-				unset($this->users[$uid]);
+
+	protected $mutex;
+	function ModUserSetting(){
+		$this->mutex=ssp_mutex_create();
+	}
+	
+	function get($uid,$key='',$isCache=true){
+		if($isCache || isset($this->users[$uid])){
+			if(!isset($this->users[$uid])){
+				ssp_mutex_lock($this->mutex);
+				$this->users[$uid]=parent::get($uid);
+				if(empty($this->users[$uid])){
+					$this->users[$uid]=null;
+					unset($this->users[$uid]);
+				}
+				ssp_mutex_unlock($this->mutex);
 			}
-			ssp_mutex_unlock();
+			return $key?$this->users[$uid][$key]:$this->users[$uid];
+		}else{
+			return parent::get($uid,$key);
 		}
-		return $key?$this->users[$uid][$key]:$this->users[$uid];
 	}
 	function set($uid,$key,$value=0){
-		$is_exist=isset($this->users[$uid]);
-		ssp_mutex_lock();
-		$this->users[$uid][$key]=$value;
-		ssp_mutex_unlock();
+		if(isset($this->users[$uid])){
+			ssp_mutex_lock($this->mutex);
+			$this->users[$uid][$key]=$value;
+			ssp_mutex_unlock($this->mutex);
+		}
 		$data=array();
 		$data[$key]=$value;
 		$data[$key.'_dateline']=time();
@@ -38,9 +49,9 @@ class ModUserSetting extends ModBase{
 		}
 	}
 	function clean($uid){
-		ssp_mutex_lock();
+		ssp_mutex_lock($this->mutex);
 		$this->users[$uid]=null;
 		unset($this->users[$uid]);
-		ssp_mutex_unlock();
+		ssp_mutex_unlock($this->mutex);
 	}
 }

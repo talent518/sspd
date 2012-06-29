@@ -95,13 +95,16 @@ class ModUserStock extends ModBase{
 		),
 	);
 	function add($data){
+		ssp_mutex_lock();
 		$this->rules['profitloss']['required']=$data['type']>2;
 		if($this->check($data)){
 			$data['dealdate']=strtotime($data['dealdate']);
 			$data['dateline']=strtotime($data['dateline']);
 			parent::add($data,false);
+			ssp_mutex_unlock();
 			return true;
 		}
+		ssp_mutex_unlock();
 		return false;
 	}
 }

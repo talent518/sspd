@@ -32,7 +32,8 @@ ssp_bind(SSP_CLOSE,'ssp_close_handler');
 ssp_bind(SSP_STOP,'ssp_stop_handler');
 
 function ssp_start_handler(){
-	server_log('Server started at '.date('m-d H:i:s',time()).PHP_EOL.'Listening on port '.SSP_PORT);
+	define('SSP_TIME',time());
+	server_log('Server started at '.date('m-d H:i:s',SSP_TIME).PHP_EOL.'Listening on port '.SSP_PORT);
 	MOD('user.online')->clean();
 }
 
@@ -63,6 +64,7 @@ function ssp_connect_denied_handler($ClientId){
 }
 
 function ssp_receive_handler($ClientId,$data){
+	//echo PHP_EOL,'GC enabled:',gc_enabled(),',status:',gc_collect_cycles(),PHP_EOL;
 	$info=ssp_info($ClientId);
 	extract($info);
 	if($request=xml_to_object($data,false,$error)){
@@ -77,6 +79,10 @@ function ssp_receive_handler($ClientId,$data){
 				if(empty($request)){
 					return;
 				}
+				break;
+			case 'Connect.Ping':
+				data_log( 'Received: "'.trim( $request ).'" from '.$sockfd );
+				return '<response type="Connect.Ping"/>';
 				break;
 			default:
 				break;
@@ -128,7 +134,7 @@ function ssp_send_handler($ClientId,$data){
 	extract($info);
 	data_log('Sending: "'.$data.'" to: '.$sockfd);
 	$xml=xml_to_object($data);
-	if($xml->type!='Connect.Key'){
+	if(!in_array($xml->type,array('Connect.Key','Connect.Ping'))){
 		$key=MOD('user.online')->get_by_client($sockfd,'sendKey');
 		$return=new XML_Element('response');
 		$return->type='Connect.Data';
@@ -144,6 +150,7 @@ function ssp_close_handler($ClientId){
 	$info=ssp_info($ClientId);
 	extract($info);
 	server_log( 'Close connection ( '.$sockfd.' ) from '.$host.' on port '.$port.'. Time at '.date('m-d H:i:s',MOD('user.online')->get_by_client($sockfd,'time')));
+	CTL('user')->logout($ClientId);
 	MOD('user.online')->drop($sockfd);
 }
 

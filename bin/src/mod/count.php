@@ -3,16 +3,41 @@ if(!defined('IN_SERVER'))
 exit('Access Denied');
 
 class ModCount{
-	function &get(){
+	function get(){
 		return array(
 			'user'=>DB()->count('user'),
+			'stock'=>DB()->count('user_stock'),
+			'gold'=>DB()->count('gold'),
+			'invest'=>DB()->count('invest'),
+			'broadcast'=>DB()->count('broadcast'),
+			'consult'=>DB()->count('user_consult'),
+			'client'=>DB()->count('user_serv','uid!=1'),
 		);
 	}
 
-	function &week(){
+	function today(){
+		$time=strtotime('today');
 		return array(
-			'regUser'=>DB()->count('user','regtime>'.strtotime('-1 week')),
-			'activeUser'=>DB()->count('user','lastactivetime>'.strtotime('-1 week')),
+			'regUser'=>DB()->count('user','regtime>'.$time),
+			'activeUser'=>DB()->count('user','logtime>'.$time),
+			'stock'=>DB()->count('user_stock','dateline>'.$time),
+			'gold'=>DB()->count('gold','dateline>'.$time),
+			'invest'=>DB()->count('invest','dateline>'.$time),
+			'broadcast'=>DB()->count('broadcast','dateline>'.$time),
+			'consult'=>DB()->count('user_consult','dateline>'.$time),
+		);
+	}
+
+	function week(){
+		$time=strtotime('-1 week');
+		return array(
+			'regUser'=>DB()->count('user','regtime>'.$time),
+			'activeUser'=>DB()->count('user','logtime>'.$time),
+			'stock'=>DB()->count('user_stock','dateline>'.$time),
+			'gold'=>DB()->count('gold','dateline>'.$time),
+			'invest'=>DB()->count('invest','dateline>'.$time),
+			'broadcast'=>DB()->count('broadcast','dateline>'.$time),
+			'consult'=>DB()->count('user_consult','dateline>'.$time),
 		);
 	}
 
@@ -34,7 +59,7 @@ class ModCount{
 		),SQL_SELECT_ONLY,'count')+0;
 	}
 
-	function &remind($uid){
+	function remind($uid){
 		return array(
 			'os'=>DB()->count('user_stock',UGK($uid,'stock_eval')?'evaluid=0 OR evaluid=-'.$uid:'evaluid>0 AND isread=0 AND uid='.$uid),
 			'gold'=>$this->gold($uid),
@@ -43,9 +68,9 @@ class ModCount{
 		);
 	}
 
-	function &runtime(){
+	function runtime(){
 		$dbsize = 0;
-		$query=DB()->query("SHOW TABLE STATUS LIKE '{DB()->tablepre}%'");
+		$query=DB()->query('SHOW TABLE STATUS LIKE \''.DB()->tablepre.'%\'');
 		while($table=DB()->row($query)){
 			$dbsize+=$table['Data_length']+$table['Index_length'];
 		}

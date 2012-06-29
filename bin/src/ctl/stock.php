@@ -89,6 +89,7 @@ Class CtlStock extends CtlBase{
 			'stoploss'=>(string)($params->stoploss),
 			'reason'=>(string)($params->reason),
 			'profitloss'=>(string)($params->profitloss),
+			'dateline'=>time(),
 		);
 		$response=new XML_Element('response');
 		if(MOD('user.stock')->add($data)){

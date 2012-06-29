@@ -136,3 +136,12 @@ INSERT INTO `ssp_user_serv_group` (`gid`, `name`, `remark`) VALUES('2','半年',
 INSERT INTO `ssp_user_serv_group` (`gid`, `name`, `remark`) VALUES('3','全年','全年(5800)');
 ALTER TABLE `fenxihui`.`ssp_user_serv` ADD COLUMN `unreads` INT UNSIGNED NOT NULL COMMENT '未读数' AFTER `isopen`;
 ALTER TABLE `fenxihui`.`ssp_user_consult` CHANGE `uid` `from_uid` INT(10) UNSIGNED NOT NULL COMMENT '发送者用户ID', CHANGE `ruid` `to_uid` INT(10) UNSIGNED NOT NULL COMMENT '接收者用户ID';
+
+ALTER TABLE `fenxihui`.`ssp_user_group` ADD COLUMN `manage` TINYINT(1) UNSIGNED NOT NULL AFTER `userlistgroup`, ADD COLUMN `manage_user` TINYINT(1) UNSIGNED NOT NULL AFTER `manage`, ADD COLUMN `manage_group` TINYINT(1) UNSIGNED NOT NULL AFTER `manage_user`, ADD COLUMN `manage_serv` TINYINT(1) UNSIGNED NOT NULL AFTER `manage_group`, ADD COLUMN `manage_serv_group` TINYINT(1) UNSIGNED NOT NULL AFTER `manage_serv`, ADD COLUMN `manage_count` TINYINT(1) UNSIGNED NOT NULL AFTER `manage_serv_group`;
+ALTER TABLE `fenxihui`.`ssp_user_serv` ADD COLUMN `phone` VARCHAR(50) NOT NULL COMMENT '客户电话' AFTER `nickname`, ADD COLUMN `email` VARCHAR(100) NULL COMMENT '客户E-Mail' AFTER `phone`, ADD COLUMN `qq` VARCHAR(30) NOT NULL COMMENT '客户QQ' AFTER `email`, ADD COLUMN `funds` INT UNSIGNED NOT NULL COMMENT '客户资金量' AFTER `qq`, ADD COLUMN `address` VARCHAR(40) NOT NULL COMMENT '客户住址' AFTER `funds`;
+ALTER TABLE `fenxihui`.`ssp_user_group` ADD COLUMN `manage_service` TINYINT(1) UNSIGNED NOT NULL AFTER `manage_serv_group`;
+ALTER TABLE `fenxihui`.`ssp_user_group` CHANGE `manage_group` `manage_user_group` TINYINT(1) UNSIGNED NOT NULL;
+ALTER TABLE `fenxihui`.`ssp_user_group` DROP `counts`;
+ALTER TABLE `fenxihui`.`ssp_user_group` DROP `userlistgroup`;
+ALTER TABLE `fenxihui`.`ssp_user_group` DROP PRIMARY KEY, ADD PRIMARY KEY (`gid`, `gname`, `title`);
+ALTER TABLE `fenxihui`.`ssp_user_serv_group` DROP PRIMARY KEY, ADD PRIMARY KEY (`gid`, `name`);

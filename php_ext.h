@@ -1,5 +1,5 @@
-#ifndef PHP_SSP_H
-#define PHP_SSP_H
+#ifndef PHP_EXT_H
+#define PHP_EXT_H
 
 #include "php.h"
 #include <stdio.h>
@@ -9,7 +9,8 @@
 //#define PHP_SSP_DEBUG
 
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp user node"
-#define PHP_SSP_VERSION "v1.0.1"
+#define PHP_SSP_MUTEX_DESCRIPTOR_RES_NAME "ssp thread mutex"
+#define PHP_SSP_VERSION "v1.0.6"
 
 #define PHP_SSP_START 0
 #define PHP_SSP_RECEIVE 1
@@ -67,6 +68,8 @@ static PHP_FUNCTION(ssp_setopt);
 static PHP_FUNCTION(ssp_bind);
 static PHP_FUNCTION(ssp_resource);
 static PHP_FUNCTION(ssp_info);
+static PHP_FUNCTION(ssp_mutex_create);
+static PHP_FUNCTION(ssp_mutex_destroy);
 static PHP_FUNCTION(ssp_mutex_lock);
 static PHP_FUNCTION(ssp_mutex_unlock);
 static PHP_FUNCTION(ssp_send);
@@ -74,13 +77,4 @@ static PHP_FUNCTION(ssp_close);
 
 ZEND_DECLARE_MODULE_GLOBALS(ssp)
 
-#endif  /* PHP_SSP_H */
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: noet sw=4 ts=4 fdm=marker
- * vim<600: noet sw=4 ts=4
- */
+#endif  /* PHP_EXT_H */

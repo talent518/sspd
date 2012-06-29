@@ -135,7 +135,7 @@ function xml_to_object($xml,$isMultiRoot=false,&$error=false){
  * @param boolean $head 是否包括xml头信息
  * @return XML文本
  */
-function object_to_xml(&$object,$head=true){
+function object_to_xml(&$object,$head=false){
 	$return=($head===true?'<?xml version="1.0" encoding="utf-8"?>':'');
 	if($object instanceof XML_Element){
 		$p=$x='';

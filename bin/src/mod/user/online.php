@@ -10,10 +10,16 @@ class ModUserOnline extends ModBase{
 	protected $priKey='onid';
 	protected $order;
 	private $clients=array(),$users=array();
+	
+	protected $mutex;
+	function ModUserOnline(){
+		$this->mutex=ssp_mutex_create();
+	}
+
 	function get_by_user($id,$key=''){
 		if(!isset($this->users[$id])){
 			$user=$this->get_by_where('`uid`='.($id+0));
-			ssp_mutex_lock();
+			ssp_mutex_lock($this->mutex);
 			if($user){
 				$this->users[$id]=$user;
 				if($this->users[$id][$this->priKey]>0){
@@ -22,18 +28,18 @@ class ModUserOnline extends ModBase{
 			}else{
 				$this->users[$id]=array();
 			}
-			ssp_mutex_unlock();
+			ssp_mutex_unlock($this->mutex);
 		}
 		return empty($key)?$this->users[$id]:$this->users[$id][$key];
 	}
 	function get_by_client($id,$key=''){
 		if(!isset($this->clients[$id])){
-			ssp_mutex_lock();
+			ssp_mutex_lock($this->mutex);
 			$this->clients[$id]=$this->get($id);
 			if($this->clients[$id]['uid']>0){
 				$this->users[$this->clients[$id]['uid']]=$this->clients[$id];
 			}
-			ssp_mutex_unlock();
+			ssp_mutex_unlock($this->mutex);
 		}
 		return empty($key)?$this->clients[$id]:$this->clients[$id][$key];
 	}
@@ -42,7 +48,7 @@ class ModUserOnline extends ModBase{
 		return parent::add($data,false);
 	}
 	function edit($id,$data){
-		ssp_mutex_lock();
+		ssp_mutex_lock($this->mutex);
 		$_uid=$this->clients[$id]['uid'];
 		$this->users[$_uid]=null;
 		unset($this->users[$_uid]);
@@ -51,7 +57,7 @@ class ModUserOnline extends ModBase{
 		if($uid>0){
 			$this->users[$uid]=$this->clients[$id];
 		}
-		ssp_mutex_unlock();
+		ssp_mutex_unlock($this->mutex);
 		return parent::edit($id,$data,false);
 	}
 	function drop($id,$isUser=false){
@@ -67,10 +73,10 @@ class ModUserOnline extends ModBase{
 			);
 			return $this->edit($id,$data);
 		}else{
-			ssp_mutex_lock();
+			ssp_mutex_lock($this->mutex);
 			$this->clients[$id]=$this->users[$uid]=null;
 			unset($this->clients[$id],$this->users[$uid]);
-			ssp_mutex_unlock();
+			ssp_mutex_unlock($this->mutex);
 			return parent::drop($id);
 		}
 	}
@@ -78,9 +84,9 @@ class ModUserOnline extends ModBase{
 		foreach(array_keys($this->clients) as $id){
 			$this->drop($id);
 		}
-		ssp_mutex_lock();
+		ssp_mutex_lock($this->mutex);
 		$this->clients=$this->users=array();
-		ssp_mutex_unlock();
+		ssp_mutex_unlock($this->mutex);
 		$this->delete('1>0');
 	}
 }

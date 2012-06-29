@@ -25,14 +25,17 @@ function server_log($message){
 }
 
 function write_log($type,$message){
-	static $types;
+	static $types,$mutex;
 	if(!$types){
 		$types=array();
 	}
+	if(!is_resource($mutex)){
+		$mutex=ssp_mutex_create();
+	}
 	if(!isset($types[$type]) && file_exists(LOG_DIR.$type.'_size.log')){
-		ssp_mutex_lock();
+		ssp_mutex_lock($mutex);
 		$types[$type]=LIB('io.file')->read(LOG_DIR.$type.'_size.log')+0;
-		ssp_mutex_unlock();
+		ssp_mutex_unlock($mutex);
 	}
 
 	$n=(isset($types[$type])?$types[$type]:1);
@@ -44,9 +47,9 @@ function write_log($type,$message){
 	}
 
 	if($types[$type]!=$n){
-		ssp_mutex_lock();
+		ssp_mutex_lock($mutex);
 		$types[$type]=$n;
-		ssp_mutex_unlock();
+		ssp_mutex_unlock($mutex);
 		LIB('io.file')->write(LOG_DIR.$type.'-size.log',$n);
 	}
 	return LIB('io.file')->write($file,$message.PHP_EOL.PHP_EOL,true);

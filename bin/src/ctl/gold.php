@@ -55,7 +55,7 @@ Class CtlGold extends CtlBase{
 			$xml->setText(USER_NOPRIV_MSG);
 			return $xml;
 		}
-		$xml->counts=MOD('gold')->count($where);
+		$xml->counts=MOD('gold')->count($isToday?'dateline>'.@strtotime('today'):'');
 		$limit=get_limit($page,$size,$xml->counts);
 		$goldList=MOD('gold')->get_list_by_user($uid,$isToday!=0,$limit);
 		foreach($goldList as $r){

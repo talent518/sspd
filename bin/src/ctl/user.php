@@ -37,7 +37,9 @@ Class CtlUser extends CtlBase{
 			$username=trim($params->username);
 			$password=md5($params->password);
 		}
+		ssp_mutex_lock();
 		list($uid,$username,$password,$email)=uc_user_login($username,$password,$isuid);
+		ssp_mutex_unlock();
 
 		$response=new XML_Element('response');
 		if($uid<0){
@@ -192,18 +194,19 @@ Class CtlUser extends CtlBase{
 		return false;
 	}
 	function onRegister($request){
-		$params=&$request->params;
 		$response=new XML_Element('response');
 		$data=array(
-			'username'=>$params->username,
-			'password'=>$params->password,
-			'email'=>$params->email,
+			'username'=>(string)($request->params->username),
+			'password'=>(string)($request->params->password),
+			'email'=>(string)($request->params->email),
 			'regip'=>MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'host'),
 			'regtime'=>time(),
 		);
-		if(MOD('user')->register($data)){
+		if($uid=MOD('user')->register($data)){
 			$response->type='User.Register.Succeed';
-			$response->username=(string)$data['username'];
+			$response->uid=$uid;
+			$response->username=$data['username'];
+			$response->email=$data['email'];
 			$response->setText('注册成功！');
 		}else{
 			$response->type='User.Register.Failed';
@@ -212,23 +215,26 @@ Class CtlUser extends CtlBase{
 		return $response;
 	}
 	function onLostpasswd($request){
-		$params=&$request->params;
 		$response=new XML_Element('response');
 
-		$username=(string)($params->username);
-		$email=(string)($params->email);
+		$username=(string)($request->params->username);
+		$email=(string)($request->params->email);
 
+		ssp_mutex_lock();
 		list($uid,$_username,$_email)=uc_get_user($username,0);
+		ssp_mutex_unlock();
 		if($username!=$_username || $email!=$_email){
 			$response->type='User.Lostpasswd.Succeed';
 			$response->setText('您填写的账户资料不匹配，不能使用取回密码功能，如有疑问请与管理员联系');
 		}else{
 			$password=LIB('string')->rand(8,STRING_RAND_BOTH);
+			ssp_mutex_lock();
 			$status=uc_user_edit($username,null,$password,$email,1);
+			ssp_mutex_unlock();
 			switch($status){
 				case 1:
 					$title=WEB_TITLE;
-					if(MOD('mail')->send($params->email,'找回密码已成功！',"恭喜您！<br/>
+					if(MOD('mail')->send($email,'找回密码已成功！',"恭喜您！<br/>
 　　您在“{$title}”注册的帐户，找回密码已成功！<br/>
 <br/>
 帐户信息如下：<br/>

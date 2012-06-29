@@ -56,10 +56,13 @@ int insert(node *head,node *ptr){
 	pthread_mutex_lock(&node_mutex);
 	node *p;
 	p=head;
+	//printf("\ninsert node:\n");
 	while(p->next!=NULL){
 		p=p->next;
+		//printf("sockfd:%d,host:%s,port:%d,flag:%s\n",p->sockfd,p->host,p->port,p->flag?"true":"false");
 	}
 	p->next=ptr;
+	//printf("new node sockfd:%d,host:%s,port:%d,flag:%s\n",ptr->sockfd,ptr->host,ptr->port,ptr->flag?"true":"false");
 	node_num++;
 	pthread_mutex_unlock(&node_mutex);
 	return 0;
@@ -97,17 +100,19 @@ int recv_int(int sockfd){
 	int len=0,ret,i;
 	buf=(char*)malloc(sizeof(int));
 	bzero(buf,sizeof(int));
-	ret=recv(sockfd,buf,sizeof(int),0);
-	if(ret<1){
-		return ret;
-	}
-	if(ret!=sizeof(int) && debug){
-		php_printf("Server Recieve Package Header Failed:%d\n",ret);
-		return 0;
-	}
+	i=0;
+	do{
+		ret=recv(sockfd,buf+i,sizeof(int)-i,0);
+		if(ret<1){
+			return ret;
+		}
+		i+=ret;
+	}while(i!=sizeof(int));
+
 	for(i=0;i<4;i++){
 		len+=(buf[i]&0xff)<<((3-i)*8);
 	}
+
 	if(len>0){
 		return len;
 	}else{
@@ -147,13 +152,14 @@ void thread(node *ptr){
 		}
 		if(len==0)
 			break;
-
-		if(strncmp(package,"<?xml ",6)!=0){
+/*
+		printf("\npackage len:%d,package data:%s\n",recv_len-recved_len,strndup(package+recved_len,recv_len-recved_len));
+		if(!(strncmp(package,"<?xml ",6)==0 || strncmp(package,"<request ",9)==0)){
 			free(package);
 			recved_len=0;
 			continue;
 		}
-
+*/
 		recved_len+=len;
 
 		if(recved_len==recv_len && recv_len>0){

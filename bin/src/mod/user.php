@@ -51,12 +51,14 @@ class ModUser extends ModBase{
 	function register($data){
 		$data['gid']=USER_REG_GID;
 		if($this->check($data)){
+			ssp_mutex_lock();
 			$uid=uc_user_register($data['username'],$data['password'],$data['email'],null,null,$data['regip']);
+			ssp_mutex_unlock();
 			if($uid>0){
 				$data['uid']=$uid;
 				$data['password']=md5($data['password']);
 				DB()->insert($this->table,$data);
-				return true;
+				return $uid;
 			}else{
 				switch($uid){
 					case UC_USER_CHECK_USERNAME_FAILED:

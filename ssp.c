@@ -1,23 +1,3 @@
-/*
-  +----------------------------------------------------------------------+
-  | PHP Version 5                                                        |
-  +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2011 The PHP Group                                |
-  +----------------------------------------------------------------------+
-  | This source file is subject to version 3.01 of the PHP license,      |
-  | that is bundled with this package in the file LICENSE, and is        |
-  | available through the world-wide-web at the following url:           |
-  | http://www.php.net/license/3_01.txt                                  |
-  | If you did not receive a copy of the PHP license and are unable to   |
-  | obtain it through the world-wide-web, please send a note to          |
-  | license@php.net so we can mail you a copy immediately.               |
-  +----------------------------------------------------------------------+
-  | Author: Omar Kilani <omar@php.net>                                   |
-  +----------------------------------------------------------------------+
-*/
-
-/* $Id: ssp.c 308529 2011-02-21 08:09:02Z scottmac $ */
-
 #include "php_func.h"
 #include "server.h"
 #include "php_ext.h"
@@ -60,10 +40,10 @@ static const opt_struct OPTIONS[] = {
 	{'m', 0, "modules"},
 	{'n', 0, "no-php-ini"},
 	{'H', 0, "hide-args"},
-	{'r', 1, "run"},
 	{'?', 0, "usage"},/* help alias (both '?' and 'usage') */
 	{'v', 0, "version"},
 	{'z', 1, "zend-extension"},
+	{'s', 1, "service"},
 	{14,  0, "debug"},
 	{'-', 0, NULL} /* end of args */
 };
@@ -92,20 +72,18 @@ static void php_cli_usage(char *argv0)
 				"  -h,-?            This help\n"
 				"  -i               PHP information\n"
 				"  -m               Show compiled in modules\n"
-				"  -r <code>        Run PHP <code> without using script tags <?..?>\n"
 				"  -H               Hide any passed arguments from external tools.\n"
 				"  -v               Version number\n"
 				"  -z <file>        Load Zend extension <file>.\n"
 				"\n"
 				"  --debug          Show debug info\n"
 				"\n"
-				"  args:\n"
-				"       install     install ssp service\n"
+				"  -s <option>      socket service option\n"
+				"  option:\n"
 				"       start       start ssp service\n"
 				"       stop        stop ssp service\n"
 				"       restart     restart ssp service\n"
 				"       status      ssp service status\n"
-				"       uninstall   uninstall ssp service\n"
 				"\n"
 				, prog, prog, prog, prog, prog, prog);
 }
@@ -313,14 +291,13 @@ int main(int argc, char *argv[])
 	int c;
 	zend_file_handle file_handle;
 /* temporary locals */
-	char *serv_opt="";
+	char *serv_opt=NULL;
 	int orig_optind=php_optind;
 	char *orig_optarg=php_optarg;
 	char *arg_free=NULL, **arg_excp=&arg_free;
 	char *script_file=NULL;
 	volatile int request_started = 0;
 	int lineno = 0;
-	char *exec_direct=NULL, *exec_run=NULL, *exec_begin=NULL, *exec_end=NULL;
 	const char *param_error=NULL;
 	int hide_argv = 0;
 /* end of temporary locals */
@@ -442,7 +419,7 @@ int main(int argc, char *argv[])
 				}
 
 				request_started = 1;
-				php_printf("PHP %s (%s %s) (built: %s %s) %s\nCopyright (c) 1997-2011 The Abao\n%s",
+				php_printf("PHP %s (%s %s) (built: %s %s) %s\nCopyright (c) 1997-2012 The Abao\n%s",
 					PHP_VERSION, sapi_module.name,PHP_SSP_VERSION, __DATE__, __TIME__,
 #if ZEND_DEBUG && defined(HAVE_GCOV)
 					"(DEBUG GCOV)",
@@ -476,12 +453,12 @@ int main(int argc, char *argv[])
 				script_file = strdup(php_optarg);
 				break;
 
-			case 'r': /* run code from command line */
-				exec_direct=php_optarg;
-				break;
-
 			case 'z': /* load extension file */
 				zend_load_extension(php_optarg);
+				break;
+
+			case 's': /* service control */
+				serv_opt = strdup(php_optarg);
 				break;
 
 			case 'H':
@@ -503,9 +480,7 @@ int main(int argc, char *argv[])
 		}
 
 		/* only set script_file if not set already and not in direct mode and not at end of parameter list */
-		if (argc > php_optind) 
-		{
-			serv_opt=strdup(argv[php_optind]);
+		if (argc > php_optind){
 			php_optind++;
 		}
 		if (script_file) {
@@ -564,24 +539,11 @@ int main(int argc, char *argv[])
 			zend_eval_string_ex("define('STD_CHARSET','utf-8');", NULL, "Command line code", 1 TSRMLS_CC);
 		#endif
 
-		if(strcmp(file_handle.filename, "-") || exec_direct){
-			cli_register_file_handles(TSRMLS_C);
-		}
-
 		if (strcmp(file_handle.filename, "-")) {
+			cli_register_file_handles(TSRMLS_C);
 			php_execute_script(&file_handle TSRMLS_CC);
 		}
 
-		cli_register_file_handles(TSRMLS_C);
-		if (exec_direct && zend_eval_string_ex(exec_direct, NULL, "Command line code", 1 TSRMLS_CC) == FAILURE) {
-			exit_status=254;
-		}
-/*
-		int et;
-		for(et=0;et<PHP_SSP_LEN;et++){
-			php_printf("EventType:%d,CallBack:%s\n",et,SSP_G(bind)[et]);
-		}
-*/
 		if(strcmp(serv_opt,"restart")==0){
 			socket_stop();
 			socket_start();
@@ -591,9 +553,7 @@ int main(int argc, char *argv[])
 			socket_start();
 		}else if(strcmp(serv_opt,"status")==0){
 			socket_status();
-		}else if(strcmp(serv_opt,"install")==0){
-		}else if(strcmp(serv_opt,"uninstall")==0){
-		}else{
+		}else if(serv_opt){
 			php_cli_usage(argv[0]);
 			php_end_ob_buffers(1 TSRMLS_CC);
 			exit_status=1;
@@ -613,12 +573,3 @@ err:
 	php_end();
 	exit(exit_status);
 }
-
-/*
- * Local variables:
- * tab-width: 4
- * c-basic-offset: 4
- * End:
- * vim600: noet sw=4 ts=4 fdm=marker
- * vim<600: noet sw=4 ts=4
- */

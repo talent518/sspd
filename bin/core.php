@@ -81,7 +81,9 @@ function &LIB($lib){
 	if(!isset($libs[$lib])){
 		import('lib.'.$lib);
 		$class='Lib'.GN($lib);
+		ssp_mutex_lock();
 		$libs[$lib]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
+		ssp_mutex_unlock();
 	}
 	return $libs[$lib];
 }
@@ -91,7 +93,9 @@ function &MOD($mod){
 	if(!isset($mods[$mod])){
 		import('mod.'.$mod);
 		$class='Mod'.GN($mod);
+		ssp_mutex_lock();
 		$mods[$mod]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
+		ssp_mutex_unlock();
 	}
 	return $mods[$mod];
 }
@@ -101,7 +105,9 @@ function &CTL($ctl,$is_new=true){
 	if(!isset($ctls[$ctl])){
 		import('ctl.'.$ctl);
 		$class='Ctl'.GN($ctl);
+		ssp_mutex_lock();
 		$ctls[$ctl]=(class_exists($class)?new $class():false);
+		ssp_mutex_unlock();
 	}
 	return $ctls[$ctl];
 }
@@ -141,36 +147,31 @@ function simplode(&$strs) {
 	return "'".implode("','", $strs)."'";
 }
 
-//计算两个时间之差的函数(年,月,周,日,小时,分钟,秒数) 
+//最小时间之差
 function timediff($aTime,$bTime){
 	$td=array();
 	$td['second']=$aTime-$bTime;
-	$td['mintue']=round($td ['second']/60);
-	$td['hour']=round($td ['mintue']/60);
-	$td['day']=round($td ['hour']/24);
-	$td['week']=round($td ['day']/7);
-	$td['month']=round($td ['day']/30);
-	$td['year']=round($td ['day']/365);
-	return $td;
-}
+	$td['mintue']=$td ['second']/60;
+	$td['hour']=$td ['mintue']/60;
+	$td['day']=$td ['hour']/24;
+	$td['week']=$td ['day']/7;
+	$td['month']=$td ['day']/30;
+	$td['year']=$td ['day']/365;
 
-//最小时间之差
-function lowtimediff($aTime,$bTime){
-	$td=timediff($aTime,$bTime);
-	if($td['year']>0){
-		return $td['year'].'年';
-	}elseif($td['month']>0){
-		return $td['month'].'月';
-	}elseif($td['week']>0){
-		return $td['week'].'周';
-	}elseif($td['day']>0){
-		return $td['day'].'天';
-	}elseif($td['hour']>0){
-		return $td['hour'].'小时';
-	}elseif($td['mintue']>0){
-		return $td['mintue'].'分钟';
-	}elseif($td['second']>0){
-		return $td['second'].'秒';
+	if($td['year']>1){
+		return round($td['year'],2).'年';
+	}elseif($td['month']>1){
+		return round($td['month'],2).'月';
+	}elseif($td['week']>1){
+		return round($td['week'],2).'周';
+	}elseif($td['day']>1){
+		return round($td['day'],2).'天';
+	}elseif($td['hour']>1){
+		return round($td['hour'],2).'小时';
+	}elseif($td['mintue']>1){
+		return round($td['mintue'],2).'分钟';
+	}elseif($td['second']>1){
+		return round($td['second'],2).'秒';
 	}else{
 		return '现在';
 	}
@@ -226,13 +227,24 @@ function cdate($format,$time,$cid){
 	return gmdate($format,$time+MOD('user.online')->get_by_client(ssp_info($cid,'sockfd'),'timezone'));
 }
 
+function CGK($gid,$key=false){
+	return MOD('user.group')->get($gid,$key);
+}
+
 function UGK($uid,$key,$isCheckExpiry=true){
 	$gid=MOD('user.online')->get_by_user($uid,'gid');
-	$group=MOD('user.group')->get($gid);
-	if($isCheckExpiry && $group['use_expiry'] && MOD('user.setting')->get($uid,'expiry')<time()){
+	if($isCheckExpiry && CGK($gid,'use_expiry') && MOD('user.setting')->get($uid,'expiry')<time()){
 		return 0;
 	}
-	return $group[$key];
+	return CGK($gid,$key);
+}
+
+function MUK($uid,$key){
+	if($ret=UGK($uid,'manage',false)){
+		return $ret;
+	}else{
+		return UGK($uid,'manage_'.$key,false);
+	}
 }
 
 function get_limit($page,$size,$count){
