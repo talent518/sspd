@@ -44,7 +44,9 @@ class ModUserOnline extends ModBase{
 		return empty($key)?$this->clients[$id]:$this->clients[$id][$key];
 	}
 	function add($data){
+		ssp_mutex_lock($this->mutex);
 		$this->clients[$data[$this->priKey]]=$data;
+		ssp_mutex_unlock($this->mutex);
 		return parent::add($data,false);
 	}
 	function edit($id,$data){

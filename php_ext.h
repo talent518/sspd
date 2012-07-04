@@ -48,6 +48,7 @@ ZEND_BEGIN_MODULE_GLOBALS(ssp)
 	int maxclients;
 	int maxrecvs;
 	char *bind[PHP_SSP_LEN];
+	pthread_mutex_t *mutex;
 ZEND_END_MODULE_GLOBALS(ssp)
 
 #ifdef ZTS
@@ -60,6 +61,7 @@ ZEND_END_MODULE_GLOBALS(ssp)
 
 static PHP_MINIT_FUNCTION(ssp);
 static PHP_GINIT_FUNCTION(ssp);
+static PHP_GSHUTDOWN_FUNCTION(ssp);
 static PHP_MINFO_FUNCTION(ssp);
 
 int trigger(unsigned short type,...);

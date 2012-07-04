@@ -75,7 +75,7 @@ class ModCount{
 			$dbsize+=$table['Data_length']+$table['Index_length'];
 		}
 		return array(
-			'mysql'=>DB()->version(),
+			'mysql'=>'MySQL '.DB()->version(),
 			'dbsize'=>formatsize($dbsize),
 		);
 	}

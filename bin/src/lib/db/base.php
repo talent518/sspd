@@ -8,7 +8,6 @@ define('SQL_SELECT_LIST',2);
 define('SQL_SELECT_STRING',3);
 
 class LibDbBase{
-	var $querys=array();
 	var $host,$user,$pwd,$name,$pconnect,$tablepre,$charset;
 
 	protected function tidy($data){
@@ -24,6 +23,8 @@ class LibDbBase{
 	}
 
 	function connect($silent=FALSE){exit('connect method no define');}
+
+	function ping(){exit('ping method no define');}
 
 	function sdb($name){exit('sdb method no define');}
 
@@ -138,6 +139,10 @@ class LibDbBase{
 
 	function result($query,$row,$field=null){exit('result method no define');}
 
+	function free($query){
+		return $this->clean($query);
+	}
+
 	function clean($query){exit('clean method no define');}
 
 	function insert_id(){exit('insert_id method no define');}
@@ -151,16 +156,14 @@ class LibDbBase{
 	function errno(){exit('errno method no define');}
 
 	function halt($message='',$sql=''){
-		if(!IS_DEBUG)
-			exit($message);
 		$dberror=$this->error();
 		$dberrno=$this->errno();
-		echo PHP_EOL,PHP_EOL,"MySQL Error",PHP_EOL;
-		echo "\tMessage: $message",PHP_EOL;
-		echo "\tSQL: $sql",PHP_EOL;
-		echo "\tError: $dberror",PHP_EOL;
-		echo "\tErrno.: $dberrno",PHP_EOL,PHP_EOL;
-		exit;
+		$msg="MySQL Error".PHP_EOL;
+		$msg.="\tMessage: $message".PHP_EOL;
+		$msg.="\tSQL: $sql".PHP_EOL;
+		$msg.="\tError: $dberror".PHP_EOL;
+		$msg.="\tErrno.: $dberrno";
+		server_log($msg);
 	}
 
 	function __destruct(){

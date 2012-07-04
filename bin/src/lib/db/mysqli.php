@@ -39,25 +39,12 @@ class LibDbMysqli extends LibDbBase{
 	}
 
 	function query($sql,$silent=FALSE,$retry=FALSE){
-		if(IS_DEBUG){
-			$stime=smicrotime();
-		}
 		if(($query=@mysqli_query($this->link,$sql))==FALSE && !$silent){
 			if(in_array($this->errno(), array(2006, 2013)) && $retry===FALSE) {
 				$this->connect();
 				return $this->query($sql,$silent,TRUE);
 			}
 			$this->halt('MySQL Query Error',$sql);
-		}
-		if(IS_DEBUG){
-			$etime=smicrotime();
-			$time=bcmul(bcsub($etime,$stime,8),1000,3);
-
-			$explain=array();
-			if($query && strtolower(substr($sql,0,6))=='select'){
-				$explain=@mysqli_fetch_assoc(@mysqli_query($this->link,'EXPLAIN '.$sql));
-			}
-			$this->querys[]=array('sql'=>$sql,'time'=>$time,'info'=>@mysqli_info(),'explain'=>$explain);
 		}
 		return $query;
 	}

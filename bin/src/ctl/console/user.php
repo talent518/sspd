@@ -197,6 +197,7 @@ Class CtlConsoleUser extends CtlBase{
 			}else{
 				$gid=0;
 			}
+			$data=array();
 			if(($email && $email!=$user['email']) || $password){
 				import('api.uc.client');
 				ssp_mutex_lock();
@@ -224,19 +225,18 @@ Class CtlConsoleUser extends CtlBase{
 					$response->setText($msg);
 					return $response;
 				}else{
-					$data=array();
 					if($password){
 						$data['password']=md5($password);
 					}
 					if($email){
 						$data['email']=$email;
 					}
-					if($gid>0){
-						$data['gid']=$gid;
-					}
-					MOD('user')->edit($uid,$data,false);
 				}
 			}
+			if($gid>0){
+				$data['gid']=$gid;
+			}
+			MOD('user')->edit($uid,$data,false);
 
 			if(CGK($gid>0?$gid:$user['gid'],'use_expiry')){
 				$expiry=(string)($request->params->expiry);

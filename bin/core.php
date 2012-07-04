@@ -59,6 +59,9 @@ function DB(){
 		$db->tablepre=DB_TABLEPRE;
 		$db->connect();
 	}
+	//if(!$db->ping()){
+	//	$db->connect();
+	//}
 	return $db;
 }
 
@@ -73,41 +76,57 @@ function GN($dir){
 }
 
 function import($lib){
-	return @include_once(SRC_DIR.GD($lib).'.php');
+	include_once(SRC_DIR.GD($lib).'.php');
 }
 
 function &LIB($lib){
-	static $libs;
-	if(!isset($libs[$lib])){
-		import('lib.'.$lib);
-		$class='Lib'.GN($lib);
-		ssp_mutex_lock();
-		$libs[$lib]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
-		ssp_mutex_unlock();
+	static $libs,$mutex;
+	if(!$mutex){
+		$mutex=ssp_mutex_create();
+	}
+	if(!is_object($libs[$lib])){
+		ssp_mutex_lock($mutex);
+		if(!is_object($libs[$lib])){
+			import('lib.'.$lib);
+			$class='Lib'.GN($lib);
+			$libs[$lib]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
+			//echo 'LIB:',$lib,PHP_EOL;
+		}
+		ssp_mutex_unlock($mutex);
 	}
 	return $libs[$lib];
 }
 
 function &MOD($mod){
-	static $mods;
-	if(!isset($mods[$mod])){
-		import('mod.'.$mod);
-		$class='Mod'.GN($mod);
-		ssp_mutex_lock();
-		$mods[$mod]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
-		ssp_mutex_unlock();
+	static $mods,$mutex;
+	if(!$mutex){
+		$mutex=ssp_mutex_create();
+	}
+	if(!is_object($mods[$mod])){
+		ssp_mutex_lock($mutex);
+		if(!is_object($mods[$mod])){
+			import('mod.'.$mod);
+			$class='Mod'.GN($mod);
+			$mods[$mod]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
+		}
+		ssp_mutex_unlock($mutex);
 	}
 	return $mods[$mod];
 }
 
 function &CTL($ctl,$is_new=true){
-	static $ctls;
-	if(!isset($ctls[$ctl])){
-		import('ctl.'.$ctl);
-		$class='Ctl'.GN($ctl);
-		ssp_mutex_lock();
-		$ctls[$ctl]=(class_exists($class)?new $class():false);
-		ssp_mutex_unlock();
+	static $ctls,$mutex;
+	if(!$mutex){
+		$mutex=ssp_mutex_create();
+	}
+	if(!is_object($ctls[$ctl])){
+		ssp_mutex_lock($mutex);
+		if(!is_object($ctls[$ctl])){
+			import('ctl.'.$ctl);
+			$class='Ctl'.GN($ctl);
+			$ctls[$ctl]=(class_exists($class)?new $class():false);
+		}
+		ssp_mutex_unlock($mutex);
 	}
 	return $ctls[$ctl];
 }

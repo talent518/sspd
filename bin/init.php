@@ -39,20 +39,7 @@ function ssp_start_handler(){
 
 function ssp_connect_handler($ClientId){
 	$info=ssp_info($ClientId);
-	extract($info);
-	$data=array(
-		'onid'=>$sockfd,
-		'host'=>$host,
-		'port'=>$port,
-		'time'=>time(),
-		'sendKey'=>LIB('string')->rand(128,STRING_RAND_BOTH),
-	);
-	MOD('user.online')->add($data);
-	server_log( 'New connection ( '.$sockfd.' ) from '.$host.' on port '.$port.'. Time at '.date('m-d H:i:s',$data['time']));
-	$response=new XML_Element('response');
-	$response->type='Connect.Key';
-	$response->setText($data['sendKey']);
-	ssp_send($ClientId,(string)$response);
+	server_log( 'New connection ( '.$info['sockfd'].' ) from '.$info['host'].' on port '.$info['port'].'. Time at '.date('m-d H:i:s',time()));
 }
 
 function ssp_connect_denied_handler($ClientId){
@@ -64,15 +51,28 @@ function ssp_connect_denied_handler($ClientId){
 }
 
 function ssp_receive_handler($ClientId,$data){
-	//echo PHP_EOL,'GC enabled:',gc_enabled(),',status:',gc_collect_cycles(),PHP_EOL;
 	$info=ssp_info($ClientId);
 	extract($info);
 	if($request=xml_to_object($data,false,$error)){
 		switch($request->type){
 			case 'Connect.Key':
-				MOD('user.online')->edit($sockfd,array('receiveKey'=>$request->getText()));
+				$data=array(
+					'onid'=>$sockfd,
+					'host'=>$host,
+					'port'=>$port,
+					'time'=>$time,
+					'sendKey'=>LIB('string')->rand(128,STRING_RAND_BOTH),
+					'receiveKey'=>$request->getText(),
+				);
+				MOD('user.online')->add($data);
+
 				data_log( 'Received: "'.trim( $request ).'" from '.$sockfd );
-				return;
+
+				$response=new XML_Element('response');
+				$response->type='Connect.Key';
+				$response->setText($data['sendKey']);
+
+				return $response;
 			case 'Connect.Data':
 				$key=MOD('user.online')->get_by_client($sockfd,'receiveKey');
 				$request=xml_to_object(str_decode($request->getText(),$key));
@@ -126,7 +126,6 @@ function ssp_receive_handler($ClientId,$data){
 		$error=null;
 	}
 	$data=null;
-	return "";
 }
 
 function ssp_send_handler($ClientId,$data){

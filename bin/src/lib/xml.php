@@ -87,27 +87,7 @@ function xml_to_object($xml,$isMultiRoot=false,&$error=false){
 
 	foreach($tags as $tag){
 		if($tag['type']=='complete' || $tag['type']=='open'){
-			unset($elem,$e);
-			if(count($stack))
-				$elem=&$stack[count($stack)-1];
-			else
-				$elem=&$element;
-
 			$e=new XML_Element($tag['tag']);
-
-			if(is_array($elem)){
-				array_push($elem,&$e);
-			}elseif($elem!==null){
-				if($elem->getTag()==$tag['tag'].'s'){
-					$elem->addChild(&$e);
-				}else{
-					$elem->$tag['tag']=&$e;
-				}
-			}elseif(is_array($element)){
-				$elem=&$e;
-			}else{
-				$element=&$e;
-			}
 
 			if(isset($tag['attributes'])){
 				foreach($tag['attributes'] as $k=>$v)
@@ -117,8 +97,29 @@ function xml_to_object($xml,$isMultiRoot=false,&$error=false){
 			if(isset($tag['value']))
 				$e->setText($tag['value']);
 
+			if(count($stack))
+				$elem=$stack[count($stack)-1];
+			else
+				$elem=&$element;
+
+			if(is_array($elem)){
+				array_push($elem,$e);
+			}elseif($elem!==null){
+				if($elem->getTag()==$tag['tag'].'s'){
+					$elem->addChild($e);
+				}else{
+					$elem->$tag['tag']=$e;
+				}
+			}elseif(is_array($element)){
+				array_push($elem,$e);
+			}else{
+				$element=$e;
+			}
+
 			if($tag['type']=='open')
-				array_push($stack,$e);
+				$stack[count($stack)]=$e;
+
+			unset($elem,$e);
 		}
 		if($tag['type']=='close'){
 			array_pop($stack);

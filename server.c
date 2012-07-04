@@ -78,8 +78,7 @@ int del(node *head,int socket){
 		pthread_mutex_unlock(&node_mutex);
 		return (-1);
 	}
-	while(p->next!=NULL)
-	{
+	while(p->next!=NULL){
 		q=p->next;
 		if(q->sockfd==socket)
 		{
@@ -125,11 +124,17 @@ void thread(node *ptr){
 	int recv_len=0,recved_len=0,len,i;
 	char *package;
 
+	if(debug){
+		php_printf("\nAccept new connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
+	}
+
+	pthread_mutex_lock(&node_mutex);
 	trigger(PHP_SSP_CONNECT,ptr);
 	if(node_num>SSP_G(maxclients)){
 		trigger(PHP_SSP_CONNECT_DENIED,ptr);
 		ptr->flag=false;
 	}
+	pthread_mutex_unlock(&node_mutex);
 
 	while(ptr->flag){
 		if(recved_len==0){
@@ -140,6 +145,9 @@ void thread(node *ptr){
 					break;
 				}
 				package=(char*)malloc(sizeof(char*)*recv_len);
+			}else if(recv_len==0x47455420){
+				recv_len=0;
+				continue;
 			}else{
 				break;
 			}
@@ -163,11 +171,13 @@ void thread(node *ptr){
 		recved_len+=len;
 
 		if(recved_len==recv_len && recv_len>0){
+		zend_first_try{
 			trigger(PHP_SSP_RECEIVE,ptr,&package,&recv_len);
 			if(recv_len>0){
 				trigger(PHP_SSP_SEND,ptr,&package,&recv_len);
 				socket_send(ptr->sockfd,package,recv_len);
 			}
+		}zend_end_try();
 			free(package);
 			recved_len=0;
 		}
@@ -196,7 +206,7 @@ int socket_send(int sockfd,char *data,int data_len){
 
 int socket_status(){
 	FILE *fp;
-	int pid,ret,i=19,cols=COLS;
+	int pid,ret,i=17,cols=COLS;
 
 	printf("SSP server status");
 	flush();
@@ -225,7 +235,7 @@ int socket_status(){
 
 int socket_stop(){
 	FILE *fp;
-	int pid,ret,i=19,cols=COLS;
+	int pid,i=19,cols=COLS;
 
 	printf("Stopping SSP server");
 	flush();
@@ -235,14 +245,13 @@ int socket_stop(){
 		fscanf(fp,"%d",&pid);
 		fclose(fp);
 		if(pid==getsid(pid)){
-			ret=kill(pid,SIGTERM);
-			int status,wait_pid;
-			wait_pid=waitpid(pid,&status,0);
-#ifdef WIFEXITED
-			if(wait_pid>0 && !WIFEXITED(status)){
-				kill(wait_pid,SIGKILL);
+			kill(pid,SIGTERM);
+			while(pid==getsid(pid)){
+				printf(".");
+				flush();
+				i++;
+				sleep(1);
 			}
-#endif
 			while(cols-9>i){
 				printf(".");
 				flush();
@@ -268,17 +277,22 @@ void socket_exit(int sid){
 	node *p;
 	p=head;
 	pthread_mutex_lock(&node_mutex);
-	while(p->next!=NULL){
-		p=p->next;
+	while(p!=NULL){
 		p->flag=false;
-		trigger(PHP_SSP_CLOSE,p);
 		close(p->sockfd);
-	};
-	head->flag=false;
-	close(head->sockfd);
-	trigger(PHP_SSP_STOP);
+		shutdown(p->sockfd,2);
+		trigger(PHP_SSP_CLOSE,p);
+		usleep(100);
+		p=p->next;
+	}
 	pthread_mutex_unlock(&node_mutex);
-	exit(0);
+
+	trigger(PHP_SSP_STOP);
+
+	php_request_shutdown((void *) 0);
+	php_end();
+
+	exit(EG(exit_status));
 }
 
 int socket_start(){
@@ -409,24 +423,21 @@ int socket_start(){
 
 	while(head->flag){
 		conn_fd=accept(listen_fd,(struct sockaddr *)&pin,&len);
-		if(conn_fd<0){
+		if(conn_fd<=0){
 			break;
 		}
 		ptr=(node *)malloc(sizeof(node));
 		ptr->sockfd=conn_fd;
-
 		inet_ntop(AF_INET, &pin.sin_addr, ptr->host, sizeof(ptr->host));
 		ptr->port=ntohs(pin.sin_port);
-
-		if(debug){
-			php_printf("\nAccept new connections (%d) for the host %s, port %d.\n",conn_fd,ptr->host,ptr->port);
-		}
-
 		ptr->flag=true;
-
 		ptr->next=NULL;
+
 		insert(head,ptr);
+
+		pthread_mutex_lock(&node_mutex);
 		pthread_create(&ptr->tid,&child_thread_attr,(void*)thread,ptr);
+		pthread_mutex_unlock(&node_mutex);
 	}
 
 	node_num--;
@@ -434,7 +445,5 @@ int socket_start(){
 	close(listen_fd);
     pthread_attr_destroy(&child_thread_attr);
     pthread_mutex_destroy(&node_mutex);
-    pthread_exit(NULL);
-
-	return 0;
+	pthread_exit(NULL);
 }

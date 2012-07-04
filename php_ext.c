@@ -4,7 +4,6 @@
 
 int le_ssp_descriptor;
 int le_ssp_mutex_descriptor;
-pthread_mutex_t ssp_mutex;
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_setopt, 0, 0, 2)
@@ -88,6 +87,26 @@ zend_module_entry ssp_module_entry = {
 };
 /* }}} */
 
+static void php_destroy_ssp(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
+{
+	node *ptr = (node *) rsrc->ptr;
+
+	//php_printf("\nDestroy SSP Resource (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
+
+	//close(ptr->sockfd);
+	//efree(ptr);
+}
+
+static void php_destroy_ssp_mutex(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
+{
+	pthread_mutex_t *mutex = (pthread_mutex_t *) rsrc->ptr;
+
+	//php_printf("\nDestroy SSP Mutex Resource type(%d),refcount(%d).\n",rsrc->type,rsrc->refcount);
+
+	pthread_mutex_destroy(mutex);
+	efree(mutex);
+}
+
 /* {{{ MINIT */
 static PHP_MINIT_FUNCTION(ssp)
 {
@@ -108,8 +127,9 @@ static PHP_MINIT_FUNCTION(ssp)
 	REGISTER_LONG_CONSTANT("SSP_OPT_MAX_CLIENTS",  PHP_SSP_OPT_MAX_CLIENTS,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_OPT_MAX_RECVS",  PHP_SSP_OPT_MAX_RECVS,  CONST_CS | CONST_PERSISTENT);
 	
-	le_ssp_descriptor = zend_register_list_destructors_ex(NULL, NULL, PHP_SSP_DESCRIPTOR_RES_NAME,module_number);
-	le_ssp_mutex_descriptor = zend_register_list_destructors_ex(NULL, NULL, PHP_SSP_MUTEX_DESCRIPTOR_RES_NAME,module_number);
+	le_ssp_descriptor = zend_register_list_destructors_ex(php_destroy_ssp, NULL, PHP_SSP_DESCRIPTOR_RES_NAME,module_number);
+	le_ssp_mutex_descriptor = zend_register_list_destructors_ex(php_destroy_ssp_mutex, NULL, PHP_SSP_MUTEX_DESCRIPTOR_RES_NAME,module_number);
+	
 	return SUCCESS;
 }
 /* }}} */
@@ -124,7 +144,18 @@ static PHP_GINIT_FUNCTION(ssp)
 	ssp_globals->port	 = 8083;
 	ssp_globals->maxclients	 = 1000;
 	ssp_globals->maxrecvs	 = 2*1024*1024;
-    pthread_mutex_init(&ssp_mutex, NULL);
+
+	ssp_globals->mutex=(pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+
+    pthread_mutex_init(ssp_globals->mutex, NULL);
+}
+/* }}} */
+
+/* {{{ PHP_GSHUTDOWN_FUNCTION */
+PHP_GSHUTDOWN_FUNCTION(ssp)
+{
+    pthread_mutex_destroy(ssp_globals->mutex);
+	php_printf("ssp module shutdown\n");
 }
 /* }}} */
 
@@ -238,7 +269,7 @@ int trigger(unsigned short type,...){
 	zval_ptr_dtor(&retval);
 
 	if (ret!=SUCCESS) {
-		php_error(E_WARNING, "Unable to call handler %s()\n", call_func_name);
+		php_printf("Unable to call handler %s()\n", call_func_name);
 	}
 	if(EG(exception)){
 		zend_exception_error(EG(exception), E_ALL TSRMLS_CC);
@@ -355,8 +386,9 @@ static PHP_FUNCTION(ssp_info){
 static PHP_FUNCTION(ssp_mutex_create){
 	pthread_mutex_t *mutex;
 	mutex=(pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+	//php_printf("create mutex,%d\n",mutex);
 	if(pthread_mutex_init(mutex,NULL)==0){
-		//php_printf("create mutex,%d\n",mutex);
+		//php_printf("inited create mutex,%d\n",mutex);
 		ZEND_REGISTER_RESOURCE(return_value,mutex,le_ssp_mutex_descriptor);
 	}else{
 		RETURN_FALSE;
@@ -384,7 +416,7 @@ static PHP_FUNCTION(ssp_mutex_lock){
 		pthread_mutex_lock(mutex);
 		//php_printf("lock mutex,%d\n",mutex);
 	}else{
-		pthread_mutex_lock(&ssp_mutex);
+		pthread_mutex_lock(SSP_G(mutex));
 		//php_printf("lock ssp_mutex\n");
 	}
 	RETURN_NULL();
@@ -400,7 +432,7 @@ static PHP_FUNCTION(ssp_mutex_unlock){
 		pthread_mutex_unlock(mutex);
 		//php_printf("unlock mutex,%d\n",mutex);
 	}else{
-		pthread_mutex_unlock(&ssp_mutex);
+		pthread_mutex_unlock(SSP_G(mutex));
 		//php_printf("unlock ssp_mutex\n");
 	}
 	RETURN_NULL();

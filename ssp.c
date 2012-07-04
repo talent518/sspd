@@ -317,7 +317,7 @@ int main(int argc, char *argv[])
 
 	php_init();
 
-	CSM(executable_location) = argv[0];
+	CSM(executable_location) = strdup(argv[0]);
 
 	while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 0, 2))!=-1) {
 		switch (c) {
@@ -528,39 +528,41 @@ int main(int argc, char *argv[])
 
 		PG(during_request_startup) = 0;
 
-		if(debug)
-			zend_eval_string_ex("define('IS_DEBUG',true);", NULL, "Command line code", 1 TSRMLS_CC);
-		else
-			zend_eval_string_ex("define('IS_DEBUG',false);", NULL, "Command line code", 1 TSRMLS_CC);
-
-		#ifdef PHP_WIN32
-			zend_eval_string_ex("define('STD_CHARSET','gbk');", NULL, "Command line code", 1 TSRMLS_CC);
-		#else
-			zend_eval_string_ex("define('STD_CHARSET','utf-8');", NULL, "Command line code", 1 TSRMLS_CC);
-		#endif
-
 		if (strcmp(file_handle.filename, "-")) {
 			cli_register_file_handles(TSRMLS_C);
+
+			if(debug)
+				zend_eval_string_ex("define('IS_DEBUG',true);", NULL, "Command line code", 1 TSRMLS_CC);
+			else
+				zend_eval_string_ex("define('IS_DEBUG',false);", NULL, "Command line code", 1 TSRMLS_CC);
+
+#ifdef PHP_WIN32
+			zend_eval_string_ex("define('STD_CHARSET','gbk');", NULL, "Command line code", 1 TSRMLS_CC);
+#else
+			zend_eval_string_ex("define('STD_CHARSET','utf-8');", NULL, "Command line code", 1 TSRMLS_CC);
+#endif
+
 			php_execute_script(&file_handle TSRMLS_CC);
+			exit_status = EG(exit_status);
 		}
-
-		if(strcmp(serv_opt,"restart")==0){
-			socket_stop();
-			socket_start();
-		}else if(strcmp(serv_opt,"stop")==0){
-			socket_stop();
-		}else if(strcmp(serv_opt,"start")==0){
-			socket_start();
-		}else if(strcmp(serv_opt,"status")==0){
-			socket_status();
-		}else if(serv_opt){
-			php_cli_usage(argv[0]);
-			php_end_ob_buffers(1 TSRMLS_CC);
-			exit_status=1;
-			goto out;
-		}
-
 	} zend_end_try();
+
+	if(serv_opt==NULL){
+	}else if(strcmp(serv_opt,"restart")==0){
+		socket_stop();
+		socket_start();
+	}else if(strcmp(serv_opt,"stop")==0){
+		socket_stop();
+	}else if(strcmp(serv_opt,"start")==0){
+		socket_start();
+	}else if(strcmp(serv_opt,"status")==0){
+		socket_status();
+	}else if(serv_opt){
+		php_cli_usage(argv[0]);
+		php_end_ob_buffers(1 TSRMLS_CC);
+		exit_status=1;
+		goto out;
+	}
 
 out:
 	if (request_started) {
