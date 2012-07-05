@@ -236,7 +236,7 @@ Class CtlConsoleUser extends CtlBase{
 			if($gid>0){
 				$data['gid']=$gid;
 			}
-			MOD('user')->edit($uid,$data,false);
+			MOD('user')->edit($userId,$data,false);
 
 			if(CGK($gid>0?$gid:$user['gid'],'use_expiry')){
 				$expiry=(string)($request->params->expiry);

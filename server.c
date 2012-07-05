@@ -289,6 +289,8 @@ void socket_exit(int sid){
 
 	trigger(PHP_SSP_STOP);
 
+	unlink(SSP_G(pidfile));
+
 	php_request_shutdown((void *) 0);
 	php_end();
 
