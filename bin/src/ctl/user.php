@@ -37,9 +37,7 @@ Class CtlUser extends CtlBase{
 			$username=trim($params->username);
 			$password=md5($params->password);
 		}
-		ssp_mutex_lock();
 		list($uid,$username,$password,$email)=uc_user_login($username,$password,$isuid);
-		ssp_mutex_unlock();
 
 		$response=new XML_Element('response');
 		if($uid<0){
@@ -99,6 +97,8 @@ Class CtlUser extends CtlBase{
 				'logintimes'=>0,
 				'logintime'=>time(),
 				'timezone'=>(string)$params->timezone+0,
+				'broadcast'=>(string)$params->broadcast+0,
+				'consult'=>(string)$params->consult+0,
 			);
 			MOD('user.online')->edit($sockfd,$data);
 			if(UGK($uid,'use_expiry',false)){
@@ -220,17 +220,13 @@ Class CtlUser extends CtlBase{
 		$username=(string)($request->params->username);
 		$email=(string)($request->params->email);
 
-		ssp_mutex_lock();
 		list($uid,$_username,$_email)=uc_get_user($username,0);
-		ssp_mutex_unlock();
 		if($username!=$_username || $email!=$_email){
 			$response->type='User.Lostpasswd.Succeed';
 			$response->setText('您填写的账户资料不匹配，不能使用取回密码功能，如有疑问请与管理员联系');
 		}else{
 			$password=LIB('string')->rand(8,STRING_RAND_BOTH);
-			ssp_mutex_lock();
 			$status=uc_user_edit($username,null,$password,$email,1);
-			ssp_mutex_unlock();
 			switch($status){
 				case 1:
 					$title=WEB_TITLE;

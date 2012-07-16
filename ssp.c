@@ -7,7 +7,6 @@
 #include "php_getopt.h"
 #include "zend_extensions.h"
 #include "zend_hash.h"
-#include "zend_constants.h"
 
 #include <stdio.h>
 #ifdef PHP_WIN32
@@ -48,9 +47,9 @@ static const opt_struct OPTIONS[] = {
 	{'-', 0, NULL} /* end of args */
 };
 
-/* {{{ php_cli_usage
+/* {{{ php_ssp_usage
  */
-static void php_cli_usage(char *argv0)
+static void php_ssp_usage(char *argv0)
 {
 	char *prog;
 
@@ -145,111 +144,6 @@ static void print_extensions(TSRMLS_D) /* {{{ */
 }
 /* }}} */
 
-/* {{{ cli_seek_file_begin
- */
-static int cli_seek_file_begin(zend_file_handle *file_handle, char *script_file, int *lineno TSRMLS_DC)
-{
-	char c;
-
-	*lineno = 1;
-
-	file_handle->type = ZEND_HANDLE_FP;
-	file_handle->opened_path = NULL;
-	file_handle->free_filename = 0;
-	if (!(file_handle->handle.fp = VCWD_FOPEN(script_file, "rb"))) {
-		php_printf("Could not open input file: %s\n", script_file);
-		return FAILURE;
-	}
-	file_handle->filename = script_file;
-
-	/* #!php support */
-	c = fgetc(file_handle->handle.fp);
-	if (c == '#' && (c = fgetc(file_handle->handle.fp)) == '!') {
-		while (c != '\n' && c != '\r' && c != EOF) {
-			c = fgetc(file_handle->handle.fp);	/* skip to end of line */
-		}
-		/* handle situations where line is terminated by \r\n */
-		if (c == '\r') {
-			if (fgetc(file_handle->handle.fp) != '\n') {
-				long pos = ftell(file_handle->handle.fp);
-				fseek(file_handle->handle.fp, pos - 1, SEEK_SET);
-			}
-		}
-		*lineno = 2;
-	} else {
-		rewind(file_handle->handle.fp);
-	}
-
-	return SUCCESS;
-}
-/* }}} */
-
-static php_stream *s_in_process = NULL;
-
-static void cli_register_file_handles(TSRMLS_D) /* {{{ */
-{
-	zval *zin, *zout, *zerr;
-	php_stream *s_in, *s_out, *s_err;
-	php_stream_context *sc_in=NULL, *sc_out=NULL, *sc_err=NULL;
-	zend_constant ic, oc, ec;
-	
-	MAKE_STD_ZVAL(zin);
-	MAKE_STD_ZVAL(zout);
-	MAKE_STD_ZVAL(zerr);
-
-	s_in  = php_stream_open_wrapper_ex("php://stdin",  "rb", 0, NULL, sc_in);
-	s_out = php_stream_open_wrapper_ex("php://stdout", "wb", 0, NULL, sc_out);
-	s_err = php_stream_open_wrapper_ex("php://stderr", "wb", 0, NULL, sc_err);
-
-	if (s_in==NULL || s_out==NULL || s_err==NULL) {
-		FREE_ZVAL(zin);
-		FREE_ZVAL(zout);
-		FREE_ZVAL(zerr);
-		if (s_in) php_stream_close(s_in);
-		if (s_out) php_stream_close(s_out);
-		if (s_err) php_stream_close(s_err);
-		return;
-	}
-
-#if PHP_DEBUG
-	/* do not close stdout and stderr */
-	s_out->flags |= PHP_STREAM_FLAG_NO_CLOSE;
-	s_err->flags |= PHP_STREAM_FLAG_NO_CLOSE;
-#endif
-
-	s_in_process = s_in;
-
-	php_stream_to_zval(s_in,  zin);
-	php_stream_to_zval(s_out, zout);
-	php_stream_to_zval(s_err, zerr);
-	
-	ic.value = *zin;
-	ic.flags = CONST_CS;
-	ic.name = zend_strndup(ZEND_STRL("STDIN"));
-	ic.name_len = sizeof("STDIN");
-	ic.module_number = 0;
-	zend_register_constant(&ic TSRMLS_CC);
-
-	oc.value = *zout;
-	oc.flags = CONST_CS;
-	oc.name = zend_strndup(ZEND_STRL("STDOUT"));
-	oc.name_len = sizeof("STDOUT");
-	oc.module_number = 0;
-	zend_register_constant(&oc TSRMLS_CC);
-
-	ec.value = *zerr;
-	ec.flags = CONST_CS;
-	ec.name = zend_strndup(ZEND_STRL("STDERR"));
-	ec.name_len = sizeof("STDERR");
-	ec.module_number = 0;
-	zend_register_constant(&ec TSRMLS_CC);
-
-	FREE_ZVAL(zin);
-	FREE_ZVAL(zout);
-	FREE_ZVAL(zerr);
-}
-/* }}} */
-
 #ifdef PHP_CLI_WIN32_NO_CONSOLE
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 #else
@@ -289,7 +183,6 @@ int main(int argc, char *argv[])
 
 	volatile int exit_status = SUCCESS;
 	int c;
-	zend_file_handle file_handle;
 /* temporary locals */
 	char *serv_opt=NULL;
 	int orig_optind=php_optind;
@@ -297,7 +190,6 @@ int main(int argc, char *argv[])
 	char *arg_free=NULL, **arg_excp=&arg_free;
 	char *script_file=NULL;
 	volatile int request_started = 0;
-	int lineno = 0;
 	const char *param_error=NULL;
 	int hide_argv = 0;
 /* end of temporary locals */
@@ -384,7 +276,7 @@ int main(int argc, char *argv[])
 					goto err;
 				}
 				request_started = 1;
-				php_cli_usage(argv[0]);
+				php_ssp_usage(argv[0]);
 				php_end_ob_buffers(1 TSRMLS_CC);
 				exit_status=0;
 				goto out;
@@ -479,73 +371,15 @@ int main(int argc, char *argv[])
 			goto err;
 		}
 
-		/* only set script_file if not set already and not in direct mode and not at end of parameter list */
-		if (argc > php_optind){
-			php_optind++;
-		}
-		if (script_file) {
-			if (cli_seek_file_begin(&file_handle, script_file, &lineno TSRMLS_CC) != SUCCESS) {
-				goto err;
-			}
-			script_filename = script_file;
-		} else {
-			file_handle.filename = "-";
-			//file_handle.handle.fp = stdin;
-		}
-		file_handle.type = ZEND_HANDLE_FP;
-		file_handle.opened_path = NULL;
-		file_handle.free_filename = 0;
-		php_self = file_handle.filename;
-
-		/* before registering argv to module exchange the *new* argv[0] */
-		/* we can achieve this without allocating more memory */
-		SG(request_info).argc=argc-php_optind+1;
-		arg_excp = argv+php_optind-1;
-		arg_free = argv[php_optind-1];
-		SG(request_info).path_translated = file_handle.filename;
-		argv[php_optind-1] = file_handle.filename;
-		SG(request_info).argv=argv+php_optind-1;
-
-		if (php_request_startup(TSRMLS_C)==FAILURE) {
-			*arg_excp = arg_free;
-			fclose(file_handle.handle.fp);
-			PUTS("Could not startup.\n");
-			goto err;
-		}
-
-		request_started = 1;
-		CG(start_lineno) = lineno;
-		*arg_excp = arg_free; /* reconstuct argv */
-
 		if (hide_argv) {
 			int i;
 			for (i = 1; i < argc; i++) {
 				memset(argv[i], 0, strlen(argv[i]));
 			}
 		}
-
-		zend_is_auto_global("_SERVER", sizeof("_SERVER")-1 TSRMLS_CC);
-
-		PG(during_request_startup) = 0;
-
-		if (strcmp(file_handle.filename, "-")) {
-			cli_register_file_handles(TSRMLS_C);
-
-			if(debug)
-				zend_eval_string_ex("define('IS_DEBUG',true);", NULL, "Command line code", 1 TSRMLS_CC);
-			else
-				zend_eval_string_ex("define('IS_DEBUG',false);", NULL, "Command line code", 1 TSRMLS_CC);
-
-#ifdef PHP_WIN32
-			zend_eval_string_ex("define('STD_CHARSET','gbk');", NULL, "Command line code", 1 TSRMLS_CC);
-#else
-			zend_eval_string_ex("define('STD_CHARSET','utf-8');", NULL, "Command line code", 1 TSRMLS_CC);
-#endif
-
-			php_execute_script(&file_handle TSRMLS_CC);
-			exit_status = EG(exit_status);
-		}
 	} zend_end_try();
+
+	ssp_request_startup(script_file);
 
 	if(serv_opt==NULL){
 	}else if(strcmp(serv_opt,"restart")==0){
@@ -558,11 +392,12 @@ int main(int argc, char *argv[])
 	}else if(strcmp(serv_opt,"status")==0){
 		socket_status();
 	}else if(serv_opt){
-		php_cli_usage(argv[0]);
+		php_ssp_usage(argv[0]);
 		php_end_ob_buffers(1 TSRMLS_CC);
 		exit_status=1;
 		goto out;
 	}
+	return 0;
 
 out:
 	if (request_started) {

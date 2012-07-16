@@ -1,12 +1,15 @@
 #include "php_func.h"
+#include "server.h"
 #include "php_ext.h"
 
 #include "php.h"
 #include "php_globals.h"
+#include "php_ini.h"
 #include "php_main.h"
 #include "php_variables.h"
 
 #include "zend.h"
+#include "zend_constants.h"
 #include "zend_hash.h"
 #include "zend_modules.h"
 
@@ -52,7 +55,112 @@ const char HARDCODED_INI[] =
 #define STDOUT_FILENO 1
 #endif
 
-static inline int sapi_cli_select(int fd TSRMLS_DC)
+/* {{{ ssp_seek_file_begin
+ */
+static int ssp_seek_file_begin(zend_file_handle *file_handle, char *script_file, int *lineno TSRMLS_DC)
+{
+	char c;
+
+	*lineno = 1;
+
+	file_handle->type = ZEND_HANDLE_FP;
+	file_handle->opened_path = NULL;
+	file_handle->free_filename = 0;
+	if (!(file_handle->handle.fp = VCWD_FOPEN(script_file, "rb"))) {
+		php_printf("Could not open input file: %s\n", script_file);
+		return FAILURE;
+	}
+	file_handle->filename = script_file;
+
+	/* #!php support */
+	c = fgetc(file_handle->handle.fp);
+	if (c == '#' && (c = fgetc(file_handle->handle.fp)) == '!') {
+		while (c != '\n' && c != '\r' && c != EOF) {
+			c = fgetc(file_handle->handle.fp);	/* skip to end of line */
+		}
+		/* handle situations where line is terminated by \r\n */
+		if (c == '\r') {
+			if (fgetc(file_handle->handle.fp) != '\n') {
+				long pos = ftell(file_handle->handle.fp);
+				fseek(file_handle->handle.fp, pos - 1, SEEK_SET);
+			}
+		}
+		*lineno = 2;
+	} else {
+		rewind(file_handle->handle.fp);
+	}
+
+	return SUCCESS;
+}
+/* }}} */
+
+static php_stream *s_in_process = NULL;
+
+static void ssp_register_file_handles(TSRMLS_D) /* {{{ */
+{
+	zval *zin, *zout, *zerr;
+	php_stream *s_in, *s_out, *s_err;
+	php_stream_context *sc_in=NULL, *sc_out=NULL, *sc_err=NULL;
+	zend_constant ic, oc, ec;
+	
+	MAKE_STD_ZVAL(zin);
+	MAKE_STD_ZVAL(zout);
+	MAKE_STD_ZVAL(zerr);
+
+	s_in  = php_stream_open_wrapper_ex("php://stdin",  "rb", 0, NULL, sc_in);
+	s_out = php_stream_open_wrapper_ex("php://stdout", "wb", 0, NULL, sc_out);
+	s_err = php_stream_open_wrapper_ex("php://stderr", "wb", 0, NULL, sc_err);
+
+	if (s_in==NULL || s_out==NULL || s_err==NULL) {
+		FREE_ZVAL(zin);
+		FREE_ZVAL(zout);
+		FREE_ZVAL(zerr);
+		if (s_in) php_stream_close(s_in);
+		if (s_out) php_stream_close(s_out);
+		if (s_err) php_stream_close(s_err);
+		return;
+	}
+
+#if PHP_DEBUG
+	/* do not close stdout and stderr */
+	s_out->flags |= PHP_STREAM_FLAG_NO_CLOSE;
+	s_err->flags |= PHP_STREAM_FLAG_NO_CLOSE;
+#endif
+
+	s_in_process = s_in;
+
+	php_stream_to_zval(s_in,  zin);
+	php_stream_to_zval(s_out, zout);
+	php_stream_to_zval(s_err, zerr);
+	
+	ic.value = *zin;
+	ic.flags = CONST_CS;
+	ic.name = zend_strndup(ZEND_STRL("STDIN"));
+	ic.name_len = sizeof("STDIN");
+	ic.module_number = 0;
+	zend_register_constant(&ic TSRMLS_CC);
+
+	oc.value = *zout;
+	oc.flags = CONST_CS;
+	oc.name = zend_strndup(ZEND_STRL("STDOUT"));
+	oc.name_len = sizeof("STDOUT");
+	oc.module_number = 0;
+	zend_register_constant(&oc TSRMLS_CC);
+
+	ec.value = *zerr;
+	ec.flags = CONST_CS;
+	ec.name = zend_strndup(ZEND_STRL("STDERR"));
+	ec.name_len = sizeof("STDERR");
+	ec.module_number = 0;
+	zend_register_constant(&ec TSRMLS_CC);
+
+	FREE_ZVAL(zin);
+	FREE_ZVAL(zout);
+	FREE_ZVAL(zerr);
+}
+/* }}} */
+
+static inline int sapi_ssp_select(int fd TSRMLS_DC)
 {
 	fd_set wfd, dfd;
 	struct timeval tv;
@@ -71,14 +179,14 @@ static inline int sapi_cli_select(int fd TSRMLS_DC)
 	return ret != -1;
 }
 
-static inline size_t sapi_cli_single_write(const char *str, uint str_length TSRMLS_DC) /* {{{ */
+static inline size_t sapi_ssp_single_write(const char *str, uint str_length TSRMLS_DC) /* {{{ */
 {
 #ifdef PHP_WRITE_STDOUT
 	long ret;
 
 	do {
 		ret = write(STDOUT_FILENO, str, str_length);
-	} while (ret <= 0 && errno == EAGAIN && sapi_cli_select(STDOUT_FILENO TSRMLS_CC));
+	} while (ret <= 0 && errno == EAGAIN && sapi_ssp_select(STDOUT_FILENO TSRMLS_CC));
 
 	if (ret <= 0) {
 		return 0;
@@ -94,7 +202,7 @@ static inline size_t sapi_cli_single_write(const char *str, uint str_length TSRM
 }
 /* }}} */
 
-static int sapi_cli_ub_write(const char *str, uint str_length TSRMLS_DC) /* {{{ */
+static int sapi_ssp_ub_write(const char *str, uint str_length TSRMLS_DC) /* {{{ */
 {
 	const char *ptr = str;
 	uint remaining = str_length;
@@ -102,7 +210,7 @@ static int sapi_cli_ub_write(const char *str, uint str_length TSRMLS_DC) /* {{{ 
 
 	while (remaining > 0)
 	{
-		ret = sapi_cli_single_write(ptr, remaining TSRMLS_CC);
+		ret = sapi_ssp_single_write(ptr, remaining TSRMLS_CC);
 		if (!ret) {
 #ifndef PHP_CLI_WIN32_NO_CONSOLE
 			php_handle_aborted_connection();
@@ -117,7 +225,7 @@ static int sapi_cli_ub_write(const char *str, uint str_length TSRMLS_DC) /* {{{ 
 }
 /* }}} */
 
-static void sapi_cli_flush(void *server_context) /* {{{ */
+static void sapi_ssp_flush(void *server_context) /* {{{ */
 {
 	/* Ignore EBADF here, it's caused by the fact that STDIN/STDOUT/STDERR streams
 	 * are/could be closed before fflush() is called.
@@ -130,7 +238,7 @@ static void sapi_cli_flush(void *server_context) /* {{{ */
 }
 /* }}} */
 
-static void sapi_cli_register_variables(zval *track_vars_array TSRMLS_DC) /* {{{ */
+static void sapi_ssp_register_variables(zval *track_vars_array TSRMLS_DC) /* {{{ */
 {
 	unsigned int len;
 	char   *docroot;
@@ -164,13 +272,13 @@ static void sapi_cli_register_variables(zval *track_vars_array TSRMLS_DC) /* {{{
 }
 /* }}} */
 
-static void sapi_cli_log_message(char *message) /* {{{ */
+static void sapi_ssp_log_message(char *message) /* {{{ */
 {
 	fprintf(stderr, "%s\n", message);
 }
 /* }}} */
 
-static int sapi_cli_deactivate(TSRMLS_D) /* {{{ */
+static int sapi_ssp_deactivate(TSRMLS_D) /* {{{ */
 {
 	fflush(stdout);
 	if(SG(request_info).argv0) {
@@ -181,19 +289,19 @@ static int sapi_cli_deactivate(TSRMLS_D) /* {{{ */
 }
 /* }}} */
 
-static char* sapi_cli_read_cookies(TSRMLS_D) /* {{{ */
+static char* sapi_ssp_read_cookies(TSRMLS_D) /* {{{ */
 {
 	return NULL;
 }
 /* }}} */
 
-static int sapi_cli_header_handler(sapi_header_struct *h, sapi_header_op_enum op, sapi_headers_struct *s TSRMLS_DC) /* {{{ */
+static int sapi_ssp_header_handler(sapi_header_struct *h, sapi_header_op_enum op, sapi_headers_struct *s TSRMLS_DC) /* {{{ */
 {
 	return 0;
 }
 /* }}} */
 
-static int sapi_cli_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC) /* {{{ */
+static int sapi_ssp_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC) /* {{{ */
 {
 	/* We do nothing here, this function is needed to prevent that the fallback
 	 * header handling is called. */
@@ -201,12 +309,12 @@ static int sapi_cli_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC) /*
 }
 /* }}} */
 
-static void sapi_cli_send_header(sapi_header_struct *sapi_header, void *server_context TSRMLS_DC) /* {{{ */
+static void sapi_ssp_send_header(sapi_header_struct *sapi_header, void *server_context TSRMLS_DC) /* {{{ */
 {
 }
 /* }}} */
 
-static int php_cli_startup(sapi_module_struct *sapi_module) /* {{{ */
+static int php_ssp_startup(sapi_module_struct *sapi_module) /* {{{ */
 {
 	if (php_module_startup(sapi_module, &ssp_module_entry, 1)==FAILURE) {
 		return FAILURE;
@@ -215,16 +323,22 @@ static int php_cli_startup(sapi_module_struct *sapi_module) /* {{{ */
 }
 /* }}} */
 
-/* {{{ sapi_cli_ini_defaults */
+static int php_ssp_shutdown(sapi_module_struct *sapi_module) /* {{{ */
+{
+	return php_module_shutdown_wrapper(sapi_module);
+}
+/* }}} */
 
-/* overwriteable ini defaults must be set in sapi_cli_ini_defaults() */
+/* {{{ sapi_ssp_ini_defaults */
+
+/* overwriteable ini defaults must be set in sapi_ssp_ini_defaults() */
 #define INI_DEFAULT(name,value)\
 	Z_SET_REFCOUNT(tmp, 0);\
 	Z_UNSET_ISREF(tmp);	\
 	ZVAL_STRINGL(&tmp, zend_strndup(value, sizeof(value)-1), sizeof(value)-1, 0);\
 	zend_hash_update(configuration_hash, name, sizeof(name), &tmp, sizeof(zval), NULL);\
 
-static void sapi_cli_ini_defaults(HashTable *configuration_hash)
+static void sapi_ssp_ini_defaults(HashTable *configuration_hash)
 {
 	zval tmp;
 	INI_DEFAULT("report_zend_debug", "0");
@@ -232,34 +346,34 @@ static void sapi_cli_ini_defaults(HashTable *configuration_hash)
 }
 /* }}} */
 
-/* {{{ sapi_module_struct cli_sapi_module
+/* {{{ sapi_module_struct ssp_sapi_module
  */
-sapi_module_struct cli_sapi_module = {
+sapi_module_struct ssp_sapi_module = {
 	"SSP",							/* name */
 	"Command Line Interface",    	/* pretty name */
 
-	php_cli_startup,				/* startup */
-	php_module_shutdown_wrapper,	/* shutdown */
+	php_ssp_startup,				/* startup */
+	php_ssp_shutdown,				/* shutdown */
 
 	NULL,							/* activate */
-	sapi_cli_deactivate,			/* deactivate */
+	sapi_ssp_deactivate,			/* deactivate */
 
-	sapi_cli_ub_write,		    	/* unbuffered write */
-	sapi_cli_flush,				    /* flush */
+	sapi_ssp_ub_write,		    	/* unbuffered write */
+	sapi_ssp_flush,				    /* flush */
 	NULL,							/* get uid */
 	NULL,							/* getenv */
 
 	php_error,						/* error handler */
 
-	sapi_cli_header_handler,		/* header handler */
-	sapi_cli_send_headers,			/* send headers handler */
-	sapi_cli_send_header,			/* send header handler */
+	sapi_ssp_header_handler,		/* header handler */
+	sapi_ssp_send_headers,			/* send headers handler */
+	sapi_ssp_send_header,			/* send header handler */
 
 	NULL,				            /* read POST data */
-	sapi_cli_read_cookies,          /* read Cookies */
+	sapi_ssp_read_cookies,          /* read Cookies */
 
-	sapi_cli_register_variables,	/* register server variables */
-	sapi_cli_log_message,			/* Log message */
+	sapi_ssp_register_variables,	/* register server variables */
+	sapi_ssp_log_message,			/* Log message */
 	NULL,							/* Get request time */
 	NULL,							/* Child terminate */
 
@@ -278,24 +392,13 @@ static const zend_function_entry additional_functions[] = {
 	{NULL, NULL, NULL}
 };
 
-volatile int module_started = 0;
-
 /* {{{ main
  */
 void php_init(){
-#ifdef ZTS
-	void ***tsrm_ls;
-#endif
-
-#ifdef ZTS
-	tsrm_startup(1, 1, 0, NULL);
-	tsrm_ls = ts_resource(0);
-#endif
-
-	CSM(ini_defaults) = sapi_cli_ini_defaults;
+	CSM(ini_defaults) = sapi_ssp_ini_defaults;
 	CSM(php_ini_path_override) = NULL;
 	CSM(phpinfo_as_text) = 1;
-	sapi_startup(&cli_sapi_module);
+	sapi_startup(&ssp_sapi_module);
 
 	ini_entries_len = sizeof(HARDCODED_INI)-2;
 	CSM(ini_entries) = malloc(sizeof(HARDCODED_INI));
@@ -305,23 +408,68 @@ void php_init(){
 }
 
 int php_begin(){
-	/* startup after we get the above ini override se we get things right */
-	if (CSM(startup)(&cli_sapi_module)==FAILURE) {
-		/* there is no way to see if we must call zend_ini_deactivate()
-		 * since we cannot check if EG(ini_directives) has been initialised
-		 * because the executor's constructor does not set initialize it.
-		 * Apart from that there seems no need for zend_ini_deactivate() yet.
-		 * So we goto out_err.*/
-		#ifdef ZTS
-				tsrm_shutdown();
-		#endif
+	if (CSM(startup)(&ssp_sapi_module)==FAILURE) {
 		return FAILURE;
 	}
-	module_started=1;
+	return SUCCESS;
+}
+
+int ssp_request_startup(char *script_file){
+	int lineno = 0;
+	zend_file_handle file_handle;
+
+	if (script_file) {
+		if (ssp_seek_file_begin(&file_handle, script_file, &lineno TSRMLS_CC) != SUCCESS) {
+			return FAILURE;
+		}
+		script_filename = script_file;
+	} else {
+		file_handle.filename = "-";
+		//file_handle.handle.fp = stdin;
+	}
+	file_handle.type = ZEND_HANDLE_FP;
+	file_handle.opened_path = NULL;
+	file_handle.free_filename = 0;
+	php_self = file_handle.filename;
+
+	SG(request_info).path_translated = file_handle.filename;
+
+	if (php_request_startup(TSRMLS_C)==FAILURE) {
+		fclose(file_handle.handle.fp);
+		PUTS("Could not startup.\n");
+		return FAILURE;
+	}
+
+	ssp_request_started = 1;
+	CG(start_lineno) = lineno;
+
+	zend_is_auto_global("_SERVER", sizeof("_SERVER")-1 TSRMLS_CC);
+
+	PG(during_request_startup) = 0;
+
+	if (strcmp(file_handle.filename, "-")) {
+		ssp_register_file_handles(TSRMLS_C);
+
+		if(debug)
+			zend_eval_string_ex("define('IS_DEBUG',true);", NULL, "Command line code", 1 TSRMLS_CC);
+		else
+			zend_eval_string_ex("define('IS_DEBUG',false);", NULL, "Command line code", 1 TSRMLS_CC);
+
+#ifdef PHP_WIN32
+		zend_eval_string_ex("define('STD_CHARSET','gbk');", NULL, "Command line code", 1 TSRMLS_CC);
+#else
+		zend_eval_string_ex("define('STD_CHARSET','utf-8');", NULL, "Command line code", 1 TSRMLS_CC);
+#endif
+
+		php_execute_script(&file_handle TSRMLS_CC);
+	}
 	return SUCCESS;
 }
 
 void php_end(){
+	if (ssp_request_started) {
+		php_request_shutdown((void *) 0);
+	}
 	sapi_deactivate(TSRMLS_C);
 	zend_ini_deactivate(TSRMLS_C);
 
@@ -332,12 +480,8 @@ void php_end(){
 		free(CSM(ini_entries));
 	}
 
-	if (module_started) {
-		php_module_shutdown(TSRMLS_C);
-	}
+	CSM(shutdown)(&ssp_sapi_module);
+
 	sapi_shutdown();
-#ifdef ZTS
-	tsrm_shutdown();
-#endif
 }
 /* }}} */

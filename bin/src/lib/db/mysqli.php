@@ -41,8 +41,10 @@ class LibDbMysqli extends LibDbBase{
 	function query($sql,$silent=FALSE,$retry=FALSE){
 		if(($query=@mysqli_query($this->link,$sql))==FALSE && !$silent){
 			if(in_array($this->errno(), array(2006, 2013)) && $retry===FALSE) {
-				$this->connect();
-				return $this->query($sql,$silent,TRUE);
+				if(!$this->ping()){
+					$this->connect();
+					return $this->query($sql,$silent,TRUE);
+				}
 			}
 			$this->halt('MySQL Query Error',$sql);
 		}
@@ -53,20 +55,22 @@ class LibDbMysqli extends LibDbBase{
 		if(is_string($query)){
 			$query=$this->query($query);
 		}
-		return $this->tidy(@mysqli_fetch_assoc($query));
+		return @mysqli_fetch_assoc($query);
 	}
 
 	function arows(){
 		return @mysqli_affected_rows($this->link);
 	}
 
-	function result($query,$row,$col=0){
+	function result($query,$row,$col=null){
 		if(is_string($query)){
 			$query=$this->query($query);
 		}
-		@mysqli_data_seek($this->link,$row);
-		$row=(is_string($col)?$this->row($query):@mysqli_fetch_row($query));
-		return $this->tidy($row[$col]);
+		@mysqli_data_seek($query,$row);
+		$row=(is_int($col)?$this->row($query):@mysqli_fetch_row($query));
+		$ret=($col===null?array_shift($row):$row[$col]);
+		$this->clean($query);
+		return $ret;
 	}
 
 	function clean($query){

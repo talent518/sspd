@@ -36,10 +36,6 @@ extern zend_module_entry ssp_module_entry;
 
 #define phpext_ssp_ptr &ssp_module_entry
 
-#ifdef ZTS
-#include "TSRM.h"
-#endif
-
 ZEND_BEGIN_MODULE_GLOBALS(ssp)
 	char *user;
 	char *pidfile;
@@ -51,15 +47,10 @@ ZEND_BEGIN_MODULE_GLOBALS(ssp)
 	pthread_mutex_t *mutex;
 ZEND_END_MODULE_GLOBALS(ssp)
 
-#ifdef ZTS
-	#define SSP_G(v) TSRMG(ssp_globals_id, zend_ssp_globals *, v)
-#else
-	#define SSP_G(v) (ssp_globals.v)
-#endif
-
-#define SSP_CONST 1
+#define SSP_G(v) (ssp_globals.v)
 
 static PHP_MINIT_FUNCTION(ssp);
+static PHP_MSHUTDOWN_FUNCTION(ssp);
 static PHP_GINIT_FUNCTION(ssp);
 static PHP_GSHUTDOWN_FUNCTION(ssp);
 static PHP_MINFO_FUNCTION(ssp);

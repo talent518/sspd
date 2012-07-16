@@ -11,16 +11,11 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <ctype.h>
-#include <pthread.h>
-
-#define BUFFER_MAX 1024
-#define T_MAX 20
 
 extern int node_num;
 extern bool debug;
 
 typedef struct user{
-	pthread_t tid;
 	int sockfd;
 	char host[15];
 	uint16_t port;

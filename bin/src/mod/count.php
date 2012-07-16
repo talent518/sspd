@@ -12,6 +12,7 @@ class ModCount{
 			'broadcast'=>DB()->count('broadcast'),
 			'consult'=>DB()->count('user_consult'),
 			'client'=>DB()->count('user_serv','uid!=1'),
+			'online'=>DB()->count('user_online','uid>0').'/'.DB()->count('user_online'),
 		);
 	}
 

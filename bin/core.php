@@ -48,7 +48,8 @@ function CFG(){
 
 function DB(){
 	static $db;
-	if(!$db){
+	if(!is_object($db)){
+		ssp_mutex_lock();
 		$db=LIB('Db.'.DB_TYPE);
 		$db->charset=DB_CHARSET;
 		$db->host=DB_HOST;
@@ -58,10 +59,8 @@ function DB(){
 		$db->pconnect=DB_PCONNECT;
 		$db->tablepre=DB_TABLEPRE;
 		$db->connect();
+		ssp_mutex_unlock();
 	}
-	//if(!$db->ping()){
-	//	$db->connect();
-	//}
 	return $db;
 }
 
@@ -79,10 +78,11 @@ function import($lib){
 	include_once(SRC_DIR.GD($lib).'.php');
 }
 
-function &LIB($lib){
+function LIB($lib){
 	static $libs,$mutex;
-	if(!$mutex){
+	if(!is_resource($mutex)){
 		$mutex=ssp_mutex_create();
+		$libs=array();
 	}
 	if(!is_object($libs[$lib])){
 		ssp_mutex_lock($mutex);
@@ -97,10 +97,11 @@ function &LIB($lib){
 	return $libs[$lib];
 }
 
-function &MOD($mod){
+function MOD($mod){
 	static $mods,$mutex;
-	if(!$mutex){
+	if(!is_resource($mutex)){
 		$mutex=ssp_mutex_create();
+		$mods=array();
 	}
 	if(!is_object($mods[$mod])){
 		ssp_mutex_lock($mutex);
@@ -114,10 +115,11 @@ function &MOD($mod){
 	return $mods[$mod];
 }
 
-function &CTL($ctl,$is_new=true){
+function CTL($ctl,$is_new=true){
 	static $ctls,$mutex;
-	if(!$mutex){
+	if(!is_resource($mutex)){
 		$mutex=ssp_mutex_create();
+		$ctls=array();
 	}
 	if(!is_object($ctls[$ctl])){
 		ssp_mutex_lock($mutex);

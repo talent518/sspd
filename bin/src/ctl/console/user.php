@@ -106,9 +106,7 @@ Class CtlConsoleUser extends CtlBase{
 			}else{
 				return $xml;
 			}
-			ssp_mutex_lock();
 			list($suid,$username,$email)=uc_get_user($username,$isuid);
-			ssp_mutex_unlock();
 			if($suid<=0){
 				return $xml;
 			}
@@ -200,9 +198,7 @@ Class CtlConsoleUser extends CtlBase{
 			$data=array();
 			if(($email && $email!=$user['email']) || $password){
 				import('api.uc.client');
-				ssp_mutex_lock();
 				$ret=uc_user_edit($user['username'],'',$password,$email,1);
-				ssp_mutex_unlock();
 				switch($ret){
 					case -1:
 						$msg='密码错误';

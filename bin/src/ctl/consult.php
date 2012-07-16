@@ -220,7 +220,7 @@ Class CtlConsult extends CtlBase{
 				}
 				if($isOpen){
 					$sendXML=new XML_Element('response');
-					$sendXML->type='Consult.Receive.'.$tuid;
+					$sendXML->type='Consult.Receive.'.$uid;
 					$data['nickname']=($profile['nickname']?$profile['nickname']:$profile['username']);
 					$data['ucid']=$ucid;
 					$message=$data['message'];

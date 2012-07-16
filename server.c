@@ -15,6 +15,7 @@
 #include <sys/types.h>
 
 #include "php_ext.h"
+#include "php_func.h"
 #include "server.h"
 
 bool debug=false;
@@ -129,9 +130,9 @@ void thread(node *ptr){
 	}
 
 	pthread_mutex_lock(&node_mutex);
-	trigger(PHP_SSP_CONNECT,ptr);
+	trigger(PHP_SSP_CONNECT TSRMLS_CC,ptr);
 	if(node_num>SSP_G(maxclients)){
-		trigger(PHP_SSP_CONNECT_DENIED,ptr);
+		trigger(PHP_SSP_CONNECT_DENIED TSRMLS_CC,ptr);
 		ptr->flag=false;
 	}
 	pthread_mutex_unlock(&node_mutex);
@@ -140,14 +141,15 @@ void thread(node *ptr){
 		if(recved_len==0){
 			recv_len=recv_int(ptr->sockfd);
 			if(recv_len>0){
+				if(recv_len==0x47455420){
+					recv_len=0;
+					continue;
+				}
 				if(recv_len>SSP_G(maxrecvs)){
 					php_printf("Server Recieve Package Length Must %d<=%d!\n",recv_len,SSP_G(maxrecvs));
 					break;
 				}
 				package=(char*)malloc(sizeof(char*)*recv_len);
-			}else if(recv_len==0x47455420){
-				recv_len=0;
-				continue;
 			}else{
 				break;
 			}
@@ -172,9 +174,9 @@ void thread(node *ptr){
 
 		if(recved_len==recv_len && recv_len>0){
 		zend_first_try{
-			trigger(PHP_SSP_RECEIVE,ptr,&package,&recv_len);
+			trigger(PHP_SSP_RECEIVE TSRMLS_CC,ptr,&package,&recv_len);
 			if(recv_len>0){
-				trigger(PHP_SSP_SEND,ptr,&package,&recv_len);
+				trigger(PHP_SSP_SEND TSRMLS_CC,ptr,&package,&recv_len);
 				socket_send(ptr->sockfd,package,recv_len);
 			}
 		}zend_end_try();
@@ -182,7 +184,7 @@ void thread(node *ptr){
 			recved_len=0;
 		}
 	}
-	trigger(PHP_SSP_CLOSE,ptr);
+	trigger(PHP_SSP_CLOSE TSRMLS_CC,ptr);
 	del(head,ptr->sockfd);
 	pthread_exit(NULL);
 }
@@ -244,6 +246,7 @@ int socket_stop(){
 	if(fp!=NULL){
 		fscanf(fp,"%d",&pid);
 		fclose(fp);
+		unlink(SSP_G(pidfile));
 		if(pid==getsid(pid)){
 			kill(pid,SIGTERM);
 			while(pid==getsid(pid)){
@@ -261,7 +264,6 @@ int socket_stop(){
 			system("tput sgr0");
 			return 1;
 		}
-		unlink(SSP_G(pidfile));
 	}
 	while(cols-8>i){
 		printf(".");
@@ -275,26 +277,33 @@ int socket_stop(){
 
 void socket_exit(int sid){
 	node *p;
-	p=head;
 	pthread_mutex_lock(&node_mutex);
-	while(p!=NULL){
-		p->flag=false;
-		close(p->sockfd);
-		shutdown(p->sockfd,2);
-		trigger(PHP_SSP_CLOSE,p);
-		usleep(100);
+	head->flag=false;
+	shutdown(head->sockfd,2);
+	//close(head->sockfd);
+	p=head;
+	while(p->next!=NULL){
 		p=p->next;
+		p->flag=false;
+		if(shutdown(p->sockfd,2)!=0){
+			node_num--;
+			printf("shutdown node(%d) error(%d)",node_num,errno);
+		}
+		//close(p->sockfd);
+		//trigger(PHP_SSP_CLOSE TSRMLS_CC,p);
+		//usleep(100);
 	}
 	pthread_mutex_unlock(&node_mutex);
 
-	trigger(PHP_SSP_STOP);
-
 	unlink(SSP_G(pidfile));
 
-	php_request_shutdown((void *) 0);
-	php_end();
+	//sleep(1);
+	//trigger(PHP_SSP_STOP TSRMLS_CC);
 
-	exit(EG(exit_status));
+	//php_request_shutdown((void *) 0);
+	//php_end();
+
+	//exit(EG(exit_status));
 }
 
 int socket_start(){
@@ -341,7 +350,7 @@ int socket_start(){
 		return 1;
 	}
 
-	ret=listen(listen_fd,T_MAX);
+	ret=listen(listen_fd,SSP_G(maxclients));
 	if(ret<0){
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
@@ -415,13 +424,10 @@ int socket_start(){
 		php_printf("\nListen host for the %s, port %d.\n",head->host,head->port);
 	}
 
-	trigger(PHP_SSP_START);
+	trigger(PHP_SSP_START TSRMLS_CC);
 
+	pthread_t tid;
     pthread_mutex_init(&node_mutex, NULL);
-
-    pthread_attr_t child_thread_attr;
-    pthread_attr_init(&child_thread_attr);
-    pthread_attr_setdetachstate(&child_thread_attr,PTHREAD_CREATE_DETACHED);
 
 	while(head->flag){
 		conn_fd=accept(listen_fd,(struct sockaddr *)&pin,&len);
@@ -437,15 +443,19 @@ int socket_start(){
 
 		insert(head,ptr);
 
-		pthread_mutex_lock(&node_mutex);
-		pthread_create(&ptr->tid,&child_thread_attr,(void*)thread,ptr);
-		pthread_mutex_unlock(&node_mutex);
+		pthread_create(&tid,NULL,(void*)thread,ptr);
 	}
 
-	node_num--;
-
 	close(listen_fd);
-    pthread_attr_destroy(&child_thread_attr);
+
+	while(node_num>0){
+		usleep(500);
+	}
+
+	trigger(PHP_SSP_STOP TSRMLS_CC);
+
     pthread_mutex_destroy(&node_mutex);
-	pthread_exit(NULL);
+
+	php_end();
+	exit(EG(exit_status));
 }

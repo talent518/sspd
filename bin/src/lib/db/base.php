@@ -10,18 +10,6 @@ define('SQL_SELECT_STRING',3);
 class LibDbBase{
 	var $host,$user,$pwd,$name,$pconnect,$tablepre,$charset;
 
-	protected function tidy($data){
-		if(is_array($data)){
-			foreach($data as $k=>$v)
-				$data[$k]=$this->tidy($v);
-			return $data;
-		}elseif(is_numeric($data)){
-			return $data+0;
-		}else{
-			return $data;
-		}
-	}
-
 	function connect($silent=FALSE){exit('connect method no define');}
 
 	function ping(){exit('ping method no define');}
@@ -102,11 +90,11 @@ class LibDbBase{
 	}
 
 	function count($table,$where=''){
-		return $this->select(array(
+		return $this->result($this->select(array(
 			'table'=>$table,
-			'field'=>'count(*) as `count`',
+			'field'=>'Count(*)',
 			'where'=>$where
-		),SQL_SELECT_ONLY,'count')+0;
+		),SQL_SELECT_STRING),0)+0;
 	}
 
 	function insert($table,$data,$replace=false){
@@ -137,7 +125,7 @@ class LibDbBase{
 
 	function arows(){exit('arows method no define');}
 
-	function result($query,$row,$field=null){exit('result method no define');}
+	function result($query,$row,$col=null){exit('result method no define');}
 
 	function free($query){
 		return $this->clean($query);

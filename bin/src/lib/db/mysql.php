@@ -45,8 +45,10 @@ class LibDbMysql extends LibDbBase{
 	function query($sql,$silent=FALSE,$retry=FALSE){
 		if(($query=@mysql_query($sql,$this->link))==FALSE && !$silent){
 			if(in_array($this->errno(), array(2006, 2013)) && $retry===FALSE) {
-				$this->connect();
-				return $this->query($sql,$silent,TRUE);
+				if(!$this->ping()){
+					$this->connect();
+					return $this->query($sql,$silent,TRUE);
+				}
 			}
 			$this->halt('MySQL Query Error',$sql);
 		}
@@ -57,18 +59,20 @@ class LibDbMysql extends LibDbBase{
 		if(is_string($query)){
 			$query=$this->query($query,1);
 		}
-		return $this->tidy(@mysql_fetch_assoc($query));
+		return mysql_fetch_assoc($query);
 	}
 
 	function arows(){
 		return @mysql_affected_rows($this->link);
 	}
 
-	function result($query,$row,$field=null){
+	function result($query,$row,$col=null){
 		if(is_string($query)){
 			$query=$this->query($query);
 		}
-		return $this->tidy(@mysql_result($query,$row,$field));
+		$ret=@mysql_result($query,$row,$col);
+		$this->clean($query);
+		return $ret;
 	}
 
 	function clean($query){

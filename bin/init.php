@@ -56,12 +56,13 @@ function ssp_receive_handler($ClientId,$data){
 	if($request=xml_to_object($data,false,$error)){
 		switch($request->type){
 			case 'Connect.Key':
+				$sendKey=LIB('string')->rand(128,STRING_RAND_BOTH);
 				$data=array(
 					'onid'=>$sockfd,
 					'host'=>$host,
 					'port'=>$port,
 					'time'=>$time,
-					'sendKey'=>LIB('string')->rand(128,STRING_RAND_BOTH),
+					'sendKey'=>$sendKey,
 					'receiveKey'=>$request->getText(),
 				);
 				MOD('user.online')->add($data);

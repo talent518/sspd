@@ -8,12 +8,16 @@ define('STRING_RAND_BOTH',3);
 define('STRING_RAND_CN',4);
 
 class LibString{
-	private $regs=array(
-		'utf-8'	=>"/[\x01-\x7f]|[\xc2-\xdf][\x80-\xbf]|[\xe0-\xef][\x80-\xbf]{2}|[\xf0-\xff][\x80-\xbf]{3}/",
-		'gb2312'=>"/[\x01-\x7f]|[\xb0-\xf7][\xa0-\xfe]/",
-		'gbk'	=>"/[\x01-\x7f]|[\x81-\xfe][\x40-\xfe]/",
-		'big5'	=>"/[\x01-\x7f]|[\x81-\xfe]([\x40-\x7e]|[\xa1-\xfe])/"
-	);
+	private $regs;
+
+	function LibString(){
+		$this->regs=array(
+			'utf-8'	=>"/[\x01-\x7f]|[\xc2-\xdf][\x80-\xbf]|[\xe0-\xef][\x80-\xbf]{2}|[\xf0-\xff][\x80-\xbf]{3}/",
+			'gb2312'=>"/[\x01-\x7f]|[\xb0-\xf7][\xa0-\xfe]/",
+			'gbk'	=>"/[\x01-\x7f]|[\x81-\xfe][\x40-\xfe]/",
+			'big5'	=>"/[\x01-\x7f]|[\x81-\xfe]([\x40-\x7e]|[\xa1-\xfe])/"
+		);
+	}
 
 	//判断字符串是否存在
 	function in_string($haystack,$needle){
