@@ -102,7 +102,7 @@ int recv_int(int sockfd){
 	bzero(buf,sizeof(int));
 	i=0;
 	do{
-		ret=recv(sockfd,buf+i,sizeof(int)-i,0);
+		ret=recv(sockfd,buf+i,sizeof(int)-i,MSG_WAITALL);
 		if(ret<1){
 			return ret;
 		}
@@ -129,13 +129,13 @@ void thread(node *ptr){
 		php_printf("\nAccept new connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
 	}
 
-	pthread_mutex_lock(&node_mutex);
+	//pthread_mutex_lock(&node_mutex);
 	trigger(PHP_SSP_CONNECT TSRMLS_CC,ptr);
 	if(node_num>SSP_G(maxclients)){
 		trigger(PHP_SSP_CONNECT_DENIED TSRMLS_CC,ptr);
 		ptr->flag=false;
 	}
-	pthread_mutex_unlock(&node_mutex);
+	//pthread_mutex_unlock(&node_mutex);
 
 	while(ptr->flag){
 		if(recved_len==0){
@@ -155,7 +155,7 @@ void thread(node *ptr){
 			}
 		}
 
-		len=recv(ptr->sockfd,package+recved_len,recv_len-recved_len,0);
+		len=recv(ptr->sockfd,package+recved_len,recv_len-recved_len,MSG_WAITALL);
 		if(len<0 && debug){
 			php_printf("Server Recieve Package Data Failed!\n");
 			break;

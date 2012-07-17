@@ -6,10 +6,16 @@ function UDB(){
 	static $db;
 	if(!is_object($db)){
 		ssp_mutex_lock();
+		$isConn=true;
 		if(DB_TYPE!=UC_TYPE){
 			$db=LIB('db.'.UC_TYPE);
 		}else{
-			$db=clone LIB('db.'.UC_TYPE);
+			if(DB_CHARSET==UC_CHARSET && DB_HOST==UC_HOST && DB_USER==UC_USER && DB_PWD==UC_PWD && DB_NAME==UC_NAME){
+				$db=clone DB();
+				$isConn=false;
+			}else{
+				$db=clone LIB('db.'.UC_TYPE);
+			}
 		}
 		$db->charset=UC_CHARSET;
 		$db->host=UC_HOST;
@@ -18,7 +24,9 @@ function UDB(){
 		$db->name=UC_NAME;
 		$db->pconnect=UC_PCONNECT;
 		$db->tablepre=UC_TABLEPRE;
-		$db->connect();
+		if($isConn){
+			$db->connect();
+		}
 		ssp_mutex_unlock();
 	}
 	return $db;

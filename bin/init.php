@@ -1,4 +1,6 @@
 <?PHP
+ini_set('memory_limit','-1');
+
 require dirname(__FILE__).DIRECTORY_SEPARATOR.'core.php';
 require SRC_DIR.'function_server.php';
 

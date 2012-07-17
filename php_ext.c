@@ -280,9 +280,6 @@ int trigger(unsigned short type,...){
 	}
 
 	if(param_count){
-		for (i = 0; i < param_count; i++) {
-			zval_ptr_dtor(params[i]);
-		}
 		efree(params);
 	}
 	efree(retval);

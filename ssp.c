@@ -269,67 +269,66 @@ int main(int argc, char *argv[])
 
 		while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 0, 2)) != -1) {
 			switch (c) {
+				case 'h': /* help & quit */
+				case '?':
+					if (php_request_startup(TSRMLS_C)==FAILURE) {
+						goto err;
+					}
+					request_started = 1;
+					php_ssp_usage(argv[0]);
+					php_end_ob_buffers(1 TSRMLS_CC);
+					exit_status=0;
+					goto out;
 
-			case 'h': /* help & quit */
-			case '?':
-				if (php_request_startup(TSRMLS_C)==FAILURE) {
-					goto err;
-				}
-				request_started = 1;
-				php_ssp_usage(argv[0]);
-				php_end_ob_buffers(1 TSRMLS_CC);
-				exit_status=0;
-				goto out;
+				case 'i': /* php info & quit */
+					if (php_request_startup(TSRMLS_C)==FAILURE) {
+						goto err;
+					}
+					request_started = 1;
+					php_print_info(0xFFFFFFFF TSRMLS_CC);
+					php_end_ob_buffers(1 TSRMLS_CC);
+					exit_status=0;
+					goto out;
 
-			case 'i': /* php info & quit */
-				if (php_request_startup(TSRMLS_C)==FAILURE) {
-					goto err;
-				}
-				request_started = 1;
-				php_print_info(0xFFFFFFFF TSRMLS_CC);
-				php_end_ob_buffers(1 TSRMLS_CC);
-				exit_status=0;
-				goto out;
+				case 'm': /* list compiled in modules */
+					if (php_request_startup(TSRMLS_C)==FAILURE) {
+						goto err;
+					}
+					request_started = 1;
+					php_printf("[PHP Modules]\n");
+					print_modules(TSRMLS_C);
+					php_printf("\n[Zend Modules]\n");
+					print_extensions(TSRMLS_C);
+					php_printf("\n");
+					php_end_ob_buffers(1 TSRMLS_CC);
+					exit_status=0;
+					goto out;
 
-			case 'm': /* list compiled in modules */
-				if (php_request_startup(TSRMLS_C)==FAILURE) {
-					goto err;
-				}
-				request_started = 1;
-				php_printf("[PHP Modules]\n");
-				print_modules(TSRMLS_C);
-				php_printf("\n[Zend Modules]\n");
-				print_extensions(TSRMLS_C);
-				php_printf("\n");
-				php_end_ob_buffers(1 TSRMLS_CC);
-				exit_status=0;
-				goto out;
+				case 'v': /* show php version & quit */
+					if (php_request_startup(TSRMLS_C) == FAILURE) {
+						goto err;
+					}
 
-			case 'v': /* show php version & quit */
-				if (php_request_startup(TSRMLS_C) == FAILURE) {
-					goto err;
-				}
+					request_started = 1;
+					php_printf("PHP %s (%s %s) (built: %s %s) %s\nCopyright (c) 1997-2012 The Abao\n%s",
+						PHP_VERSION, sapi_module.name,PHP_SSP_VERSION, __DATE__, __TIME__,
+	#if ZEND_DEBUG && defined(HAVE_GCOV)
+						"(DEBUG GCOV)",
+	#elif ZEND_DEBUG
+						"(DEBUG)",
+	#elif defined(HAVE_GCOV)
+						"(GCOV)",
+	#else
+						"",
+	#endif
+						get_zend_version()
+					);
+					php_end_ob_buffers(1 TSRMLS_CC);
+					exit_status=0;
+					goto out;
 
-				request_started = 1;
-				php_printf("PHP %s (%s %s) (built: %s %s) %s\nCopyright (c) 1997-2012 The Abao\n%s",
-					PHP_VERSION, sapi_module.name,PHP_SSP_VERSION, __DATE__, __TIME__,
-#if ZEND_DEBUG && defined(HAVE_GCOV)
-					"(DEBUG GCOV)",
-#elif ZEND_DEBUG
-					"(DEBUG)",
-#elif defined(HAVE_GCOV)
-					"(GCOV)",
-#else
-					"",
-#endif
-					get_zend_version()
-				);
-				php_end_ob_buffers(1 TSRMLS_CC);
-				exit_status=0;
-				goto out;
-
-			default:
-				break;
+				default:
+					break;
 			}
 		}
 

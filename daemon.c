@@ -30,6 +30,7 @@ int main(int argc, char *argv[]){
 	int pid;
 	char *pidfile;
 	char *command;
+	char *ps;
 
 	apidfile=gad(argv[0]);
 	strcat(apidfile,"/daemon.pid");
@@ -78,14 +79,27 @@ int main(int argc, char *argv[]){
 		if(fp!=NULL){
 			fscanf(fp,"%d",&pid);
 			fclose(fp);
+
+			ps=(char *)malloc(255);
+			sprintf(ps,"ps -o 'pcpu,rsz,vsz,stat,start,time' -p %d",pid);
+
 			if(pid!=getsid(pid)){
-				system("echo 'start time : `date`'");
+				system("echo \"start time : `date`\"");
 				system(command);
+				continue;
 			}
+			i=0;
 			while(pid==getsid(pid)){
-				usleep(500);
+				if(i>10){
+					i=0;
+					system(ps);
+					system("echo -e");
+				}
+				i++;
+				sleep(1);
 			}
-			system("echo 'stop time : `date`'");
+			free(ps);
+			system("echo \"stop time : `date`\"");
 			sleep(5);
 		}else{
 			sleep(1);
