@@ -1,6 +1,4 @@
 <?PHP
-ini_set('memory_limit','-1');
-
 require dirname(__FILE__).DIRECTORY_SEPARATOR.'core.php';
 require SRC_DIR.'function_server.php';
 
@@ -77,8 +75,9 @@ function ssp_receive_handler($ClientId,$data){
 
 				return $response;
 			case 'Connect.Data':
-				$key=MOD('user.online')->get_by_client($sockfd,'receiveKey');
-				$request=xml_to_object(str_decode($request->getText(),$key));
+				if($key=MOD('user.online')->get_by_client($sockfd,'receiveKey')){
+					$request=xml_to_object(str_decode($request->getText(),$key));
+				}
 				if(empty($request)){
 					return;
 				}

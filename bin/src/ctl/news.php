@@ -72,8 +72,7 @@ Class CtlNews extends CtlBase{
 			$response->type='News.View.Succeed';
 			$response->category=array_to_xml($cat,'category');
 			$content=$news['content'];
-			$news['content']=null;
-			unset($news['content']);
+			$news['content']=null;unset($news['content']);
 			$news['dateline']=cdate('m-d H:i',$news['dateline'],$request->ClientId);
 			$response->news=array_to_xml($news,'news');
 			$content=preg_replace("/\<img\s+src\=\"(.+?)\"/ie","'<img src=\"'.\$this->url_replace('\\1').'\"'",$content);

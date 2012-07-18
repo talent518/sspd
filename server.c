@@ -102,11 +102,13 @@ int recv_int(int sockfd){
 	bzero(buf,sizeof(int));
 	i=0;
 	do{
-		ret=recv(sockfd,buf+i,sizeof(int)-i,MSG_WAITALL);
-		if(ret<1){
+		ret=recv(sockfd,buf+i,1,MSG_WAITALL);
+		if(ret!=1){
 			return ret;
 		}
-		i+=ret;
+		if(*buf==0){
+			i++;
+		}
 	}while(i!=sizeof(int));
 
 	for(i=0;i<4;i++){
@@ -129,22 +131,16 @@ void thread(node *ptr){
 		php_printf("\nAccept new connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
 	}
 
-	//pthread_mutex_lock(&node_mutex);
 	trigger(PHP_SSP_CONNECT TSRMLS_CC,ptr);
 	if(node_num>SSP_G(maxclients)){
 		trigger(PHP_SSP_CONNECT_DENIED TSRMLS_CC,ptr);
 		ptr->flag=false;
 	}
-	//pthread_mutex_unlock(&node_mutex);
 
 	while(ptr->flag){
 		if(recved_len==0){
 			recv_len=recv_int(ptr->sockfd);
 			if(recv_len>0){
-				if(recv_len==0x47455420){
-					recv_len=0;
-					continue;
-				}
 				if(recv_len>SSP_G(maxrecvs)){
 					php_printf("Server Recieve Package Length Must %d<=%d!\n",recv_len,SSP_G(maxrecvs));
 					break;
@@ -162,14 +158,7 @@ void thread(node *ptr){
 		}
 		if(len==0)
 			break;
-/*
-		printf("\npackage len:%d,package data:%s\n",recv_len-recved_len,strndup(package+recved_len,recv_len-recved_len));
-		if(!(strncmp(package,"<?xml ",6)==0 || strncmp(package,"<request ",9)==0)){
-			free(package);
-			recved_len=0;
-			continue;
-		}
-*/
+
 		recved_len+=len;
 
 		if(recved_len==recv_len && recv_len>0){

@@ -317,7 +317,10 @@ static PHP_FUNCTION(ssp_setopt)
 			break;
 		case PHP_SSP_OPT_MAX_CLIENTS:
 			if(Z_TYPE_P(setval)==IS_LONG){
-				SSP_G(maxclients)=Z_LVAL_P(setval);
+				int mc=Z_LVAL_P(setval);
+				if(mc>0xffffff){
+					SSP_G(maxclients)=mc;
+				}
 			}
 			break;
 		case PHP_SSP_OPT_MAX_RECVS:

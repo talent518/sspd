@@ -58,8 +58,7 @@ Class CtlThread extends CtlBase{
 		$threadList=MOD('thread')->get_list_by_user($uid,$gid,$limit);
 		foreach($threadList as $r){
 			$r['summary']=$this->_get_summary_by_content($r['content']);
-			$r['content']=null;
-			unset($r['content']);
+			$r['content']=null;unset($r['content']);
 			$r['dateline']=udate('m-d H:i',$r['dateline'],$uid);
 			if($r['isread'] && $r['readtime'])
 				$r['readtime']=udate('m-d H:i',$r['readtime'],$uid);
@@ -82,8 +81,7 @@ Class CtlThread extends CtlBase{
 			$response->type='Thread.View.Succeed';
 			$response->category=array_to_xml($cat,'category');
 			$content=MOD('thread.coder')->coder($thread['tid'],$data['uid'],$thread['uid'],$thread['content']);
-			$thread['content']=null;
-			unset($thread['content']);
+			$thread['content']=null;unset($thread['content']);
 			$thread['dateline']=cdate('m-d H:i',$thread['dateline'],$request->ClientId);
 			$response->thread=array_to_xml($thread,'thread');
 			$content=preg_replace("/\<img\s+src\=\"(.+?)\"/ie","'<img src=\"'.\$this->url_replace('\\1').'\"'",$content);

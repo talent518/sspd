@@ -211,8 +211,7 @@ class XML_Element extends stdClass{
 	function removeChild($child){
 		foreach($this as $k=>$v){
 			if($child==$v){
-				$this->$k=null;
-				unset($this->$k);
+				$this->$k=null;unset($this->$k);
 				return $k;
 			}
 		}
@@ -221,8 +220,7 @@ class XML_Element extends stdClass{
 	function removeChildAt($key){
 		if(property_exists($this,$key)){
 			$ret=$this->$key;
-			$this->$key=null;
-			unset($this->$key);
+			$this->$key=null;unset($this->$key);
 			return $ret;
 		}else{
 			return false;
@@ -248,5 +246,11 @@ class XML_Element extends stdClass{
 	function __toString(){
 		$return=($this->hasAttr?object_to_xml($this):$this->__text);
 		return (string)$return;
+	}
+	function __destruct(){
+		foreach($this as $k=>$v){
+			$this->$k=$v=null;
+			//echo '__destruct:',$k,PHP_EOL;
+		}
 	}
 }

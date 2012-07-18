@@ -17,30 +17,9 @@ class ModUserOnline extends ModBase{
 	}
 
 	function get_by_user($id,$key=''){
-		if(!isset($this->users[$id])){
-			$user=$this->get_by_where('`uid`='.($id+0));
-			ssp_mutex_lock($this->mutex);
-			if($user){
-				$this->users[$id]=$user;
-				if($this->users[$id][$this->priKey]>0){
-					$this->clients[$this->users[$id][$this->priKey]]=$this->users[$id];
-				}
-			}else{
-				$this->users[$id]=array();
-			}
-			ssp_mutex_unlock($this->mutex);
-		}
-		return empty($key)?$this->users[$id]:$this->users[$id][$key];
+		return $this->users[$id]?$this->get_by_client($this->users[$id],$key):null;
 	}
 	function get_by_client($id,$key=''){
-		if(!isset($this->clients[$id])){
-			ssp_mutex_lock($this->mutex);
-			$this->clients[$id]=$this->get($id);
-			if($this->clients[$id]['uid']>0){
-				$this->users[$this->clients[$id]['uid']]=$this->clients[$id];
-			}
-			ssp_mutex_unlock($this->mutex);
-		}
 		return empty($key)?$this->clients[$id]:$this->clients[$id][$key];
 	}
 	function add($data){
@@ -52,12 +31,11 @@ class ModUserOnline extends ModBase{
 	function edit($id,$data){
 		ssp_mutex_lock($this->mutex);
 		$_uid=$this->clients[$id]['uid'];
-		$this->users[$_uid]=null;
-		unset($this->users[$_uid]);
+		$this->users[$_uid]=null;unset($this->users[$_uid]);
 		$this->clients[$id]=array_replace($this->clients[$id],$data);
 		$uid=$this->clients[$id]['uid'];
 		if($uid>0){
-			$this->users[$uid]=$this->clients[$id];
+			$this->users[$uid]=$id;
 		}
 		ssp_mutex_unlock($this->mutex);
 		return parent::edit($id,$data,false);
@@ -76,8 +54,7 @@ class ModUserOnline extends ModBase{
 			return $this->edit($id,$data);
 		}else{
 			ssp_mutex_lock($this->mutex);
-			$this->clients[$id]=$this->users[$uid]=null;
-			unset($this->clients[$id],$this->users[$uid]);
+			$this->clients[$id]=$this->users[$uid]=null;unset($this->clients[$id],$this->users[$uid]);
 			ssp_mutex_unlock($this->mutex);
 			return parent::drop($id);
 		}

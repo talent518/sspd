@@ -93,7 +93,7 @@ int main(int argc, char *argv[]){
 				if(i>10){
 					i=0;
 					system(ps);
-					system("echo -e");
+					system("echo");
 				}
 				i++;
 				sleep(1);

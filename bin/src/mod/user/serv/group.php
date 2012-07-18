@@ -48,8 +48,7 @@ class ModUserServGroup extends ModBase{
 	}
 	function drop($id){
 		ssp_mutex_lock($this->mutex);
-		$this->groups[$id]=null;
-		unset($this->groups[$id]);
+		$this->groups[$id]=null;unset($this->groups[$id]);
 		ssp_mutex_unlock($this->mutex);
 		return parent::drop($id);
 	}

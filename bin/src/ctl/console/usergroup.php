@@ -118,10 +118,10 @@ Class CtlConsoleUserGroup extends CtlBase{
 				'consult_reply'=>(string)($request->params->consult_reply)+0,
 			);
 			if($group['gname']==$data['gname']){
-				unset($data['gname']);
+				$data['gname']=null;unset($data['gname']);
 			}
 			if($group['title']==$data['title']){
-				unset($data['title']);
+				$data['title']=null;unset($data['title']);
 			}
 			if(!MOD('user.group')->edit($gid,$data)){
 				$response->type='Console.UserGroup.EditSave.Failed';

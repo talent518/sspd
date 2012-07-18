@@ -42,8 +42,7 @@
 #endif
 
 const char HARDCODED_INI[] =
-	"error_reporting = E_ALL & ~E_NOTICE\n"
-	"display_errors=On\n"
+	"error_reporting = E_ALL ^ E_NOTICE\n"
 	"html_errors=0\n"
 	"register_argc_argv=0\n"
 	"implicit_flush=1\n"
@@ -341,8 +340,9 @@ static int php_ssp_shutdown(sapi_module_struct *sapi_module) /* {{{ */
 static void sapi_ssp_ini_defaults(HashTable *configuration_hash)
 {
 	zval tmp;
-	INI_DEFAULT("report_zend_debug", "0");
+	INI_DEFAULT("report_zend_debug", "1");
 	INI_DEFAULT("display_errors", "1");
+	INI_DEFAULT("memory_limit", "256M");
 }
 /* }}} */
 

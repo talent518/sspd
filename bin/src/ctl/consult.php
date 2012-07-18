@@ -79,7 +79,7 @@ Class CtlConsult extends CtlBase{
 		foreach($messages as $ucid=>$r){
 			$r['dateline']=udate('H:i:s',$r['dateline'],$uid);
 			$message=$r['message'];
-			unset($r['message']);
+			$r['message']=null;unset($r['message']);
 			$response->$ucid=array_to_xml($r,'message');
 			$response->$ucid->message=xml_to_object($message);
 			$response->$ucid->message->setTag('message');
@@ -164,7 +164,7 @@ Class CtlConsult extends CtlBase{
 		foreach($messages as $ucid=>$r){
 			$r['dateline']=udate('H:i:s',$r['dateline'],$uid);
 			$message=$r['message'];
-			unset($r['message']);
+			$r['message']=null;unset($r['message']);
 			$response->$ucid=array_to_xml($r,'message');
 			$response->$ucid->message=xml_to_object($message);
 			$response->$ucid->message->setTag('message');
@@ -224,7 +224,7 @@ Class CtlConsult extends CtlBase{
 					$data['nickname']=($profile['nickname']?$profile['nickname']:$profile['username']);
 					$data['ucid']=$ucid;
 					$message=$data['message'];
-					unset($data['message']);
+					$data['message']=null;unset($data['message']);
 					$sendXML->message=array_to_xml($data,'message');
 					$sendXML->message->message=xml_to_object($message);
 					$sendXML->message->message->setTag('message');

@@ -36,8 +36,8 @@ Class CtlConsoleService extends CtlBase{
 		$xml->sspTime=udate('Y-m-d H:i:s',SSP_TIME,$uid);
 		$xml->sspRunTimed=timediff(time(),SSP_TIME);
 
-		$xml->memoryPeakUsage=formatsize(memory_get_peak_usage());
-		$xml->memoryUsage=formatsize(memory_get_usage());
+		$xml->memoryPeakUsage=formatsize(memory_get_peak_usage(true));
+		$xml->memoryUsage=formatsize(memory_get_usage(true));
 
 		$xml->time=udate('Y-m-d H:i:s',time(),$uid);
 

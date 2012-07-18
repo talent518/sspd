@@ -44,8 +44,7 @@ class LibCache{
     //删除
     public function drop(){
 		$key=$this->key();
-		$this->caches[$key]=null;
-		unset($this->caches[$key]);
+		$this->caches[$key]=null;unset($this->caches[$key]);
         return @unlink($this->file());
     }
 	//获取数据

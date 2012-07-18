@@ -96,7 +96,7 @@ Class CtlConsoleServGroup extends CtlBase{
 				'remark'=>(string)($request->params->remark),
 			);
 			if($group['name']==$data['name']){
-				unset($data['name']);
+				$data['name']=null;unset($data['name']);
 			}
 			if(!MOD('user.serv.group')->edit($gid,$data)){
 				$response->type='Console.ServGroup.EditSave.Failed';

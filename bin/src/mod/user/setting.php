@@ -22,8 +22,7 @@ class ModUserSetting extends ModBase{
 				ssp_mutex_lock($this->mutex);
 				$this->users[$uid]=parent::get($uid);
 				if(empty($this->users[$uid])){
-					$this->users[$uid]=null;
-					unset($this->users[$uid]);
+					$this->users[$uid]=null;unset($this->users[$uid]);
 				}
 				ssp_mutex_unlock($this->mutex);
 			}
@@ -50,8 +49,7 @@ class ModUserSetting extends ModBase{
 	}
 	function clean($uid){
 		ssp_mutex_lock($this->mutex);
-		$this->users[$uid]=null;
-		unset($this->users[$uid]);
+		$this->users[$uid]=null;unset($this->users[$uid]);
 		ssp_mutex_unlock($this->mutex);
 	}
 }
