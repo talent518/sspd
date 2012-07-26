@@ -177,7 +177,7 @@ function uc_check_username($username) {
 	return 1;
 }
 function uc_check_email($email, $username = '') {
-	if(!LIB('validate')->email($email)) {
+	if(!$email || !LIB('validate')->email($email)) {
 		return UC_USER_EMAIL_FORMAT_ILLEGAL;
 	} elseif(!_check_emailaccess($email)) {
 		return UC_USER_EMAIL_ACCESS_ILLEGAL;

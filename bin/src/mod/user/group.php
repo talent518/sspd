@@ -43,7 +43,9 @@ class ModUserGroup extends ModBase{
 	function get($id,$key=false){
 		if(!isset($this->groups[$id])){
 			ssp_mutex_lock($this->mutex);
-			$this->groups[$id]=parent::get($id);
+			if(!isset($this->groups[$id])){
+				$this->groups[$id]=parent::get($id);
+			}
 			ssp_mutex_unlock($this->mutex);
 		}
 		return $key?$this->groups[$id][$key]:$this->groups[$id];

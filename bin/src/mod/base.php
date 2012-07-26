@@ -16,7 +16,10 @@ class ModBase{
 		if(!is_resource($mutex)){
 			$mutex=ssp_mutex_create();
 		}
-		$valid=LIB('validate');
+		if(empty($this->rules)){
+			return true;
+		}
+		$valid=clone LIB('validate');
 		if($valid->check($data,$this->rules,$this->messages)){
 			return true;
 		}else{

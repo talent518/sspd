@@ -20,9 +20,11 @@ class ModUserSetting extends ModBase{
 		if($isCache || isset($this->users[$uid])){
 			if(!isset($this->users[$uid])){
 				ssp_mutex_lock($this->mutex);
-				$this->users[$uid]=parent::get($uid);
-				if(empty($this->users[$uid])){
-					$this->users[$uid]=null;unset($this->users[$uid]);
+				if(!isset($this->users[$uid])){
+					$this->users[$uid]=parent::get($uid);
+					if(empty($this->users[$uid])){
+						$this->users[$uid]=null;unset($this->users[$uid]);
+					}
 				}
 				ssp_mutex_unlock($this->mutex);
 			}

@@ -20,7 +20,7 @@ function server_log($message){
 		echo PHP_EOL,correct_charset($message),PHP_EOL;
 		flush();
 	}else{
-		return write_log('server',$message);
+		//return write_log('server',$message);
 	}
 }
 

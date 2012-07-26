@@ -342,7 +342,7 @@ static void sapi_ssp_ini_defaults(HashTable *configuration_hash)
 	zval tmp;
 	INI_DEFAULT("report_zend_debug", "1");
 	INI_DEFAULT("display_errors", "1");
-	INI_DEFAULT("memory_limit", "256M");
+	INI_DEFAULT("memory_limit", "512M");
 }
 /* }}} */
 

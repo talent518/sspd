@@ -126,7 +126,7 @@ function CTL($ctl,$is_new=true){
 		if(!is_object($ctls[$ctl])){
 			import('ctl.'.$ctl);
 			$class='Ctl'.GN($ctl);
-			$ctls[$ctl]=(class_exists($class)?new $class():false);
+			$ctls[$ctl]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
 		}
 		ssp_mutex_unlock($mutex);
 	}

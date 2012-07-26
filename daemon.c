@@ -100,7 +100,6 @@ int main(int argc, char *argv[]){
 			}
 			free(ps);
 			system("echo \"stop time : `date`\"");
-			sleep(5);
 		}else{
 			sleep(1);
 		}

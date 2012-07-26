@@ -131,8 +131,7 @@ function ssp_receive_handler($ClientId,$data){
 }
 
 function ssp_send_handler($ClientId,$data){
-	$info=ssp_info($ClientId);
-	extract($info);
+	$sockfd=ssp_info($ClientId,'sockfd');
 	data_log('Sending: "'.$data.'" to: '.$sockfd);
 	$xml=xml_to_object($data);
 	if(!in_array($xml->type,array('Connect.Key','Connect.Ping'))){

@@ -142,10 +142,12 @@ class LibValidate{
 	}
 
 	//等于
-	function equal($data,$value){
+	function equal($data,$value=null){
 		if(!$this->required($data)) return true;
-		$this->error=str_replace('{0}',$data,$this->error);
-		$this->error=str_replace('{1}',$value,$this->error);
+		if($value!==null){
+			$this->error=str_replace('{0}',$data,$this->error);
+			$this->error=str_replace('{1}',$value,$this->error);
+		}
 		return $data==$value;
 	}
 
@@ -180,24 +182,30 @@ class LibValidate{
 	}
 
 	//最小
-	function min($data,$min){
+	function min($data,$min=null){
 		if(!$this->required($data)) return true;
-		$this->error=str_replace('{0}',$min,$this->error);
+		if($value!==null){
+			$this->error=str_replace('{0}',$min,$this->error);
+		}
 		return $data>=$min;
 	}
 
 	//最大
-	function max($data,$max){
+	function max($data,$max=null){
 		if(!$this->required($data)) return true;
-		$this->error=str_replace('{0}',$max,$this->error);
+		if($value!==null){
+			$this->error=str_replace('{0}',$max,$this->error);
+		}
 		return $data<=$max;
 	}
 
 	//正整数
-	function range($data,$value){
+	function range($data,$value=null){
 		if(!$this->required($data)) return true;
 		list($min,$max)=explode(',',$value);
-		$this->error=str_replace('{1}',$max,str_replace('{0}',$min,$this->error));
+		if($value!==null){
+			$this->error=str_replace('{1}',$max,str_replace('{0}',$min,$this->error));
+		}
 		return $data<=$max && $data>=$min;
 	}
 
@@ -220,31 +228,39 @@ class LibValidate{
 	}
 
 	//字符最小长度
-	function minlength($data,$len){
+	function minlength($data,$len=null){
 		if(!$this->required($data)) return true;
-		$this->error=str_replace('{0}',$len,$this->error);
+		if($value!==null){
+			$this->error=str_replace('{0}',$len,$this->error);
+		}
 		return LIB('string')->len($data)>=$len;
 	}
 
 	//字符最大长度
-	function maxlength($data,$len){
+	function maxlength($data,$len=null){
 		if(!$this->required($data)) return true;
-		$this->error=str_replace('{0}',$len,$this->error);
+		if($value!==null){
+			$this->error=str_replace('{0}',$len,$this->error);
+		}
 		return LIB('string')->len($data)<=$len;
 	}
 
 	//字符长度范围
-	function rangelength($data,$value){
+	function rangelength($data,$value=null){
 		if(!$this->required($data)) return true;
 		list($min,$max)=explode(',',$value);
-		$this->error=str_replace('{1}',$max,str_replace('{0}',$min,$this->error));
+		if($value!==null){
+			$this->error=str_replace('{1}',$max,str_replace('{0}',$min,$this->error));
+		}
 		return $min<=LIB('string')->len($data) && LIB('string')->len($data)<=$max;
 	}
 
 	//字符固定长度
-	function length($data,$len){
+	function length($data,$len=null){
 		if(!$this->required($data)) return true;
-		$this->error=str_replace('{0}',$len,$this->error);
+		if($value!==null){
+			$this->error=str_replace('{0}',$len,$this->error);
+		}
 		return LIB('string')->len($data)==$len;
 	}
 
@@ -290,7 +306,9 @@ class LibValidate{
 
 	//查询
 	function query($data,$value){
-		$this->error=str_replace('{0}',$data,$this->error);
+		if($value!==null){
+			$this->error=str_replace('{0}',$data,$this->error);
+		}
 		if(is_array($value)){
 			list($table,$where)=$value;
 		}else{

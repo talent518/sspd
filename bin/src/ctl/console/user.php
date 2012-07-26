@@ -79,7 +79,7 @@ Class CtlConsoleUser extends CtlBase{
 			$where.=' AND uid='.$userId;
 		}
 
-		if($username){
+		if($username && LIB('validate')->username($username)){
 			$where.=' AND `username`=\''.addslashes($username).'\'';
 		}
 
