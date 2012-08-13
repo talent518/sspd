@@ -101,6 +101,14 @@ Class CtlUser extends CtlBase{
 				'consult'=>(string)$params->consult+0,
 			);
 			MOD('user.online')->edit($sockfd,$data);
+			if(UGK($uid,'consult_reply')){
+				if($consults=(string)$params->consults){
+					MOD('user.serv')->update(array('isopen'=>0),'uid='.$uid.' AND cuid NOT IN('.iimplode(explode(',',$consults)).')');
+					MOD('user.serv')->update(array('isopen'=>1),'uid='.$uid.' AND cuid IN('.iimplode(explode(',',$consults)).')');
+				}else{
+					MOD('user.serv')->update(array('isopen'=>0),'uid='.$uid);
+				}
+			}
 			if(UGK($uid,'use_expiry',false)){
 				$expiry=MOD('user.setting')->get($uid,'expiry');
 				$servday=round(($expiry-$user['logtime'])/86400,1);
@@ -134,6 +142,7 @@ Class CtlUser extends CtlBase{
 				$response->user->setting->servday=$servday;
 				$response->user->prevlogtime=udate('Y-m-d H:i:s',$user['prevlogtime'],$uid);
 				$response->user->logtime=udate('Y-m-d H:i:s',$user['logtime'],$uid);
+				$response->multiConsult=UGK($uid,'consult_reply');
 				$remind=MOD('count')->remind($uid);
 				$response->remind=array_to_xml($remind,'remind');
 			}else{

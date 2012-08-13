@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
-#include <ctype.h>
 #include <signal.h>
 #include <pthread.h>
 #include <pwd.h>
@@ -17,10 +16,9 @@
 #include "php_ext.h"
 #include "php_func.h"
 #include "server.h"
+#include "node.h"
 
 bool debug=false;
-int node_num=0;
-pthread_mutex_t node_mutex;
 
 #define COLS shl_cols()
 #define flush() fflush(stdout)
@@ -34,65 +32,6 @@ int shl_cols(){
 		fclose(fp);
 	}
 	return ret;
-}
-
-node *find(int sockfd,bool is_port){
-	node *p,*ptr=NULL;
-	p=head;
-	while(p->next!=NULL){
-		p=p->next;
-		if(is_port && p->port==sockfd){
-			ptr=p;
-			break;
-		}
-		if(!is_port && p->sockfd==sockfd){
-			ptr=p;
-			break;
-		}
-	}
-	return ptr;
-}
-
-int insert(node *head,node *ptr){
-	pthread_mutex_lock(&node_mutex);
-	node *p;
-	p=head;
-	//printf("\ninsert node:\n");
-	while(p->next!=NULL){
-		p=p->next;
-		//printf("sockfd:%d,host:%s,port:%d,flag:%s\n",p->sockfd,p->host,p->port,p->flag?"true":"false");
-	}
-	p->next=ptr;
-	//printf("new node sockfd:%d,host:%s,port:%d,flag:%s\n",ptr->sockfd,ptr->host,ptr->port,ptr->flag?"true":"false");
-	node_num++;
-	pthread_mutex_unlock(&node_mutex);
-	return 0;
-}
-
-int del(node *head,int socket){
-	pthread_mutex_lock(&node_mutex);
-	node *p,*q;
-	p=head;
-	if(p->next==NULL)
-	{
-		perror("delete node error.");
-		pthread_mutex_unlock(&node_mutex);
-		return (-1);
-	}
-	while(p->next!=NULL){
-		q=p->next;
-		if(q->sockfd==socket)
-		{
-			p->next=q->next;
-			free(q);
-			close(socket);
-			node_num--;
-			break;
-		}else
-			p=p->next;
-	}
-	pthread_mutex_unlock(&node_mutex);
-	return 0;
 }
 
 int recv_int(int sockfd){
@@ -115,6 +54,8 @@ int recv_int(int sockfd){
 		len+=(buf[i]&0xff)<<((3-i)*8);
 	}
 
+	free(buf);
+
 	if(len>0){
 		return len;
 	}else{
@@ -131,9 +72,9 @@ void thread(node *ptr){
 		php_printf("\nAccept new connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
 	}
 
-	trigger(PHP_SSP_CONNECT TSRMLS_CC,ptr);
+	trigger(PHP_SSP_CONNECT,ptr);
 	if(node_num>SSP_G(maxclients)){
-		trigger(PHP_SSP_CONNECT_DENIED TSRMLS_CC,ptr);
+		trigger(PHP_SSP_CONNECT_DENIED,ptr);
 		ptr->flag=false;
 	}
 
@@ -153,19 +94,22 @@ void thread(node *ptr){
 
 		len=recv(ptr->sockfd,package+recved_len,recv_len-recved_len,MSG_WAITALL);
 		if(len<0 && debug){
+			free(package);
 			php_printf("Server Recieve Package Data Failed!\n");
 			break;
 		}
-		if(len==0)
+		if(len==0){
+			free(package);
 			break;
+		}
 
 		recved_len+=len;
 
 		if(recved_len==recv_len && recv_len>0){
 		zend_first_try{
-			trigger(PHP_SSP_RECEIVE TSRMLS_CC,ptr,&package,&recv_len);
+			trigger(PHP_SSP_RECEIVE,ptr,&package,&recv_len);
 			if(recv_len>0){
-				trigger(PHP_SSP_SEND TSRMLS_CC,ptr,&package,&recv_len);
+				trigger(PHP_SSP_SEND,ptr,&package,&recv_len);
 				socket_send(ptr->sockfd,package,recv_len);
 			}
 		}zend_end_try();
@@ -173,24 +117,30 @@ void thread(node *ptr){
 			recved_len=0;
 		}
 	}
-	trigger(PHP_SSP_CLOSE TSRMLS_CC,ptr);
-	del(head,ptr->sockfd);
+	trigger(PHP_SSP_CLOSE,ptr);
+	shutdown(ptr->sockfd,2);
+	close(ptr->sockfd);
+	delete(ptr);
 	pthread_exit(NULL);
 }
 
-int socket_send(int sockfd,char *data,int data_len){
+int socket_send(int sockfd,const char *data,int data_len){
+	if(data_len<=0){
+		return -1;
+	}
+	int plen=sizeof(int)+data_len;
 	char *package;
-	package=(char*)malloc(sizeof(data_len)+data_len);
+	package=(char*)malloc(plen);
 	int i;
 	for(i=0;i<4;i++){
 		package[i]=data_len>>((3-i)*8);
 	}
 
-	memcpy(package+sizeof(data_len),data,data_len);
+	memcpy(package+sizeof(int),data,data_len);
 
-	int ret=send(sockfd,package,sizeof(data_len)+data_len,0);
+	int ret=send(sockfd,package,plen,0);
 	if(ret!=sizeof(data_len)+data_len && debug){
-		php_printf("Send DAta Error! Length:%d,Package Length:%d\n",data_len,sizeof(data_len)+data_len);
+		php_printf("Send Data Error! Length:%d,Package Length:%d\n",data_len,plen);
 	}
 	return ret;
 }
@@ -271,15 +221,15 @@ void socket_exit(int sid){
 	shutdown(head->sockfd,2);
 	//close(head->sockfd);
 	p=head;
-	while(p->next!=NULL){
+	while(p->next!=head){
 		p=p->next;
 		p->flag=false;
 		if(shutdown(p->sockfd,2)!=0){
-			node_num--;
+			//node_num--;
 			printf("shutdown node(%d) error(%d)",node_num,errno);
 		}
 		//close(p->sockfd);
-		//trigger(PHP_SSP_CLOSE TSRMLS_CC,p);
+		//trigger(PHP_SSP_CLOSE,p);
 		//usleep(100);
 	}
 	pthread_mutex_unlock(&node_mutex);
@@ -287,7 +237,7 @@ void socket_exit(int sid){
 	unlink(SSP_G(pidfile));
 
 	//sleep(1);
-	//trigger(PHP_SSP_STOP TSRMLS_CC);
+	//trigger(PHP_SSP_STOP);
 
 	//php_request_shutdown((void *) 0);
 	//php_end();
@@ -402,21 +352,19 @@ int socket_start(){
 	system("echo -e \"\\E[32m\"[Succeed]");
 	system("tput sgr0");
 
-	head=(node *)malloc(sizeof(node));
+	construct();
 	head->sockfd=listen_fd;
 	inet_ntop(AF_INET, &sin.sin_addr, head->host, sizeof(head->host));
 	head->port=ntohs(sin.sin_port);
 	head->flag=true;
-	head->next=NULL;
 
 	if(debug){
 		php_printf("\nListen host for the %s, port %d.\n",head->host,head->port);
 	}
 
-	trigger(PHP_SSP_START TSRMLS_CC);
+	trigger(PHP_SSP_START);
 
 	pthread_t tid;
-    pthread_mutex_init(&node_mutex, NULL);
 
 	while(head->flag){
 		conn_fd=accept(listen_fd,(struct sockaddr *)&pin,&len);
@@ -428,23 +376,23 @@ int socket_start(){
 		inet_ntop(AF_INET, &pin.sin_addr, ptr->host, sizeof(ptr->host));
 		ptr->port=ntohs(pin.sin_port);
 		ptr->flag=true;
-		ptr->next=NULL;
 
-		insert(head,ptr);
+		insert(ptr);
 
 		pthread_create(&tid,NULL,(void*)thread,ptr);
 	}
 
 	close(listen_fd);
 
-	while(node_num>0){
+	do{
 		usleep(500);
-	}
+	}while(node_num>0);
 
-	trigger(PHP_SSP_STOP TSRMLS_CC);
+	destruct();
 
-    pthread_mutex_destroy(&node_mutex);
+	trigger(PHP_SSP_STOP);
 
 	php_end();
+
 	exit(EG(exit_status));
 }

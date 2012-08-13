@@ -1,5 +1,6 @@
 #include "php_ext.h"
 #include "server.h"
+#include "node.h"
 #include <error.h>
 
 int le_ssp_descriptor;
@@ -472,6 +473,7 @@ static PHP_FUNCTION(ssp_close)
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
 	trigger(PHP_SSP_CLOSE,ptr);
 	ptr->flag=false;
+	shutdown(ptr->sockfd,2);
 	close(ptr->sockfd);
-	del(head,ptr->sockfd);
+	delete(ptr);
 }

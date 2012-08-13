@@ -8,10 +8,15 @@ import('lib.xml');
 Class CtlConsult extends CtlBase{
 	function userTree($uid){
 		$xml=new XML_Element('userTree');
-		foreach(MOD('user.serv')->get_list_by_where($uid+0) as $id=>$r){
+		foreach(MOD('user.serv')->get_list_by_uid($uid+0) as $id=>$r){
 			if(!$xml->{$r['gid']}){
 				$g=MOD('user.serv.group')->get($r['gid']);
+				$g['onlines']=$g['counts']=0;
 				$xml->{$r['gid']}=array_to_xml($g,'group');
+			}
+			$xml->{$r['gid']}->counts++;
+			if($r['isonline']){
+				$xml->{$r['gid']}->onlines++;
 			}
 			$r['avatar']=avatar($id,'small');
 			$xml->{$r['gid']}->$id=array_to_xml($r,'user');
@@ -44,6 +49,18 @@ Class CtlConsult extends CtlBase{
 			if(empty($response->sendKey)){
 				$response->sendKey='Click';
 			}
+		}
+		return $response;
+	}
+	function onClients($request){
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		if(UGK($uid,'consult_reply')){
+			$response=$this->userTree($uid);
+			$response->type='Consult.Clients.Succeed';
+		}else{
+			$response=new XML_Element('response');
+			$response->type='Consult.Clients.Failed';
+			$response->setText(USER_NOPRIV_MSG);
 		}
 		return $response;
 	}

@@ -71,16 +71,15 @@ class LibDbBase{
 				break;
 			case SQL_SELECT_LIST:
 				$q=$this->query($sql);
-				$list=array();
+				$return=array();
 				while($v=$this->row($q)){
 					$value=($vkey?$v[$vkey]:$v);
 					if($key)
-						$list[$v[$key]]=$value;
+						$return[$v[$key]]=$value;
 					else
-						$list[]=$value;
+						$return[]=$value;
 				}
 				$this->clean($q);
-				$return=&$list;
 				break;
 			default:
 				$return=$sql;

@@ -156,4 +156,5 @@ function ssp_close_handler($ClientId){
 
 function ssp_stop_handler(){
 	server_log('Server Stoped at '.date('H:i:s',time()));
+	DB()->close();
 }

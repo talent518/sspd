@@ -12,7 +12,7 @@ all: $(BIN_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/daemon
 $(BIN_DIR):
 	mkdir $@
 
-$(BIN_DIR)/ssp: $(BIN_DIR)/php_ext.o $(BIN_DIR)/php_func.o $(BIN_DIR)/server.o $(BIN_DIR)/ssp.o $(BIN_DIR)/api.o
+$(BIN_DIR)/ssp: $(BIN_DIR)/php_ext.o $(BIN_DIR)/php_func.o $(BIN_DIR)/server.o $(BIN_DIR)/node.o $(BIN_DIR)/ssp.o $(BIN_DIR)/api.o
 	$(CC) $(LFLAGS) -o $@ $?
 
 $(BIN_DIR)/daemon: $(BIN_DIR)/daemon.o $(BIN_DIR)/api.o
