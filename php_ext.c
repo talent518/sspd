@@ -2,11 +2,15 @@
 #include "server.h"
 #include "node.h"
 #include <error.h>
+#include <malloc.h>
 
 int le_ssp_descriptor;
 int le_ssp_mutex_descriptor;
 
 /* {{{ arginfo */
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mallinfo, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_setopt, 0, 0, 2)
 	ZEND_ARG_INFO(0, option)
 	ZEND_ARG_INFO(0, value)
@@ -54,6 +58,7 @@ ZEND_END_ARG_INFO()
 
 /* {{{ ssp_functions[] */
 function_entry ssp_functions[] = {
+	PHP_FE(ssp_mallinfo, arginfo_ssp_mallinfo)
 	PHP_FE(ssp_setopt, arginfo_ssp_setopt)
 	PHP_FE(ssp_bind, arginfo_ssp_bind)
 	PHP_FE(ssp_resource, arginfo_ssp_resource)
@@ -163,6 +168,8 @@ static PHP_GINIT_FUNCTION(ssp)
 	ssp_globals->maxclients	 = 1000;
 	ssp_globals->maxrecvs	 = 2*1024*1024;
 
+	ssp_globals->bind=(char **)malloc(sizeof(char*)*PHP_SSP_LEN);
+
 	ssp_globals->mutex=(pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
 
     pthread_mutex_init(ssp_globals->mutex, NULL);
@@ -213,6 +220,7 @@ static zval *_ssp_string_zval(const char *str)
 }
 
 int trigger(unsigned short type,...){
+	TSRMLS_FETCH();
 	if(SSP_G(bind)[type]==NULL){
 		return FAILURE;
 	}
@@ -280,14 +288,33 @@ int trigger(unsigned short type,...){
 		php_printf("Unable to call handler %s()\n", call_func_name);
 	}
 
-	if(param_count){
+	if(param_count>0){
+		int i;
+		for(i=0;i<param_count;i++){
+			zval_ptr_dtor(params[i]);
+		}
 		efree(params);
 	}
+
 	efree(retval);
 
 	return ret;
 }
 
+static PHP_FUNCTION(ssp_mallinfo){
+    struct mallinfo info = mallinfo();
+	array_init(return_value);
+	add_assoc_long(return_value,"arena",info.arena);//size of data segment used by malloc
+	add_assoc_long(return_value,"ordblks",info.ordblks);//number of free chunks
+	add_assoc_long(return_value,"smblks",info.smblks);//number of fast bins
+	add_assoc_long(return_value,"hblks",info.hblks);//number of anonymous mappings
+	add_assoc_long(return_value,"hblkhd",info.hblkhd);//size of anonymous mappings
+	add_assoc_long(return_value,"usmblks",info.usmblks);//maximum total allocated size
+	add_assoc_long(return_value,"fsmblks",info.fsmblks);//size of available fast bins
+	add_assoc_long(return_value,"uordblks",info.uordblks);//size of total allocated space
+	add_assoc_long(return_value,"fordblks",info.fordblks);//size of available chunks
+	add_assoc_long(return_value,"keepcost",info.keepcost);//size of trimmable space
+}
 static PHP_FUNCTION(ssp_setopt)
 {
 	int option;
@@ -474,6 +501,6 @@ static PHP_FUNCTION(ssp_close)
 	trigger(PHP_SSP_CLOSE,ptr);
 	ptr->flag=false;
 	shutdown(ptr->sockfd,2);
-	close(ptr->sockfd);
-	delete(ptr);
+	//close(ptr->sockfd);
+	//delete(ptr);
 }

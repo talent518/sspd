@@ -41,6 +41,14 @@
 	#include "win32/select.h"
 #endif
 
+#ifndef STDOUT_FILENO
+#define STDOUT_FILENO 1
+#endif
+
+char *php_self="";
+char *script_filename="";
+int ssp_request_started=0;
+
 const char HARDCODED_INI[] =
 	"error_reporting = E_ALL ^ E_NOTICE\n"
 	"html_errors=0\n"
@@ -49,10 +57,6 @@ const char HARDCODED_INI[] =
 	"output_buffering=0\n"
 	"max_execution_time=0\n"
 	"max_input_time=-1\n\0";
-
-#ifndef STDOUT_FILENO
-#define STDOUT_FILENO 1
-#endif
 
 /* {{{ ssp_seek_file_begin
  */
@@ -398,9 +402,12 @@ void php_init(){
 	CSM(ini_defaults) = sapi_ssp_ini_defaults;
 	CSM(php_ini_path_override) = NULL;
 	CSM(phpinfo_as_text) = 1;
+
+#ifdef ZTS
+	tsrm_startup(1, 1, 0, NULL);
+#endif
 	sapi_startup(&ssp_sapi_module);
 
-	ini_entries_len = sizeof(HARDCODED_INI)-2;
 	CSM(ini_entries) = malloc(sizeof(HARDCODED_INI));
 	memcpy(CSM(ini_entries), HARDCODED_INI, sizeof(HARDCODED_INI));
 
@@ -408,6 +415,7 @@ void php_init(){
 }
 
 int php_begin(){
+	TSRMLS_FETCH();
 	if (CSM(startup)(&ssp_sapi_module)==FAILURE) {
 		return FAILURE;
 	}
@@ -415,6 +423,7 @@ int php_begin(){
 }
 
 int ssp_request_startup(char *script_file){
+	TSRMLS_FETCH();
 	int lineno = 0;
 	zend_file_handle file_handle;
 
@@ -427,7 +436,7 @@ int ssp_request_startup(char *script_file){
 		file_handle.filename = "-";
 		//file_handle.handle.fp = stdin;
 	}
-	file_handle.type = ZEND_HANDLE_FP;
+	file_handle.type = ZEND_HANDLE_FILENAME;
 	file_handle.opened_path = NULL;
 	file_handle.free_filename = 0;
 	php_self = file_handle.filename;
@@ -467,6 +476,7 @@ int ssp_request_startup(char *script_file){
 }
 
 void php_end(){
+	TSRMLS_FETCH();
 	if (ssp_request_started) {
 		php_request_shutdown((void *) 0);
 	}

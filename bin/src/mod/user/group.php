@@ -33,33 +33,36 @@ class ModUserGroup extends ModBase{
 			'query'=>'用户组标题已经存在！',
 		),
 	);
-	private $groups=array();
 
-	protected $mutex;
+	protected $shmid;
 	function ModUserGroup(){
-		$this->mutex=ssp_mutex_create();
+		$this->shmid=ssp_attach(ftok(__FILE__,'g'),SSP_MAX_CLIENTS*1000);
 	}
 
 	function get($id,$key=false){
-		if(!isset($this->groups[$id])){
-			ssp_mutex_lock($this->mutex);
-			if(!isset($this->groups[$id])){
-				$this->groups[$id]=parent::get($id);
+		if(!ssp_has_var($this->shmid,$id)){
+			if(!ssp_set_var($this->shmid,$id,parent::get($id))){
+				echo '$this->shmid mod.user.group:get id "',$id,'" error!',PHP_EOL;
 			}
-			ssp_mutex_unlock($this->mutex);
 		}
-		return $key?$this->groups[$id][$key]:$this->groups[$id];
+		$group=ssp_get_var($this->shmid,$id);
+		return $key?$group[$key]:$group;
 	}
 	function edit($id,$data,$isCheck=true,$isString=true){
-		ssp_mutex_lock($this->mutex);
-		$this->groups[$id]=array_replace($this->groups[$id],$data);
-		ssp_mutex_unlock($this->mutex);
+		$group=array_replace($this->get($id),$data);
+		if(!ssp_set_var($this->shmid,$id,$group)){
+			echo '$this->shmid mod.user.group:edit id "',$id,'" error!',PHP_EOL;
+		}
 		return parent::edit($id,$data,$isCheck,$isString);
 	}
 	function drop($id){
-		ssp_mutex_lock($this->mutex);
-		$this->groups[$id]=null;unset($this->groups[$id]);
-		ssp_mutex_unlock($this->mutex);
+		ssp_remove_var($this->shmid,$id);
 		return parent::drop($id);
+	}
+	function clean(){
+		ssp_remove($this->shmid);
+	}
+	function __destruct(){
+		ssp_detach($this->shmid);
 	}
 }

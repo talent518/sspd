@@ -33,13 +33,38 @@ Class CtlConsoleService extends CtlBase{
 
 		$xml->sspVersion='SSP '.SSP_VERSION;
 		$xml->phpVersion='PHP '.PHP_VERSION;
-		$xml->sspTime=udate('Y-m-d H:i:s',SSP_TIME,$uid);
-		$xml->sspRunTimed=timediff(time(),SSP_TIME);
+
+		$stime=filemtime(ROOT.'log'.DIR_SEP.'ssp.pid');
+
+		$xml->sspTime=udate('Y-m-d H:i:s',$stime,$uid);
+		$xml->sspRunTimed=timediff(time(),$stime);
 
 		$xml->memoryPeakUsage=formatsize(memory_get_peak_usage(true));
 		$xml->memoryUsage=formatsize(memory_get_usage(true));
 
 		$xml->time=udate('Y-m-d H:i:s',time(),$uid);
+
+		$xml->online=DB()->count('user_online','uid>0').'/'.DB()->count('user_online');
+/*
+ * @array ssp_mallinfo()
+ *
+ * @desc 内存信息：
+ * @key arena 用于malloc 的数据段大小
+ * @key ordblks 闲置空间
+ *
+ * 内存分配调试:
+ * @key smblks; 快速垃圾箱数
+ * @key hblks; 匿名映射数
+ * @key hblkhd; 匿名映射大小
+ * @key usmblks; 最大分配大小
+ * @key fsmblks; 可用快速垃圾箱的大小
+ * @key uordblks; 总分配空间的大小
+ * @key fordblks; 可用块的大小
+ * @key keepcost; 微调空间的大小
+*/
+		foreach(ssp_mallinfo() as $k=>$v){
+			$xml->$k=formatsize($v);
+		}
 
 		return $xml;
 	}

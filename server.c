@@ -72,7 +72,13 @@ void thread(node *ptr){
 		php_printf("\nAccept new connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
 	}
 
+#ifdef ZTS
+	ssp_request_startup(php_self);
+#endif
+
 	trigger(PHP_SSP_CONNECT,ptr);
+
+	TSRMLS_FETCH();
 	if(node_num>SSP_G(maxclients)){
 		trigger(PHP_SSP_CONNECT_DENIED,ptr);
 		ptr->flag=false;
@@ -118,9 +124,14 @@ void thread(node *ptr){
 		}
 	}
 	trigger(PHP_SSP_CLOSE,ptr);
+
 	shutdown(ptr->sockfd,2);
 	close(ptr->sockfd);
+
 	delete(ptr);
+
+	php_request_shutdown((void *)0);
+
 	pthread_exit(NULL);
 }
 
@@ -158,6 +169,8 @@ int socket_status(){
 		i++;
 	}
 
+	TSRMLS_FETCH();
+
 	fp=fopen(SSP_G(pidfile),"r+");
 	if(fp!=NULL){
 		fscanf(fp,"%d",&pid);
@@ -181,6 +194,7 @@ int socket_stop(){
 	printf("Stopping SSP server");
 	flush();
 
+	TSRMLS_FETCH();
 	fp=fopen(SSP_G(pidfile),"r+");
 	if(fp!=NULL){
 		fscanf(fp,"%d",&pid);
@@ -215,12 +229,12 @@ int socket_stop(){
 }
 
 void socket_exit(int sid){
-	node *p;
-	pthread_mutex_lock(&node_mutex);
+	//node *p;
+	//pthread_mutex_lock(&node_mutex);
 	head->flag=false;
 	shutdown(head->sockfd,2);
 	//close(head->sockfd);
-	p=head;
+	/*p=head;
 	while(p->next!=head){
 		p=p->next;
 		p->flag=false;
@@ -233,7 +247,8 @@ void socket_exit(int sid){
 		//usleep(100);
 	}
 	pthread_mutex_unlock(&node_mutex);
-
+*/
+	TSRMLS_FETCH();
 	unlink(SSP_G(pidfile));
 
 	//sleep(1);
@@ -246,6 +261,7 @@ void socket_exit(int sid){
 }
 
 int socket_start(){
+	TSRMLS_FETCH();
 	struct sockaddr_in sin;
 	struct sockaddr_in pin;
 	socklen_t len=sizeof(pin);
@@ -364,8 +380,6 @@ int socket_start(){
 
 	trigger(PHP_SSP_START);
 
-	pthread_t tid;
-
 	while(head->flag){
 		conn_fd=accept(listen_fd,(struct sockaddr *)&pin,&len);
 		if(conn_fd<=0){
@@ -379,14 +393,27 @@ int socket_start(){
 
 		insert(ptr);
 
-		pthread_create(&tid,NULL,(void*)thread,ptr);
+		pthread_create(&ptr->tid,NULL,(void*)thread,ptr);
 	}
 
 	close(listen_fd);
 
-	do{
-		usleep(500);
-	}while(node_num>0);
+	pthread_t tid;
+	void *tret;
+	ptr=head->next;
+	while(ptr!=head){
+		tid=ptr->tid;
+		ptr->flag=false;
+		if(shutdown(ptr->sockfd,2)!=0){
+			printf("shutdown node(%d) error(%d)",node_num,errno);
+		}
+		ptr=ptr->next;
+		pthread_join(tid,&tret);
+	}
+
+	if(node_num>0){
+		printf("There are %d nodes not successfully deleted.",node_num);
+	}
 
 	destruct();
 

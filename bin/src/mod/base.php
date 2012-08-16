@@ -12,10 +12,10 @@ class ModBase{
 	protected $messages;
 
 	function check($data){
-		static $mutex;
+		/*static $mutex;
 		if(!is_resource($mutex)){
 			$mutex=ssp_mutex_create();
-		}
+		}*/
 		if(empty($this->rules)){
 			return true;
 		}
@@ -23,10 +23,10 @@ class ModBase{
 		if($valid->check($data,$this->rules,$this->messages)){
 			return true;
 		}else{
-			ssp_mutex_lock($mutex);
+			//ssp_mutex_lock($mutex);
 			$this->key=$valid->key;
 			$this->error=$valid->error;
-			ssp_mutex_unlock($mutex);
+			//ssp_mutex_unlock($mutex);
 			return false;
 		}
 	}

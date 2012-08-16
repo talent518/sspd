@@ -5,11 +5,10 @@
 
 extern sapi_module_struct ssp_sapi_module;
 
-int ini_entries_len;
-static char *php_self = "";
-static char *script_filename = "";
+extern char *php_self;
+extern char *script_filename;
 
-static int ssp_request_started=0;
+extern int ssp_request_started;
 
 #define CSM(v) (ssp_sapi_module.v)
 

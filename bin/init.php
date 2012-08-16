@@ -32,8 +32,7 @@ ssp_bind(SSP_CLOSE,'ssp_close_handler');
 ssp_bind(SSP_STOP,'ssp_stop_handler');
 
 function ssp_start_handler(){
-	define('SSP_TIME',time());
-	server_log('Server started at '.date('m-d H:i:s',SSP_TIME).PHP_EOL.'Listening on port '.SSP_PORT);
+	server_log('Server started at '.date('m-d H:i:s',time()).PHP_EOL.'Listening on port '.SSP_PORT);
 	MOD('user.online')->clean();
 }
 
@@ -52,7 +51,7 @@ function ssp_connect_denied_handler($ClientId){
 
 function ssp_receive_handler($ClientId,$data){
 	$info=ssp_info($ClientId);
-	extract($info);
+	extract($info);$info=null;
 	if($request=xml_to_object($data,false,$error)){
 		switch($request->type){
 			case 'Connect.Key':
@@ -73,7 +72,7 @@ function ssp_receive_handler($ClientId,$data){
 				$response->type='Connect.Key';
 				$response->setText($data['sendKey']);
 
-				return $response;
+				return (string)$response;
 			case 'Connect.Data':
 				if($key=MOD('user.online')->get_by_client($sockfd,'receiveKey')){
 					$request=xml_to_object(str_decode($request->getText(),$key));
@@ -139,6 +138,7 @@ function ssp_send_handler($ClientId,$data){
 		$return=new XML_Element('response');
 		$return->type='Connect.Data';
 		$return->setText(str_encode($data,$key));
+		$data=null;
 	}else{
 		$return=$data;
 	}
@@ -148,7 +148,7 @@ function ssp_send_handler($ClientId,$data){
 
 function ssp_close_handler($ClientId){
 	$info=ssp_info($ClientId);
-	extract($info);
+	extract($info);$info=null;
 	server_log( 'Close connection ( '.$sockfd.' ) from '.$host.' on port '.$port.'. Time at '.date('m-d H:i:s',MOD('user.online')->get_by_client($sockfd,'time')));
 	CTL('user')->logout($ClientId);
 	MOD('user.online')->drop($sockfd);

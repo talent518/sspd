@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include "TSRM.h"
+
 //#define PHP_SSP_DEBUG
 
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp user node"
@@ -43,11 +45,15 @@ ZEND_BEGIN_MODULE_GLOBALS(ssp)
 	short int port;
 	int maxclients;
 	int maxrecvs;
-	char *bind[PHP_SSP_LEN];
+	char **bind;
 	pthread_mutex_t *mutex;
 ZEND_END_MODULE_GLOBALS(ssp)
 
-#define SSP_G(v) (ssp_globals.v)
+#ifdef ZTS
+	#define SSP_G(v) TSRMG(ssp_globals_id, zend_ssp_globals *, v)
+#else
+	#define SSP_G(v) (ssp_globals.v)
+#endif
 
 static PHP_MINIT_FUNCTION(ssp);
 static PHP_MSHUTDOWN_FUNCTION(ssp);
@@ -57,6 +63,7 @@ static PHP_MINFO_FUNCTION(ssp);
 
 int trigger(unsigned short type,...);
 
+static PHP_FUNCTION(ssp_mallinfo);
 static PHP_FUNCTION(ssp_setopt);
 static PHP_FUNCTION(ssp_bind);
 static PHP_FUNCTION(ssp_resource);

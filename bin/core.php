@@ -79,56 +79,31 @@ function import($lib){
 }
 
 function LIB($lib){
-	static $libs,$mutex;
-	if(!is_resource($mutex)){
-		$mutex=ssp_mutex_create();
-		$libs=array();
-	}
+	static $libs;
 	if(!is_object($libs[$lib])){
-		ssp_mutex_lock($mutex);
-		if(!is_object($libs[$lib])){
-			import('lib.'.$lib);
-			$class='Lib'.GN($lib);
-			$libs[$lib]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
-			//echo 'LIB:',$lib,PHP_EOL;
-		}
-		ssp_mutex_unlock($mutex);
+		import('lib.'.$lib);
+		$class='Lib'.GN($lib);
+		$libs[$lib]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
 	}
 	return $libs[$lib];
 }
 
 function MOD($mod){
-	static $mods,$mutex;
-	if(!is_resource($mutex)){
-		$mutex=ssp_mutex_create();
-		$mods=array();
-	}
+	static $mods;
 	if(!is_object($mods[$mod])){
-		ssp_mutex_lock($mutex);
-		if(!is_object($mods[$mod])){
-			import('mod.'.$mod);
-			$class='Mod'.GN($mod);
-			$mods[$mod]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
-		}
-		ssp_mutex_unlock($mutex);
+		import('mod.'.$mod);
+		$class='Mod'.GN($mod);
+		$mods[$mod]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
 	}
 	return $mods[$mod];
 }
 
 function CTL($ctl,$is_new=true){
-	static $ctls,$mutex;
-	if(!is_resource($mutex)){
-		$mutex=ssp_mutex_create();
-		$ctls=array();
-	}
+	static $ctls;
 	if(!is_object($ctls[$ctl])){
-		ssp_mutex_lock($mutex);
-		if(!is_object($ctls[$ctl])){
-			import('ctl.'.$ctl);
-			$class='Ctl'.GN($ctl);
-			$ctls[$ctl]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
-		}
-		ssp_mutex_unlock($mutex);
+		import('ctl.'.$ctl);
+		$class='Ctl'.GN($ctl);
+		$ctls[$ctl]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
 	}
 	return $ctls[$ctl];
 }

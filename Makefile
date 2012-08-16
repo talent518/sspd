@@ -4,7 +4,7 @@ PHP_DIR = /usr
 INC_DIR=$(PHP_DIR)/include/php
 BIN_DIR=$(PWD)/bin
 
-CFLAGS = -I$(INC_DIR) -I$(INC_DIR)/main -I$(INC_DIR)/Zend -I$(INC_DIR)/TSRM 
+CFLAGS = -I$(INC_DIR) -I$(INC_DIR)/main -I$(INC_DIR)/Zend -I$(INC_DIR)/TSRM -DZTS
 LFLAGS = -lstdc++ -L$(PHP_DIR)/lib -lphp5
 
 all: $(BIN_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/daemon

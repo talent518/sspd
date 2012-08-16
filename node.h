@@ -3,6 +3,7 @@
 #include <pthread.h>
 
 typedef struct user{
+	pthread_t tid;
 	int sockfd;
 	char host[15];
 	uint16_t port;

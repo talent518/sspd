@@ -263,6 +263,8 @@ int main(int argc, char *argv[])
 		goto err;
 	}
 
+	TSRMLS_FETCH();
+
 	zend_first_try {
 		CG(in_compilation) = 0; /* not initialized but needed for several options */
 		EG(uninitialized_zval_ptr) = NULL;
@@ -378,8 +380,10 @@ int main(int argc, char *argv[])
 		}
 	} zend_end_try();
 
-	ssp_request_startup(script_file);
-
+	if(script_file!=NULL){
+		php_self=script_file;
+		ssp_request_startup(script_file);
+	}
 	if(serv_opt==NULL){
 	}else if(strcmp(serv_opt,"restart")==0){
 		socket_stop();
@@ -396,7 +400,6 @@ int main(int argc, char *argv[])
 		exit_status=1;
 		goto out;
 	}
-	return 0;
 
 out:
 	if (request_started) {

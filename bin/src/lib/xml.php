@@ -249,8 +249,8 @@ class XML_Element extends stdClass{
 	}
 	function __destruct(){
 		foreach($this as $k=>$v){
+			//echo '__destruct:',$k,'=>',$v,PHP_EOL;
 			$this->$k=$v=null;
-			//echo '__destruct:',$k,PHP_EOL;
 		}
 	}
 }

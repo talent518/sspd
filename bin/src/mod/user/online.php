@@ -4,44 +4,55 @@ if(!defined('IN_SERVER'))
 
 import('api.uc.client');
 import('mod.base');
+import('lib.cache');
 
 class ModUserOnline extends ModBase{
 	protected $table='user_online';
 	protected $priKey='onid';
 	protected $order;
 	private $clients=array(),$users=array();
-	
-	protected $mutex;
+
+	protected $ushmid,$cshmid;
 	function ModUserOnline(){
-		$this->mutex=ssp_mutex_create();
+		$this->ushmid=ssp_attach(ftok(__FILE__,'u'),SSP_MAX_CLIENTS*20,0777);
+		$this->cshmid=ssp_attach(ftok(__FILE__,'c'),SSP_MAX_CLIENTS*500,0777);
 	}
 
 	function get_by_user($id,$key=''){
-		return $this->users[$id]?$this->get_by_client($this->users[$id],$key):null;
+		$haved=ssp_has_var($this->ushmid,$id);
+		return $haved?$this->get_by_client(ssp_get_var($this->ushmid,$id),$key):null;
 	}
 	function get_by_client($id,$key=''){
-		return empty($key)?$this->clients[$id]:$this->clients[$id][$key];
+		$client=ssp_get_var($this->cshmid,$id);
+		return empty($key)?$client:$client[$key];
 	}
 	function add($data){
-		ssp_mutex_lock($this->mutex);
-		$this->clients[$data[$this->priKey]]=$data;
-		ssp_mutex_unlock($this->mutex);
+		//ssp_mutex_lock($this->mutex);
+		if(!ssp_set_var($this->cshmid,$data[$this->priKey],$data)){
+			echo '$this->cshmid mod.user.online:add id "',$data[$this->priKey],'" error!',PHP_EOL;
+		}
+		//ssp_mutex_unlock($this->mutex);
 		return parent::add($data,false);
 	}
 	function edit($id,$data){
-		ssp_mutex_lock($this->mutex);
-		$_uid=$this->clients[$id]['uid'];
-		$this->users[$_uid]=null;unset($this->users[$_uid]);
-		$this->clients[$id]=array_replace($this->clients[$id],$data);
-		$uid=$this->clients[$id]['uid'];
-		if($uid>0){
-			$this->users[$uid]=$id;
+		//ssp_mutex_lock($this->mutex);
+		$_uid=$this->get_by_client($id,'uid');
+		ssp_remove_var($this->ushmid,$_uid);
+		$client=array_replace($this->get_by_client($id),$data);
+		if(!ssp_set_var($this->cshmid,$id,$client)){
+			echo '$this->cshmid mod.user.online:edit id "',$id,'" error!',PHP_EOL;
 		}
-		ssp_mutex_unlock($this->mutex);
+		$uid=$client['uid'];
+		if($uid>0){
+			if(!ssp_set_var($this->ushmid,$uid,$id)){
+				echo '$this->ushmid mod.user.online:edit id "',$uid,'" error!',PHP_EOL;
+			}
+		}
+		//ssp_mutex_unlock($this->mutex);
 		return parent::edit($id,$data,false);
 	}
 	function drop($id,$isUser=false){
-		$uid=$this->clients[$id]['uid'];
+		$uid=$this->get_by_client($id,'uid');
 		MOD('user.setting')->clean($uid);
 		if($isUser){
 			$data=array(
@@ -53,19 +64,19 @@ class ModUserOnline extends ModBase{
 			);
 			return $this->edit($id,$data);
 		}else{
-			ssp_mutex_lock($this->mutex);
-			$this->clients[$id]=$this->users[$uid]=null;unset($this->clients[$id],$this->users[$uid]);
-			ssp_mutex_unlock($this->mutex);
+			ssp_remove_var($this->ushmid,$uid);
+			ssp_remove_var($this->cshmid,$id);
 			return parent::drop($id);
 		}
 	}
 	function clean(){
-		foreach(array_keys($this->clients) as $id){
-			$this->drop($id);
-		}
-		ssp_mutex_lock($this->mutex);
-		$this->clients=$this->users=array();
-		ssp_mutex_unlock($this->mutex);
+		MOD('user.setting')->clean(0);
+		ssp_remove($this->ushmid);
+		ssp_remove($this->cshmid);
 		$this->delete('1>0');
+	}
+	function __destruct(){
+		ssp_detach($this->ushmid);
+		ssp_detach($this->cshmid);
 	}
 }

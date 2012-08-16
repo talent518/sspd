@@ -11,37 +11,34 @@ class ModUserSetting extends ModBase{
 	protected $order;
 	private $users=array();
 
-	protected $mutex;
+	protected $shmid;
 	function ModUserSetting(){
-		$this->mutex=ssp_mutex_create();
+		$this->shmid=ssp_attach(ftok(__FILE__,'j'),SSP_MAX_CLIENTS*100,0777);
 	}
-	
+
 	function get($uid,$key='',$isCache=true){
-		if($isCache || isset($this->users[$uid])){
-			if(!isset($this->users[$uid])){
-				ssp_mutex_lock($this->mutex);
-				if(!isset($this->users[$uid])){
-					$this->users[$uid]=parent::get($uid);
-					if(empty($this->users[$uid])){
-						$this->users[$uid]=null;unset($this->users[$uid]);
-					}
+		if($isCache){
+			if(!ssp_has_var($this->shmid,$uid)){
+				if(!ssp_set_var($this->shmid,$uid,parent::get($uid))){
+					echo '$this->shmid mod.user.group:get uid "',$uid,'" error!',PHP_EOL;
 				}
-				ssp_mutex_unlock($this->mutex);
 			}
-			return $key?$this->users[$uid][$key]:$this->users[$uid];
+			$group=ssp_get_var($this->shmid,$uid);
+			return $key?$group[$key]:$group;
 		}else{
 			return parent::get($uid,$key);
 		}
 	}
 	function set($uid,$key,$value=0){
-		if(isset($this->users[$uid])){
-			ssp_mutex_lock($this->mutex);
-			$this->users[$uid][$key]=$value;
-			ssp_mutex_unlock($this->mutex);
-		}
 		$data=array();
 		$data[$key]=$value;
 		$data[$key.'_dateline']=time();
+
+		$setting=array_replace($this->get($uid),$data);
+		if(!ssp_set_var($this->shmid,$uid,$setting)){
+			echo '$this->shmid mod.user.setting:set uid "',$uid,'" error!',PHP_EOL;
+		}
+		
 		if(!$this->exists($uid)){
 			$data['uid']=$uid;
 			return $this->add($data,false);
@@ -49,9 +46,14 @@ class ModUserSetting extends ModBase{
 			return $this->edit($uid,$data,false);
 		}
 	}
-	function clean($uid){
-		ssp_mutex_lock($this->mutex);
-		$this->users[$uid]=null;unset($this->users[$uid]);
-		ssp_mutex_unlock($this->mutex);
+	function clean($uid=0){
+		if($uid>0){
+			ssp_remove_var($this->shmid,$uid);
+		}else{
+			ssp_remove($this->shmid);
+		}
+	}
+	function __destruct(){
+		ssp_detach($this->shmid);
 	}
 }
