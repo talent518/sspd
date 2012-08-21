@@ -5,7 +5,6 @@ if(!defined('IN_SERVER'))
 function UDB(){
 	static $db;
 	if(!is_object($db)){
-		ssp_mutex_lock();
 		$isConn=true;
 		if(DB_TYPE!=UC_TYPE){
 			$db=LIB('db.'.UC_TYPE);
@@ -27,7 +26,6 @@ function UDB(){
 		if($isConn){
 			$db->connect();
 		}
-		ssp_mutex_unlock();
 	}
 	return $db;
 }
@@ -67,20 +65,13 @@ class ModUcBase{
 		return UDB()->count($this->table,is_int($where)?$this->forKey.'='.($where+0):$where);
 	}
 	function add($data,$isCheck=true,$isReplace=false){
-		if(!$isCheck || $this->check($data)){
-			UDB()->insert($this->table,saddslashes($data),$isReplace);
-			return true;
-		}
-		return false;
+		UDB()->insert($this->table,saddslashes($data),$isReplace);
 	}
 	function edit($id,$data,$isCheck=true,$isString=true){
 		if($id<=0)
 			return false;
-		if(!$isCheck || $this->check($data)){
-			UDB()->update($this->table,saddslashes($data),($id+0>0)?'`'.$this->priKey.'`='.($id+0):'1>0',$isString);
-			return true;
-		}
-		return false;
+		UDB()->update($this->table,saddslashes($data),($id+0>0)?'`'.$this->priKey.'`='.($id+0):'1>0',$isString);
+		return true;
 	}
 	function drop($id){
 		if($id<=0)

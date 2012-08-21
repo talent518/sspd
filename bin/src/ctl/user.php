@@ -221,7 +221,7 @@ Class CtlUser extends CtlBase{
 			$response->setText('注册成功！');
 		}else{
 			$response->type='User.Register.Failed';
-			$response->setText(MOD('user')->error);
+			$response->setText(MOD('user')->error.$uid);
 		}
 		return $response;
 	}

@@ -152,7 +152,7 @@ function _check_username($username) {
 	if($len > 15 || $len < 3 || preg_match("/\s+|^c:\\con\\con|[%,\*\"\s\<\>\&]|$guestexp/is", $username)) {
 		return FALSE;
 	} else {
-		return LIB('validate')->email($username);
+		return LIB('validate')->username($username);
 	}
 }
 function _check_usernamecensor($username){
@@ -198,7 +198,6 @@ function uc_user_register($username, $password, $email, $questionid = '', $answe
 	$salt = substr(uniqid(rand()), -6);
 	$password = md5(md5($password).$salt);
 	MOD('uc.user')->add(array(
-		'uid'=>$uid,
 		'username'=>$username,
 		'password'=>$password,
 		'email'=>$email,

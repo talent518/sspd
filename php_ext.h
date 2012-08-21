@@ -8,11 +8,13 @@
 
 #include "TSRM.h"
 
-//#define PHP_SSP_DEBUG
+#define PHP_SSP_DEBUG
 
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp user node"
 #define PHP_SSP_MUTEX_DESCRIPTOR_RES_NAME "ssp thread mutex"
 #define PHP_SSP_VERSION "v1.0.6"
+
+#define PHP_SSP_BIND_LEN 7
 
 #define PHP_SSP_START 0
 #define PHP_SSP_RECEIVE 1
@@ -22,15 +24,6 @@
 #define PHP_SSP_CLOSE 5
 #define PHP_SSP_STOP 6
 
-#define PHP_SSP_LEN 7
-
-#define PHP_SSP_OPT_USER 0
-#define PHP_SSP_OPT_PIDFILE 1
-#define PHP_SSP_OPT_HOST 2
-#define PHP_SSP_OPT_PORT 3
-#define PHP_SSP_OPT_MAX_CLIENTS 4
-#define PHP_SSP_OPT_MAX_RECVS 5
-
 extern int le_ssp_descriptor;
 
 extern function_entry ssp_functions[];
@@ -39,14 +32,10 @@ extern zend_module_entry ssp_module_entry;
 #define phpext_ssp_ptr &ssp_module_entry
 
 ZEND_BEGIN_MODULE_GLOBALS(ssp)
-	char *user;
-	char *pidfile;
-	char *host;
-	short int port;
-	int maxclients;
-	int maxrecvs;
+#ifdef PHP_SSP_DEBUG
+	unsigned long recv_bytes,send_bytes;
+#endif
 	char **bind;
-	pthread_mutex_t *mutex;
 ZEND_END_MODULE_GLOBALS(ssp)
 
 #ifdef ZTS
@@ -64,14 +53,16 @@ static PHP_MINFO_FUNCTION(ssp);
 int trigger(unsigned short type,...);
 
 static PHP_FUNCTION(ssp_mallinfo);
-static PHP_FUNCTION(ssp_setopt);
+//static PHP_FUNCTION(ssp_setopt);
 static PHP_FUNCTION(ssp_bind);
 static PHP_FUNCTION(ssp_resource);
 static PHP_FUNCTION(ssp_info);
+#ifndef ZTS
 static PHP_FUNCTION(ssp_mutex_create);
 static PHP_FUNCTION(ssp_mutex_destroy);
 static PHP_FUNCTION(ssp_mutex_lock);
 static PHP_FUNCTION(ssp_mutex_unlock);
+#endif
 static PHP_FUNCTION(ssp_send);
 static PHP_FUNCTION(ssp_close);
 

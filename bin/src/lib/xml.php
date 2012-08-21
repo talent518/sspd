@@ -37,10 +37,11 @@ function xml_to_object($xml,$isMultiRoot=false,&$error=false){
 				foreach($_tags as $v){
 					$tags[]=$v;
 				}
+				$_tags=null;
+				xml_parser_free($parser);
 				break;
 			}
 			if(xml_get_error_code($parser)===5 && ($bindex=xml_get_current_byte_index($parser)) && $bindex!=strlen($data)){
-				xml_parser_free($parser);
 				$parser = xml_parser_create();
 				xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, 0);
 				xml_parser_set_option($parser, XML_OPTION_SKIP_WHITE, 1);
@@ -49,11 +50,13 @@ function xml_to_object($xml,$isMultiRoot=false,&$error=false){
 					foreach($_tags as $v){
 						$tags[]=$v;
 					}
+					$_tags=null;
 					$data=trim(substr($data,$bindex));
-					xml_parser_free($parser);
-				}else
+				}else{
 					$data=trim(substr($data,0,$bindex));
+				}
 			}
+			xml_parser_free($parser);
 		}while($result && $data);
 	}else{
 		$parser = xml_parser_create();
@@ -125,7 +128,7 @@ function xml_to_object($xml,$isMultiRoot=false,&$error=false){
 			array_pop($stack);
 		}
 	}
-	$tags=null;
+	$tags=$stack=null;
 	return $element;  // the single top-level element
 }
 

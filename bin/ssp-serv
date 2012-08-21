@@ -7,7 +7,7 @@
 # See how we were called.
 case $1 in
     start|stop|restart|status)
-        "{SSP_DIR}/ssp" -H -f "{SSP_DIR}/init.php" -s $1
+        "{SSP_DIR}/ssp" -H -f "{SSP_DIR}/init.php" --port {SERV_PORT} --pidfile "{SERV_PIDFILE}" -s $1
         if [ "$1" = "stop" ]; then
 	    if [ -s "{SSP_DIR}/daemon.pid" ];then
 	        kill `cat {SSP_DIR}/daemon.pid`

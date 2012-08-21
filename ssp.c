@@ -9,6 +9,7 @@
 #include "zend_hash.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #ifdef PHP_WIN32
 	#include "win32/time.h"
 	#include "win32/signal.h"
@@ -27,6 +28,15 @@
 	#include <locale.h>
 #endif
 
+#define OPT_DEBUG 14
+
+#define OPT_HOST 1
+#define OPT_PORT 2
+#define OPT_PIDFILE 3
+#define OPT_USER 4
+#define OPT_MAX_CLIENTS 5
+#define OPT_MAX_RECVS 6
+
 static char *php_optarg = NULL;
 static int php_optind = 1;
 
@@ -43,7 +53,17 @@ static const opt_struct OPTIONS[] = {
 	{'v', 0, "version"},
 	{'z', 1, "zend-extension"},
 	{'s', 1, "service"},
-	{14,  0, "debug"},
+
+	{OPT_DEBUG,  0, "debug"},
+
+	{OPT_HOST,  1, "host"},
+	{OPT_PORT,  1, "port"},
+	{OPT_PIDFILE,  1, "pidfile"},
+
+	{OPT_USER,  1, "user"},
+	{OPT_MAX_CLIENTS,  1, "max-clients"},
+	{OPT_MAX_RECVS,  1, "max-recvs"},
+
 	{'-', 0, NULL} /* end of args */
 };
 
@@ -64,25 +84,32 @@ static void php_ssp_usage(char *argv0)
 	            "       %s [options] [args]\n"
 	            "\n"
 				"  options:\n"
-				"  -c <path>|<file> Look for php.ini file in this directory\n"
-				"  -n               No php.ini file will be used\n"
-				"  -d foo[=bar]     Define INI entry foo with value 'bar'\n"
-				"  -f <file>        Parse and execute <file>.\n"
-				"  -h,-?            This help\n"
-				"  -i               PHP information\n"
-				"  -m               Show compiled in modules\n"
-				"  -H               Hide any passed arguments from external tools.\n"
-				"  -v               Version number\n"
-				"  -z <file>        Load Zend extension <file>.\n"
+				"  -c <path>|<file>        Look for php.ini file in this directory\n"
+				"  -n                      No php.ini file will be used\n"
+				"  -d foo[=bar]            Define INI entry foo with value 'bar'\n"
+				"  -f <file>               Parse and execute <file>.\n"
+				"  -h,-?                   This help\n"
+				"  -i                      PHP information\n"
+				"  -m                      Show compiled in modules\n"
+				"  -H                      Hide any passed arguments from external tools.\n"
+				"  -v                      Version number\n"
+				"  -z <file>               Load Zend extension <file>.\n"
 				"\n"
-				"  --debug          Show debug info\n"
+				"  --debug                 Show debug info\n"
 				"\n"
-				"  -s <option>      socket service option\n"
+				"  --host <IP>             Listen host\n"
+				"  --port <port>           Listen port\n"
+				"  --pidfile <file>        Service pidfile\n"
+				"  --user <username>       Run for user\n"
+				"  --max-clients <number>  Max client connect number\n"
+				"  --max-recvs <size>      Max recv data size\n"
+				"\n"
+				"  -s <option>             socket service option\n"
 				"  option:\n"
-				"       start       start ssp service\n"
-				"       stop        stop ssp service\n"
-				"       restart     restart ssp service\n"
-				"       status      ssp service status\n"
+				"       start              start ssp service\n"
+				"       stop               stop ssp service\n"
+				"       restart            restart ssp service\n"
+				"       status             ssp service status\n"
 				"\n"
 				, prog, prog, prog, prog, prog, prog);
 }
@@ -188,7 +215,6 @@ int main(int argc, char *argv[])
 	int orig_optind=php_optind;
 	char *orig_optarg=php_optarg;
 	char *arg_free=NULL, **arg_excp=&arg_free;
-	char *script_file=NULL;
 	volatile int request_started = 0;
 	const char *param_error=NULL;
 	int hide_argv = 0;
@@ -314,15 +340,15 @@ int main(int argc, char *argv[])
 					request_started = 1;
 					php_printf("PHP %s (%s %s) (built: %s %s) %s\nCopyright (c) 1997-2012 The Abao\n%s",
 						PHP_VERSION, sapi_module.name,PHP_SSP_VERSION, __DATE__, __TIME__,
-	#if ZEND_DEBUG && defined(HAVE_GCOV)
+					#if ZEND_DEBUG && defined(HAVE_GCOV)
 						"(DEBUG GCOV)",
-	#elif ZEND_DEBUG
+					#elif ZEND_DEBUG
 						"(DEBUG)",
-	#elif defined(HAVE_GCOV)
+					#elif defined(HAVE_GCOV)
 						"(GCOV)",
-	#else
+					#else
 						"",
-	#endif
+					#endif
 						get_zend_version()
 					);
 					php_end_ob_buffers(1 TSRMLS_CC);
@@ -342,27 +368,48 @@ int main(int argc, char *argv[])
 		while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 0, 2)) != -1) {
 			switch (c) {
 
-			case 'f': /* parse file */
-				script_file = strdup(php_optarg);
-				break;
+				case 'f': /* parse file */
+					request_init_file = strdup(php_optarg);
+					break;
 
-			case 'z': /* load extension file */
-				zend_load_extension(php_optarg);
-				break;
+				case 'z': /* load extension file */
+					zend_load_extension(php_optarg);
+					break;
 
-			case 's': /* service control */
-				serv_opt = strdup(php_optarg);
-				break;
+				case 's': /* service control */
+					serv_opt = strdup(php_optarg);
+					break;
 
-			case 'H':
-				hide_argv = 1;
-				break;
+				case 'H':
+					hide_argv = 1;
+					break;
 
-			case 14:
-				debug = true;
-				break;
-			default:
-				break;
+				case OPT_DEBUG:
+					debug = true;
+					break;
+
+				case OPT_HOST:
+					ssp_host=strdup(php_optarg);
+					break;
+				case OPT_PORT:
+					ssp_port=atoi(php_optarg);
+					break;
+				case OPT_PIDFILE:
+					ssp_pidfile=strdup(php_optarg);
+					break;
+
+				case OPT_USER:
+					ssp_user = strdup(php_optarg);
+					break;
+				case OPT_MAX_CLIENTS:
+					ssp_maxclients=atoi(php_optarg);
+					break;
+				case OPT_MAX_RECVS:
+					ssp_maxrecvs=atoi(php_optarg);
+					break;
+
+				default:
+					break;
 			}
 		}
 
@@ -380,11 +427,9 @@ int main(int argc, char *argv[])
 		}
 	} zend_end_try();
 
-	if(script_file!=NULL){
-		php_self=script_file;
-		ssp_request_startup(script_file);
-	}
 	if(serv_opt==NULL){
+		exit_status=0;
+		goto err;
 	}else if(strcmp(serv_opt,"restart")==0){
 		socket_stop();
 		socket_start();
@@ -400,10 +445,11 @@ int main(int argc, char *argv[])
 		exit_status=1;
 		goto out;
 	}
+	free(serv_opt);
 
 out:
 	if (request_started) {
-		php_request_shutdown((void *) 0);
+		php_request_shutdown(NULL);
 	}
 	if (exit_status == 0) {
 		exit_status = EG(exit_status);

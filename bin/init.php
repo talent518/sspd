@@ -5,7 +5,7 @@ require SRC_DIR.'function_server.php';
 import('lib.xml');
 
 $users=$clients=array();
-
+/*
 if(defined('SSP_USER')){
 	ssp_setopt(SSP_OPT_HOST,SSP_USER);
 }
@@ -22,7 +22,7 @@ if(defined('SSP_MAX_CLIENTS')){
 if(defined('SSP_MAX_RECVS')){
 	ssp_setopt(SSP_OPT_MAX_RECVS,SSP_MAX_RECVS);
 }
-
+*/
 ssp_bind(SSP_START,'ssp_start_handler');
 ssp_bind(SSP_RECEIVE,'ssp_receive_handler');
 ssp_bind(SSP_SEND,'ssp_send_handler');
@@ -39,6 +39,7 @@ function ssp_start_handler(){
 function ssp_connect_handler($ClientId){
 	$info=ssp_info($ClientId);
 	server_log( 'New connection ( '.$info['sockfd'].' ) from '.$info['host'].' on port '.$info['port'].'. Time at '.date('m-d H:i:s',time()));
+	$info=null;
 }
 
 function ssp_connect_denied_handler($ClientId){
@@ -72,7 +73,9 @@ function ssp_receive_handler($ClientId,$data){
 				$response->type='Connect.Key';
 				$response->setText($data['sendKey']);
 
-				return (string)$response;
+				$return=(string)$response;
+				$request=$response=null;
+				return $return;
 			case 'Connect.Data':
 				if($key=MOD('user.online')->get_by_client($sockfd,'receiveKey')){
 					$request=xml_to_object(str_decode($request->getText(),$key));
@@ -97,8 +100,9 @@ function ssp_receive_handler($ClientId,$data){
 		if(!in_array(strtolower($type),$authTypes) && !MOD('user.online')->get_by_client($sockfd,'uid')){
 			$response=CTL('user')->login($ClientId);
 			if($response instanceof XML_Element || substr($response,0,1)=='<'){
-				$request=null;
-				return (string)$response;
+				$return=(string)$response;
+				$request=$response=null;
+				return $return;
 			}
 		}
 		$ctl=explode('.',$type);
@@ -111,8 +115,9 @@ function ssp_receive_handler($ClientId,$data){
 			}elseif(method_exists($ctl_obj,$mod)){
 				$response=$ctl_obj->$mod($request);
 				if($response instanceof XML_Element || substr($response,0,1)=='<'){
-					$request=null;
-					return (string)$response;
+					$return=(string)$response;
+					$request=$response=null;
+					return $return;
 				}
 			}else{
 				server_log("Client $sockfd controller \"$ctl\" for method \"$mod\" not exists!");
@@ -135,15 +140,18 @@ function ssp_send_handler($ClientId,$data){
 	$xml=xml_to_object($data);
 	if(!in_array($xml->type,array('Connect.Key','Connect.Ping'))){
 		$key=MOD('user.online')->get_by_client($sockfd,'sendKey');
-		$return=new XML_Element('response');
-		$return->type='Connect.Data';
-		$return->setText(str_encode($data,$key));
-		$data=null;
+		$response=new XML_Element('response');
+		$response->type='Connect.Data';
+		$response->setText(str_encode($data,$key));
+
+		$return=(string)$response;
+		$xml=$response=null;
+		return $return;
 	}else{
-		$return=$data;
+		$return=(string)$xml;
+		$xml=null;
+		return $return;
 	}
-	$xml=null;
-	return (string)$return;
 }
 
 function ssp_close_handler($ClientId){
@@ -156,5 +164,8 @@ function ssp_close_handler($ClientId){
 
 function ssp_stop_handler(){
 	server_log('Server Stoped at '.date('H:i:s',time()));
+	MOD('user.online')->clean();
+	MOD('user.group')->clean();
+	MOD('user.setting')->clean();
 	DB()->close();
 }

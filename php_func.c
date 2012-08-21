@@ -45,9 +45,7 @@
 #define STDOUT_FILENO 1
 #endif
 
-char *php_self="";
-char *script_filename="";
-int ssp_request_started=0;
+char *request_init_file=NULL;
 
 const char HARDCODED_INI[] =
 	"error_reporting = E_ALL ^ E_NOTICE\n"
@@ -252,20 +250,20 @@ static void sapi_ssp_register_variables(zval *track_vars_array TSRMLS_DC) /* {{{
 	php_import_environment_variables(track_vars_array TSRMLS_CC);
 
 	/* Build the special-case PHP_SELF variable for the CLI version */
-	len = strlen(php_self);
-	if (sapi_module.input_filter(PARSE_SERVER, "PHP_SELF", &php_self, len, &len TSRMLS_CC)) {
-		php_register_variable("PHP_SELF", php_self, track_vars_array TSRMLS_CC);
+	len = strlen(request_init_file);
+	if (sapi_module.input_filter(PARSE_SERVER, "PHP_SELF", &request_init_file, len, &len TSRMLS_CC)) {
+		php_register_variable("PHP_SELF", request_init_file, track_vars_array TSRMLS_CC);
 	}
-	if (sapi_module.input_filter(PARSE_SERVER, "SCRIPT_NAME", &php_self, len, &len TSRMLS_CC)) {
-		php_register_variable("SCRIPT_NAME", php_self, track_vars_array TSRMLS_CC);
+	if (sapi_module.input_filter(PARSE_SERVER, "SCRIPT_NAME", &request_init_file, len, &len TSRMLS_CC)) {
+		php_register_variable("SCRIPT_NAME", request_init_file, track_vars_array TSRMLS_CC);
 	}
 	/* filenames are empty for stdin */
-	len = strlen(script_filename);
-	if (sapi_module.input_filter(PARSE_SERVER, "SCRIPT_FILENAME", &script_filename, len, &len TSRMLS_CC)) {
-		php_register_variable("SCRIPT_FILENAME", script_filename, track_vars_array TSRMLS_CC);
+	len = strlen(request_init_file);
+	if (sapi_module.input_filter(PARSE_SERVER, "SCRIPT_FILENAME", &request_init_file, len, &len TSRMLS_CC)) {
+		php_register_variable("SCRIPT_FILENAME", request_init_file, track_vars_array TSRMLS_CC);
 	}
-	if (sapi_module.input_filter(PARSE_SERVER, "PATH_TRANSLATED", &script_filename, len, &len TSRMLS_CC)) {
-		php_register_variable("PATH_TRANSLATED", script_filename, track_vars_array TSRMLS_CC);
+	if (sapi_module.input_filter(PARSE_SERVER, "PATH_TRANSLATED", &request_init_file, len, &len TSRMLS_CC)) {
+		php_register_variable("PATH_TRANSLATED", request_init_file, track_vars_array TSRMLS_CC);
 	}
 	/* just make it available */
 	len = 0U;
@@ -412,6 +410,11 @@ void php_init(){
 	memcpy(CSM(ini_entries), HARDCODED_INI, sizeof(HARDCODED_INI));
 
 	CSM(additional_functions) = additional_functions;
+
+#ifndef ZTS
+	ssp_mutex=(pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_init(ssp_mutex, NULL);
+#endif
 }
 
 int php_begin(){
@@ -422,16 +425,18 @@ int php_begin(){
 	return SUCCESS;
 }
 
-int ssp_request_startup(char *script_file){
+void ssp_request_startup(){
 	TSRMLS_FETCH();
+	/*if (CSM(startup)(&ssp_sapi_module)==FAILURE) {
+		return;
+	}*/
 	int lineno = 0;
 	zend_file_handle file_handle;
 
-	if (script_file) {
-		if (ssp_seek_file_begin(&file_handle, script_file, &lineno TSRMLS_CC) != SUCCESS) {
-			return FAILURE;
+	if (request_init_file) {
+		if (ssp_seek_file_begin(&file_handle, request_init_file, &lineno TSRMLS_CC) != SUCCESS) {
+			return;
 		}
-		script_filename = script_file;
 	} else {
 		file_handle.filename = "-";
 		//file_handle.handle.fp = stdin;
@@ -439,22 +444,18 @@ int ssp_request_startup(char *script_file){
 	file_handle.type = ZEND_HANDLE_FILENAME;
 	file_handle.opened_path = NULL;
 	file_handle.free_filename = 0;
-	php_self = file_handle.filename;
 
 	SG(request_info).path_translated = file_handle.filename;
 
 	if (php_request_startup(TSRMLS_C)==FAILURE) {
 		fclose(file_handle.handle.fp);
 		PUTS("Could not startup.\n");
-		return FAILURE;
+		return;
 	}
 
-	ssp_request_started = 1;
 	CG(start_lineno) = lineno;
 
 	zend_is_auto_global("_SERVER", sizeof("_SERVER")-1 TSRMLS_CC);
-
-	PG(during_request_startup) = 0;
 
 	if (strcmp(file_handle.filename, "-")) {
 		ssp_register_file_handles(TSRMLS_C);
@@ -472,16 +473,23 @@ int ssp_request_startup(char *script_file){
 
 		php_execute_script(&file_handle TSRMLS_CC);
 	}
-	return SUCCESS;
+}
+
+void ssp_request_shutdown(){
+	php_request_shutdown(NULL);
 }
 
 void php_end(){
+#ifndef ZTS
+	pthread_mutex_destroy(ssp_mutex);
+#endif
+
 	TSRMLS_FETCH();
-	if (ssp_request_started) {
-		php_request_shutdown((void *) 0);
-	}
+printf("%s:1\n",__func__);
 	sapi_deactivate(TSRMLS_C);
+printf("%s:2\n",__func__);
 	zend_ini_deactivate(TSRMLS_C);
+printf("%s:3\n",__func__);
 
 	if (CSM(php_ini_path_override)) {
 		free(CSM(php_ini_path_override));
@@ -489,9 +497,16 @@ void php_end(){
 	if (CSM(ini_entries)) {
 		free(CSM(ini_entries));
 	}
+printf("%s:4\n",__func__);
 
 	CSM(shutdown)(&ssp_sapi_module);
+printf("%s:5\n",__func__);
 
 	sapi_shutdown();
+printf("%s:6\n",__func__);
+#ifdef ZTS
+	tsrm_shutdown();
+#endif
+printf("%s:7\n",__func__);
 }
 /* }}} */

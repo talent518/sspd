@@ -116,6 +116,8 @@ Class CtlConsoleUserGroup extends CtlBase{
 				'invest_add'=>(string)($request->params->invest_add)+0,
 				'consult_ask'=>(string)($request->params->consult_ask)+0,
 				'consult_reply'=>(string)($request->params->consult_reply)+0,
+				'daily'=>(string)($request->params->daily)+0,
+				'daily_add'=>(string)($request->params->daily_add)+0,
 			);
 			if($group['gname']==$data['gname']){
 				$data['gname']=null;unset($data['gname']);

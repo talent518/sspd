@@ -20,6 +20,18 @@
 
 bool debug=false;
 
+char *ssp_host="0.0.0.0";
+short int ssp_port=8083;
+char *ssp_pidfile="/var/run/ssp.pid";
+
+char *ssp_user="daemon";
+int ssp_maxclients=1000;
+int ssp_maxrecvs=2*1024*1024;
+
+#ifndef ZTS
+	pthread_mutex_t *ssp_mutex;
+#endif
+
 #define COLS shl_cols()
 #define flush() fflush(stdout)
 
@@ -64,7 +76,7 @@ int recv_int(int sockfd){
 	}
 }
 
-void thread(node *ptr){
+void* socket_thread(node *ptr){
 	int recv_len=0,recved_len=0,len,i;
 	char *package;
 
@@ -72,14 +84,15 @@ void thread(node *ptr){
 		php_printf("\nAccept new connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
 	}
 
+	TSRMLS_FETCH();
+
 #ifdef ZTS
-	ssp_request_startup(php_self);
+	ssp_request_startup();
 #endif
 
 	trigger(PHP_SSP_CONNECT,ptr);
 
-	TSRMLS_FETCH();
-	if(node_num>SSP_G(maxclients)){
+	if(node_num>ssp_maxclients){
 		trigger(PHP_SSP_CONNECT_DENIED,ptr);
 		ptr->flag=false;
 	}
@@ -88,8 +101,8 @@ void thread(node *ptr){
 		if(recved_len==0){
 			recv_len=recv_int(ptr->sockfd);
 			if(recv_len>0){
-				if(recv_len>SSP_G(maxrecvs)){
-					php_printf("Server Recieve Package Length Must %d<=%d!\n",recv_len,SSP_G(maxrecvs));
+				if(recv_len>ssp_maxrecvs){
+					php_printf("Server Recieve Package Length Must %d<=%d!\n",recv_len,ssp_maxrecvs);
 					break;
 				}
 				package=(char*)malloc(sizeof(char*)*recv_len);
@@ -112,13 +125,13 @@ void thread(node *ptr){
 		recved_len+=len;
 
 		if(recved_len==recv_len && recv_len>0){
-		zend_first_try{
-			trigger(PHP_SSP_RECEIVE,ptr,&package,&recv_len);
-			if(recv_len>0){
-				trigger(PHP_SSP_SEND,ptr,&package,&recv_len);
-				socket_send(ptr->sockfd,package,recv_len);
-			}
-		}zend_end_try();
+			zend_first_try{
+				trigger(PHP_SSP_RECEIVE,ptr,&package,&recv_len);
+				if(recv_len>0){
+					trigger(PHP_SSP_SEND,ptr,&package,&recv_len);
+					socket_send(ptr->sockfd,package,recv_len);
+				}
+			}zend_end_try();
 			free(package);
 			recved_len=0;
 		}
@@ -128,11 +141,17 @@ void thread(node *ptr){
 	shutdown(ptr->sockfd,2);
 	close(ptr->sockfd);
 
+printf("%s:1\n",__func__);
 	delete(ptr);
+printf("%s:2\n",__func__);
 
-	php_request_shutdown((void *)0);
-
-	pthread_exit(NULL);
+#ifdef ZTS
+	ssp_request_shutdown();
+	printf("%s:3\n",__func__);
+	ts_free_thread();
+	printf("%s:4\n",__func__);
+#endif
+	return NULL;
 }
 
 int socket_send(int sockfd,const char *data,int data_len){
@@ -171,7 +190,7 @@ int socket_status(){
 
 	TSRMLS_FETCH();
 
-	fp=fopen(SSP_G(pidfile),"r+");
+	fp=fopen(ssp_pidfile,"r+");
 	if(fp!=NULL){
 		fscanf(fp,"%d",&pid);
 		fclose(fp);
@@ -180,7 +199,7 @@ int socket_status(){
 			system("tput sgr0");
 			return 1;
 		}
-		unlink(SSP_G(pidfile));
+		unlink(ssp_pidfile);
 	}
 	system("echo -e \"\\E[31m\"[stopped]");
 	system("tput sgr0");
@@ -195,11 +214,11 @@ int socket_stop(){
 	flush();
 
 	TSRMLS_FETCH();
-	fp=fopen(SSP_G(pidfile),"r+");
+	fp=fopen(ssp_pidfile,"r+");
 	if(fp!=NULL){
 		fscanf(fp,"%d",&pid);
 		fclose(fp);
-		unlink(SSP_G(pidfile));
+		unlink(ssp_pidfile);
 		if(pid==getsid(pid)){
 			kill(pid,SIGTERM);
 			while(pid==getsid(pid)){
@@ -248,8 +267,7 @@ void socket_exit(int sid){
 	}
 	pthread_mutex_unlock(&node_mutex);
 */
-	TSRMLS_FETCH();
-	unlink(SSP_G(pidfile));
+	unlink(ssp_pidfile);
 
 	//sleep(1);
 	//trigger(PHP_SSP_STOP);
@@ -261,7 +279,6 @@ void socket_exit(int sid){
 }
 
 int socket_start(){
-	TSRMLS_FETCH();
 	struct sockaddr_in sin;
 	struct sockaddr_in pin;
 	socklen_t len=sizeof(pin);
@@ -282,8 +299,6 @@ int socket_start(){
 	signal(SIGHUP,socket_exit);
 	signal(SIGTERM,socket_exit);
 	signal(SIGINT,socket_exit);
-	signal(SIGKILL,socket_exit);
-	signal(SIGSTOP,socket_exit);
 	signal(SIGTSTP,socket_exit);
 
 	listen_fd=socket(AF_INET,SOCK_STREAM,0);
@@ -294,18 +309,18 @@ int socket_start(){
 
 	bzero(&sin,sizeof(sin));
 	sin.sin_family=AF_INET;
-	sin.sin_addr.s_addr=inet_addr(SSP_G(host));
-	sin.sin_port=htons(SSP_G(port));
+	sin.sin_addr.s_addr=inet_addr(ssp_host);
+	sin.sin_port=htons(ssp_port);
 
 	ret=bind(listen_fd,(struct sockaddr *)&sin,sizeof(sin));
 	if(ret<0){
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
-		printf("Not on the host %s bind port %d\n",SSP_G(host),SSP_G(port));
+		printf("Not on the host %s bind port %d\n",ssp_host,ssp_port);
 		return 1;
 	}
 
-	ret=listen(listen_fd,SSP_G(maxclients));
+	ret=listen(listen_fd,ssp_maxclients);
 	if(ret<0){
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
@@ -313,7 +328,7 @@ int socket_start(){
 	}
 
 	struct passwd *pwnam;
-	pwnam = getpwnam(SSP_G(user));
+	pwnam = getpwnam(ssp_user);
 /*
 	printf("name:%s\n",pwnam->pw_name);
 	printf("passwd:%s\n",pwnam->pw_passwd);
@@ -334,14 +349,14 @@ int socket_start(){
 	}
 	if(pid>0){
 		FILE *fp;
-		fp=fopen(SSP_G(pidfile),"w+");
+		fp=fopen(ssp_pidfile,"w+");
 		if(fp==NULL){
-			printf("file '%s' open fail.\n",SSP_G(pidfile));
+			printf("file '%s' open fail.\n",ssp_pidfile);
 		}else{
 			fprintf(fp,"%d",pid);
 			fclose(fp);
 		}
-		sleep(1);
+		usleep(500);
 		return 0;
 	}
 
@@ -378,8 +393,15 @@ int socket_start(){
 		php_printf("\nListen host for the %s, port %d.\n",head->host,head->port);
 	}
 
+#ifdef ZTS
+	ssp_request_startup();
+#endif
+
 	trigger(PHP_SSP_START);
 
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
 	while(head->flag){
 		conn_fd=accept(listen_fd,(struct sockaddr *)&pin,&len);
 		if(conn_fd<=0){
@@ -393,33 +415,47 @@ int socket_start(){
 
 		insert(ptr);
 
-		pthread_create(&ptr->tid,NULL,(void*)thread,ptr);
+		pthread_create(&ptr->tid,&attr,(void*)socket_thread,ptr);
 	}
+	pthread_attr_destroy(&attr);
 
 	close(listen_fd);
 
+printf("%s:1\n",__func__);
+
 	pthread_t tid;
+	bool flag;
 	void *tret;
-	ptr=head->next;
-	while(ptr!=head){
-		tid=ptr->tid;
-		ptr->flag=false;
-		if(shutdown(ptr->sockfd,2)!=0){
-			printf("shutdown node(%d) error(%d)",node_num,errno);
+	node *p=head->next;
+	while(p!=head){
+		if(p->flag){
+			p->flag=false;
+			if(shutdown(p->sockfd,2)!=0){
+				printf("shutdown node(%d) error(%d)",node_num,errno);
+			}
+			pthread_join(p->tid,&tret);
 		}
-		ptr=ptr->next;
-		pthread_join(tid,&tret);
+		p=head->next;
 	}
+printf("%s:2\n",__func__);
 
 	if(node_num>0){
 		printf("There are %d nodes not successfully deleted.",node_num);
 	}
 
 	destruct();
+printf("%s:3\n",__func__);
 
 	trigger(PHP_SSP_STOP);
+printf("%s:4\n",__func__);
+
+#ifdef ZTS
+	ssp_request_shutdown();
+#endif
+printf("%s:5\n",__func__);
 
 	php_end();
+printf("%s:6\n",__func__);
 
-	exit(EG(exit_status));
+	exit(0);
 }

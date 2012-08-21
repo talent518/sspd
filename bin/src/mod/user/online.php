@@ -27,15 +27,12 @@ class ModUserOnline extends ModBase{
 		return empty($key)?$client:$client[$key];
 	}
 	function add($data){
-		//ssp_mutex_lock($this->mutex);
 		if(!ssp_set_var($this->cshmid,$data[$this->priKey],$data)){
 			echo '$this->cshmid mod.user.online:add id "',$data[$this->priKey],'" error!',PHP_EOL;
 		}
-		//ssp_mutex_unlock($this->mutex);
 		return parent::add($data,false);
 	}
 	function edit($id,$data){
-		//ssp_mutex_lock($this->mutex);
 		$_uid=$this->get_by_client($id,'uid');
 		ssp_remove_var($this->ushmid,$_uid);
 		$client=array_replace($this->get_by_client($id),$data);
@@ -48,7 +45,6 @@ class ModUserOnline extends ModBase{
 				echo '$this->ushmid mod.user.online:edit id "',$uid,'" error!',PHP_EOL;
 			}
 		}
-		//ssp_mutex_unlock($this->mutex);
 		return parent::edit($id,$data,false);
 	}
 	function drop($id,$isUser=false){

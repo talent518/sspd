@@ -46,10 +46,9 @@ function CFG(){
 	}
 }
 
-function DB(){
+function &DB(){
 	static $db;
 	if(!is_object($db)){
-		ssp_mutex_lock();
 		$db=LIB('Db.'.DB_TYPE);
 		$db->charset=DB_CHARSET;
 		$db->host=DB_HOST;
@@ -59,7 +58,6 @@ function DB(){
 		$db->pconnect=DB_PCONNECT;
 		$db->tablepre=DB_TABLEPRE;
 		$db->connect();
-		ssp_mutex_unlock();
 	}
 	return $db;
 }
@@ -78,9 +76,10 @@ function import($lib){
 	include_once(SRC_DIR.GD($lib).'.php');
 }
 
-function LIB($lib){
+function &LIB($lib){
 	static $libs;
 	if(!is_object($libs[$lib])){
+		echo '-----------------','lib.'.$lib,PHP_EOL;
 		import('lib.'.$lib);
 		$class='Lib'.GN($lib);
 		$libs[$lib]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
@@ -88,9 +87,10 @@ function LIB($lib){
 	return $libs[$lib];
 }
 
-function MOD($mod){
+function &MOD($mod){
 	static $mods;
 	if(!is_object($mods[$mod])){
+		echo '-----------------','mod.'.$mod,PHP_EOL;
 		import('mod.'.$mod);
 		$class='Mod'.GN($mod);
 		$mods[$mod]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
@@ -98,9 +98,10 @@ function MOD($mod){
 	return $mods[$mod];
 }
 
-function CTL($ctl,$is_new=true){
+function &CTL($ctl){
 	static $ctls;
 	if(!is_object($ctls[$ctl])){
+		echo '-----------------','ctl.'.$ctl,PHP_EOL;
 		import('ctl.'.$ctl);
 		$class='Ctl'.GN($ctl);
 		$ctls[$ctl]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
@@ -213,6 +214,16 @@ function str_encode($string,$key=SSP_KEY,$expiry=0){
 
 function str_decode($string,$key=SSP_KEY,$expiry=0){
 	return LIB('crypt')->decode((string)$string,$key,$expiry);
+}
+
+//字符截取...
+function strcut($string,$length,$isHTML=false,$suffix='…'){
+	if($isHTML){
+		$string=strip_tags($string);
+		$string=str_replace(array('&nbsp;','&quot;','&lt;','&gt;','&ldquo;','&rdquo;'),array(' ','"','<','>','“','”'),$string);
+		$string=preg_replace("/\s{2,}/"," ",trim($string));
+	}
+	return LIB('string')->cut($string,0,$length,'utf-8',$suffix);
 }
 
 function udate($format,$time,$uid){
