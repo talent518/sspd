@@ -241,7 +241,7 @@ int trigger(unsigned short type,...){
 	char **data=NULL;
 	long *data_len;
 
-	call_func_name=SSP_G(bind)[type];
+	call_func_name=strdup(SSP_G(bind)[type]);
 	pfunc=_ssp_string_zval(call_func_name,strlen(call_func_name));
 
 	va_start(args,type);
@@ -333,6 +333,7 @@ int trigger(unsigned short type,...){
 		efree(params);
 	}
 	zval_ptr_dtor(&pfunc);
+	free(call_func_name);
 	return ret;
 }
 

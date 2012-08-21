@@ -8,11 +8,11 @@
 
 #include "TSRM.h"
 
-#define PHP_SSP_DEBUG
+//#define PHP_SSP_DEBUG
 
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp user node"
 #define PHP_SSP_MUTEX_DESCRIPTOR_RES_NAME "ssp thread mutex"
-#define PHP_SSP_VERSION "v1.0.6"
+#define PHP_SSP_VERSION "v2.0.0"
 
 #define PHP_SSP_BIND_LEN 7
 

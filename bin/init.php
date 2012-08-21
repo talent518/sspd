@@ -4,25 +4,6 @@ require SRC_DIR.'function_server.php';
 
 import('lib.xml');
 
-$users=$clients=array();
-/*
-if(defined('SSP_USER')){
-	ssp_setopt(SSP_OPT_HOST,SSP_USER);
-}
-ssp_setopt(SSP_OPT_PIDFILE,ROOT.'log'.DIR_SEP.'ssp.pid');
-if(defined('SSP_HOST')){
-	ssp_setopt(SSP_OPT_HOST,SSP_HOST);
-}
-if(defined('SSP_PORT')){
-	ssp_setopt(SSP_OPT_PORT,SSP_PORT);
-}
-if(defined('SSP_MAX_CLIENTS')){
-	ssp_setopt(SSP_OPT_MAX_CLIENTS,SSP_MAX_CLIENTS);
-}
-if(defined('SSP_MAX_RECVS')){
-	ssp_setopt(SSP_OPT_MAX_RECVS,SSP_MAX_RECVS);
-}
-*/
 ssp_bind(SSP_START,'ssp_start_handler');
 ssp_bind(SSP_RECEIVE,'ssp_receive_handler');
 ssp_bind(SSP_SEND,'ssp_send_handler');
@@ -61,7 +42,7 @@ function ssp_receive_handler($ClientId,$data){
 					'onid'=>$sockfd,
 					'host'=>$host,
 					'port'=>$port,
-					'time'=>$time,
+					'time'=>time(),
 					'sendKey'=>$sendKey,
 					'receiveKey'=>$request->getText(),
 				);
@@ -74,7 +55,7 @@ function ssp_receive_handler($ClientId,$data){
 				$response->setText($data['sendKey']);
 
 				$return=(string)$response;
-				$request=$response=null;
+				$request=$response=$data=null;
 				return $return;
 			case 'Connect.Data':
 				if($key=MOD('user.online')->get_by_client($sockfd,'receiveKey')){

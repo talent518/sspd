@@ -32,5 +32,7 @@ function ssp_remove(&$shmid){
 	return shm_remove($shmid[0]);
 }
 function ssp_detach(&$shmid){
-	return shm_detach($shmid[0]) && sem_remove($shmid[1]);
+	shm_detach($shmid[0]);
+	sem_remove($shmid[1]);
+	return true;
 }

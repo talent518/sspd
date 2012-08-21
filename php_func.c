@@ -344,7 +344,7 @@ static void sapi_ssp_ini_defaults(HashTable *configuration_hash)
 	zval tmp;
 	INI_DEFAULT("report_zend_debug", "1");
 	INI_DEFAULT("display_errors", "1");
-	INI_DEFAULT("memory_limit", "512M");
+	INI_DEFAULT("memory_limit", "256M");
 }
 /* }}} */
 
@@ -459,18 +459,6 @@ void ssp_request_startup(){
 
 	if (strcmp(file_handle.filename, "-")) {
 		ssp_register_file_handles(TSRMLS_C);
-
-		if(debug)
-			zend_eval_string_ex("define('IS_DEBUG',true);", NULL, "Command line code", 1 TSRMLS_CC);
-		else
-			zend_eval_string_ex("define('IS_DEBUG',false);", NULL, "Command line code", 1 TSRMLS_CC);
-
-#ifdef PHP_WIN32
-		zend_eval_string_ex("define('STD_CHARSET','gbk');", NULL, "Command line code", 1 TSRMLS_CC);
-#else
-		zend_eval_string_ex("define('STD_CHARSET','utf-8');", NULL, "Command line code", 1 TSRMLS_CC);
-#endif
-
 		php_execute_script(&file_handle TSRMLS_CC);
 	}
 }
@@ -485,11 +473,11 @@ void php_end(){
 #endif
 
 	TSRMLS_FETCH();
-printf("%s:1\n",__func__);
+//printf("%s:1\n",__func__);
 	sapi_deactivate(TSRMLS_C);
-printf("%s:2\n",__func__);
+//printf("%s:2\n",__func__);
 	zend_ini_deactivate(TSRMLS_C);
-printf("%s:3\n",__func__);
+//printf("%s:3\n",__func__);
 
 	if (CSM(php_ini_path_override)) {
 		free(CSM(php_ini_path_override));
@@ -497,16 +485,16 @@ printf("%s:3\n",__func__);
 	if (CSM(ini_entries)) {
 		free(CSM(ini_entries));
 	}
-printf("%s:4\n",__func__);
+//printf("%s:4\n",__func__);
 
 	CSM(shutdown)(&ssp_sapi_module);
-printf("%s:5\n",__func__);
+//printf("%s:5\n",__func__);
 
 	sapi_shutdown();
-printf("%s:6\n",__func__);
+//printf("%s:6\n",__func__);
 #ifdef ZTS
 	tsrm_shutdown();
 #endif
-printf("%s:7\n",__func__);
+//printf("%s:7\n",__func__);
 }
 /* }}} */

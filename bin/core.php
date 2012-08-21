@@ -23,9 +23,7 @@ define('RES_THUMB_DIR',RES_DIR.'thumb'.DIR_SEP);//缩略图目录
 define('IS_AVATAR_REAL',false);
 
 CFG();
-defined('SSP_HOST') or define('SSP_HOST','localhost');
-defined('SSP_PORT') or define('SSP_PORT',8083);
-defined('SSP_KEY') or define('SSP_KEY',LIB('string')->rand(32,STRING_RAND_BOTH));
+define('SSP_KEY',md5_file(__FILE__));
 defined('UC_DIR') or define('UC_DIR','');
 
 function CFG(){
@@ -69,7 +67,9 @@ function GN($dir){
 	$dirs=array();
 	foreach(explode('.',strtolower($dir)) as $dir)
 		$dirs[]=ucfirst($dir);
-	return implode('',$dirs);
+	$return=implode('',$dirs);
+	$dirs=null;
+	return $return;
 }
 
 function import($lib){
@@ -79,7 +79,6 @@ function import($lib){
 function &LIB($lib){
 	static $libs;
 	if(!is_object($libs[$lib])){
-		echo '-----------------','lib.'.$lib,PHP_EOL;
 		import('lib.'.$lib);
 		$class='Lib'.GN($lib);
 		$libs[$lib]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
@@ -90,7 +89,6 @@ function &LIB($lib){
 function &MOD($mod){
 	static $mods;
 	if(!is_object($mods[$mod])){
-		echo '-----------------','mod.'.$mod,PHP_EOL;
 		import('mod.'.$mod);
 		$class='Mod'.GN($mod);
 		$mods[$mod]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));
@@ -101,7 +99,6 @@ function &MOD($mod){
 function &CTL($ctl){
 	static $ctls;
 	if(!is_object($ctls[$ctl])){
-		echo '-----------------','ctl.'.$ctl,PHP_EOL;
 		import('ctl.'.$ctl);
 		$class='Ctl'.GN($ctl);
 		$ctls[$ctl]=(class_exists($class)?new $class():die('class "'.$class.'" not exists!'));

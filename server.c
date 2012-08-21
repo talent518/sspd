@@ -141,15 +141,15 @@ void* socket_thread(node *ptr){
 	shutdown(ptr->sockfd,2);
 	close(ptr->sockfd);
 
-printf("%s:1\n",__func__);
+	//printf("%s:1\n",__func__);
 	delete(ptr);
-printf("%s:2\n",__func__);
+	//printf("%s:2\n",__func__);
 
 #ifdef ZTS
 	ssp_request_shutdown();
-	printf("%s:3\n",__func__);
+	//printf("%s:3\n",__func__);
 	ts_free_thread();
-	printf("%s:4\n",__func__);
+	//printf("%s:4\n",__func__);
 #endif
 	return NULL;
 }
@@ -421,7 +421,7 @@ int socket_start(){
 
 	close(listen_fd);
 
-printf("%s:1\n",__func__);
+//printf("%s:1\n",__func__);
 
 	pthread_t tid;
 	bool flag;
@@ -437,25 +437,25 @@ printf("%s:1\n",__func__);
 		}
 		p=head->next;
 	}
-printf("%s:2\n",__func__);
+//printf("%s:2\n",__func__);
 
 	if(node_num>0){
 		printf("There are %d nodes not successfully deleted.",node_num);
 	}
 
 	destruct();
-printf("%s:3\n",__func__);
+//printf("%s:3\n",__func__);
 
 	trigger(PHP_SSP_STOP);
-printf("%s:4\n",__func__);
+//printf("%s:4\n",__func__);
 
 #ifdef ZTS
 	ssp_request_shutdown();
 #endif
-printf("%s:5\n",__func__);
+//printf("%s:5\n",__func__);
 
 	php_end();
-printf("%s:6\n",__func__);
+//printf("%s:6\n",__func__);
 
 	exit(0);
 }
