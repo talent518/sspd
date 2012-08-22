@@ -16,8 +16,8 @@ extern int node_num;
 extern node *head;
 extern pthread_mutex_t node_mutex;
 
-void construct();
-node *find(int sockfd,bool is_port);
-void insert(node *ptr);
-void delete(node *ptr);
-void destruct();
+ void attach_node();
+node* search_node(int sockfd,bool is_port);
+ void insert_node(node *ptr);
+ void remove_node(node *ptr);
+ void detach_node();

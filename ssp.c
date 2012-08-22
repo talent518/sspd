@@ -28,8 +28,6 @@
 	#include <locale.h>
 #endif
 
-#define OPT_DEBUG 14
-
 #define OPT_HOST 1
 #define OPT_PORT 2
 #define OPT_PIDFILE 3
@@ -53,8 +51,6 @@ static const opt_struct OPTIONS[] = {
 	{'v', 0, "version"},
 	{'z', 1, "zend-extension"},
 	{'s', 1, "service"},
-
-	{OPT_DEBUG,  0, "debug"},
 
 	{OPT_HOST,  1, "host"},
 	{OPT_PORT,  1, "port"},
@@ -94,8 +90,6 @@ static void php_ssp_usage(char *argv0)
 				"  -H                      Hide any passed arguments from external tools.\n"
 				"  -v                      Version number\n"
 				"  -z <file>               Load Zend extension <file>.\n"
-				"\n"
-				"  --debug                 Show debug info\n"
 				"\n"
 				"  --host <IP>             Listen host\n"
 				"  --port <port>           Listen port\n"
@@ -384,10 +378,6 @@ int main(int argc, char *argv[])
 					hide_argv = 1;
 					break;
 
-				case OPT_DEBUG:
-					debug = true;
-					break;
-
 				case OPT_HOST:
 					ssp_host=strdup(php_optarg);
 					break;
@@ -427,21 +417,6 @@ int main(int argc, char *argv[])
 		}
 	} zend_end_try();
 
-	REGISTER_MAIN_STRING_CONSTANT("SSP_PIDFILE",  ssp_pidfile,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_MAIN_STRING_CONSTANT("SSP_USER",  ssp_user,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_MAIN_STRING_CONSTANT("SSP_HOST",  ssp_host,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_MAIN_LONG_CONSTANT("SSP_PORT",  ssp_port,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_MAIN_LONG_CONSTANT("SSP_MAX_CLIENTS",  ssp_maxclients,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_MAIN_LONG_CONSTANT("SSP_MAX_RECVS",  ssp_maxrecvs,  CONST_CS | CONST_PERSISTENT);
-
-	REGISTER_MAIN_LONG_CONSTANT("IS_DEBUG",  debug?1:0,  CONST_CS | CONST_PERSISTENT);
-
-#ifdef PHP_WIN32
-	REGISTER_MAIN_STRING_CONSTANT("STD_CHARSET",  "gbk",  CONST_CS | CONST_PERSISTENT);
-#else
-	REGISTER_MAIN_STRING_CONSTANT("STD_CHARSET",  "utf-8",  CONST_CS | CONST_PERSISTENT);
-#endif
-
 	if(serv_opt==NULL){
 		exit_status=0;
 		goto err;
@@ -461,6 +436,7 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 	free(serv_opt);
+	return 0;
 
 out:
 	if (request_started) {

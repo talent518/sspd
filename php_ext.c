@@ -176,6 +176,7 @@ static PHP_GINIT_FUNCTION(ssp)
 	ssp_globals->recv_bytes=0;
 	ssp_globals->send_bytes=0;
 #endif
+
 #ifdef PHP_SSP_DEBUG
 	printf("ssp module globals init\n");
 #endif
@@ -420,7 +421,7 @@ static PHP_FUNCTION(ssp_resource){
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|b", &sockfd,&is_port) == FAILURE) {
 		RETURN_FALSE;
 	}
-	ptr=find(sockfd,is_port);
+	ptr=search_node(sockfd,is_port);
 	if(ptr!=NULL){
 		ZEND_REGISTER_RESOURCE(return_value,ptr,le_ssp_descriptor);
 	}else{
@@ -539,8 +540,5 @@ static PHP_FUNCTION(ssp_close)
 	}
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
 	trigger(PHP_SSP_CLOSE,ptr);
-	ptr->flag=false;
 	shutdown(ptr->sockfd,2);
-	//close(ptr->sockfd);
-	//delete(ptr);
 }

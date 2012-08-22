@@ -12,8 +12,6 @@
 #define SSP_OPT_MAX_CLIENTS 4
 #define SSP_OPT_MAX_RECVS 5
 
-extern bool debug;
-
 extern char *ssp_host;
 extern short int ssp_port;
 extern char *ssp_pidfile;

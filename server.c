@@ -18,8 +18,6 @@
 #include "server.h"
 #include "node.h"
 
-bool debug=false;
-
 char *ssp_host="0.0.0.0";
 short int ssp_port=8083;
 char *ssp_pidfile="/var/run/ssp.pid";
@@ -80,9 +78,9 @@ void* socket_thread(node *ptr){
 	int recv_len=0,recved_len=0,len,i;
 	char *package;
 
-	if(debug){
-		php_printf("\nAccept new connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
-	}
+#ifdef PHP_SSP_DEBUG
+	php_printf("\nAccept new connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
+#endif
 
 	TSRMLS_FETCH();
 
@@ -112,9 +110,11 @@ void* socket_thread(node *ptr){
 		}
 
 		len=recv(ptr->sockfd,package+recved_len,recv_len-recved_len,MSG_WAITALL);
-		if(len<0 && debug){
+		if(len<0){
 			free(package);
+#ifdef PHP_SSP_DEBUG
 			php_printf("Server Recieve Package Data Failed!\n");
+#endif
 			break;
 		}
 		if(len==0){
@@ -142,7 +142,7 @@ void* socket_thread(node *ptr){
 	close(ptr->sockfd);
 
 	//printf("%s:1\n",__func__);
-	delete(ptr);
+	remove_node(ptr);
 	//printf("%s:2\n",__func__);
 
 #ifdef ZTS
@@ -169,9 +169,11 @@ int socket_send(int sockfd,const char *data,int data_len){
 	memcpy(package+sizeof(int),data,data_len);
 
 	int ret=send(sockfd,package,plen,0);
-	if(ret!=sizeof(data_len)+data_len && debug){
+#ifdef PHP_SSP_DEBUG
+	if(ret!=sizeof(data_len)+data_len){
 		php_printf("Send Data Error! Length:%d,Package Length:%d\n",data_len,plen);
 	}
+#endif
 	return ret;
 }
 
@@ -356,7 +358,7 @@ int socket_start(){
 			fprintf(fp,"%d",pid);
 			fclose(fp);
 		}
-		usleep(500);
+		sleep(1);
 		return 0;
 	}
 
@@ -383,15 +385,15 @@ int socket_start(){
 	system("echo -e \"\\E[32m\"[Succeed]");
 	system("tput sgr0");
 
-	construct();
+	attach_node();
 	head->sockfd=listen_fd;
 	inet_ntop(AF_INET, &sin.sin_addr, head->host, sizeof(head->host));
 	head->port=ntohs(sin.sin_port);
 	head->flag=true;
 
-	if(debug){
-		php_printf("\nListen host for the %s, port %d.\n",head->host,head->port);
-	}
+#ifdef PHP_SSP_DEBUG
+	php_printf("\nListen host for the %s, port %d.\n",head->host,head->port);
+#endif
 
 #ifdef ZTS
 	ssp_request_startup();
@@ -407,15 +409,16 @@ int socket_start(){
 		if(conn_fd<=0){
 			break;
 		}
+
 		ptr=(node *)malloc(sizeof(node));
+		insert_node(ptr);
+
 		ptr->sockfd=conn_fd;
 		inet_ntop(AF_INET, &pin.sin_addr, ptr->host, sizeof(ptr->host));
 		ptr->port=ntohs(pin.sin_port);
 		ptr->flag=true;
 
-		insert(ptr);
-
-		pthread_create(&ptr->tid,&attr,(void*)socket_thread,ptr);
+		pthread_create(&ptr->tid,NULL,(void*)socket_thread,ptr);
 	}
 	pthread_attr_destroy(&attr);
 
@@ -424,26 +427,29 @@ int socket_start(){
 //printf("%s:1\n",__func__);
 
 	pthread_t tid;
-	bool flag;
 	void *tret;
 	node *p=head->next;
 	while(p!=head){
 		if(p->flag){
 			p->flag=false;
+			tid=p->tid;
 			if(shutdown(p->sockfd,2)!=0){
 				printf("shutdown node(%d) error(%d)",node_num,errno);
 			}
-			pthread_join(p->tid,&tret);
+			p=p->next;
+			pthread_join(tid,&tret);
+		}else{
+			php_printf("\nNode (%d) host %s, port %d.\n",p->sockfd,p->host,p->port);
+			p=p->next;
 		}
-		p=head->next;
 	}
 //printf("%s:2\n",__func__);
 
 	if(node_num>0){
-		printf("There are %d nodes not successfully deleted.",node_num);
+		printf("There are %d nodes have successfully removed.",node_num);
 	}
 
-	destruct();
+	detach_node();
 //printf("%s:3\n",__func__);
 
 	trigger(PHP_SSP_STOP);

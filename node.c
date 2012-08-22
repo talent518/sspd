@@ -8,7 +8,7 @@ int node_num=0;
 node *head=NULL;
 pthread_mutex_t node_mutex;
 
-void construct(){
+void attach_node(){
 	if(head!=NULL){
 		return;
 	}
@@ -18,7 +18,7 @@ void construct(){
     pthread_mutex_init(&node_mutex, NULL);
 }
 
-node *find(int sockfd,bool is_port){
+node *search_node(int sockfd,bool is_port){
 	pthread_mutex_lock(&node_mutex);
 	node *p,*ptr=NULL;
 	p=head;
@@ -33,7 +33,7 @@ node *find(int sockfd,bool is_port){
 	return ptr;
 }
 
-void insert(node *ptr){
+void insert_node(node *ptr){
 	if(ptr==head || ptr==NULL){
 		printf("\nInsert node (ptr can't NULL or head) error!\n");
 		return;
@@ -51,11 +51,12 @@ void insert(node *ptr){
 	pthread_mutex_unlock(&node_mutex);
 }
 
-void delete(node *ptr){
+void remove_node(node *ptr){
 	if(ptr==head || ptr==NULL){
-		printf("\nDelete node (ptr can't NULL or head) error!\n");
+		printf("\nRemove node (ptr can't NULL or head) error!\n");
 		return;
 	}
+	pthread_detach(ptr->tid);
 	pthread_mutex_lock(&node_mutex);
 	node *p=ptr->prev,*n=ptr->next;
 
@@ -67,15 +68,15 @@ void delete(node *ptr){
 	pthread_mutex_unlock(&node_mutex);
 }
 
-void destruct(){
+void detach_node(){
 	if(head==NULL){
 		return;
 	}
 	while(head->next!=head){
-		delete(head->next);
+		remove_node(head->next);
 	}
 	while(head->prev!=head){
-		delete(head->prev);
+		remove_node(head->prev);
 	}
 	free(head);
     pthread_mutex_destroy(&node_mutex);

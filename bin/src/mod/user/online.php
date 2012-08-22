@@ -10,7 +10,6 @@ class ModUserOnline extends ModBase{
 	protected $table='user_online';
 	protected $priKey='onid';
 	protected $order;
-	private $clients=array(),$users=array();
 
 	protected $ushmid,$cshmid;
 	function ModUserOnline(){

@@ -6,9 +6,9 @@ echo 'help:',$_SERVER['argv'][0],' <servname> [port]',PHP_EOL;
 echo 'help:',$_SERVER['argv'][0],' <servname> <port> [pidfile]',PHP_EOL;
 
 $SSP_DIR=dirname(__FILE__);
-$SERV_NAME=(($_SERVER['argc']==2 && preg_match("/[a-z0-9-_]+/i",$_SERVER['argv'][1]))?$_SERVER['argv'][1]:'ssp');
-$SERV_PORT=(($_SERVER['argc']==3 && preg_match("/[0-9]+/i",$_SERVER['argv'][1]))?$_SERVER['argv'][2]:'8086');
-$SERV_PIDFILE=(($_SERVER['argc']==4 && preg_match("/[a-z0-9-_\/\.]+/i",$_SERVER['argv'][1]))?$_SERVER['argv'][3]:$SSP_DIR.'/log/ssp.pid');
+$SERV_NAME=(($_SERVER['argc']>=2 && preg_match("/[a-z0-9-_]+/i",$_SERVER['argv'][1]))?$_SERVER['argv'][1]:'ssp');
+$SERV_PORT=(($_SERVER['argc']>=3 && preg_match("/[0-9]+/i",$_SERVER['argv'][2]))?$_SERVER['argv'][2]:'8086');
+$SERV_PIDFILE=(($_SERVER['argc']==4 && preg_match("/[a-z0-9-_\/\.]+/i",$_SERVER['argv'][3]))?$_SERVER['argv'][3]:$SSP_DIR.'/log/ssp.pid');
 
 system('rm -f /etc/init.d/'.$SERV_NAME);
 
@@ -23,5 +23,10 @@ system('chmod 773 /etc/init.d/'.$SERV_NAME);
 system('chkconfig --add '.$SERV_NAME);
 system('chkconfig --level 345 '.$SERV_NAME.' on');
 
-echo 'Install completed.',PHP_EOL;
+if(file_exists('/etc/init.d/'.$SERV_NAME)){
+	echo 'Install "',$SERV_NAME,'" completed.',PHP_EOL;
+}else{
+	echo 'Install "',$SERV_NAME,'" failed.',PHP_EOL;
+}
+
 ?>

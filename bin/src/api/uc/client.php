@@ -181,7 +181,7 @@ function uc_check_email($email, $username = '') {
 		return UC_USER_EMAIL_FORMAT_ILLEGAL;
 	} elseif(!_check_emailaccess($email)) {
 		return UC_USER_EMAIL_ACCESS_ILLEGAL;
-	} elseif(!UC_DOUBLEE && MOD('uc.user')->exists_by_where(sprintf('`email`=\'%s\'',$email).($username?sprintf(' AND `username`=\'%s\'',addslashes($username)):''))) {
+	} elseif(!UC_EMAIL_DOUBLEE && MOD('uc.user')->exists_by_where(sprintf('`email`=\'%s\'',$email).($username?sprintf(' AND `username`=\'%s\'',addslashes($username)):''))) {
 		return UC_USER_EMAIL_EXISTS;
 	} else {
 		return 1;
