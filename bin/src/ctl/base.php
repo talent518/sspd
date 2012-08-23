@@ -9,7 +9,12 @@ Class CtlBase{
 	}
 	function send($i,$request){
 		$res=is_resource($i)?$i:ssp_resource($i,false);
-		return is_resource($res)?ssp_send($res,(string)$request):0;
+		if(is_resource($res)){
+			return ssp_send($res,(string)$request);
+		}else{
+			echo 'Send "'.$request.'" To ('.$i.') error!';
+			return false;
+		}
 	}
 	function close($i){
 		$res=is_resource($i)?$i:ssp_resource($i,false);

@@ -299,7 +299,6 @@ int trigger(unsigned short type,...){
 				convert_to_string_ex(&retval);
 			}
 			if(Z_STRLEN_P(retval)>0){
-				free(*data);
 				char *_data=strndup(Z_STRVAL_P(retval),Z_STRLEN_P(retval));
 				*data=_data;
 				*data_len=Z_STRLEN_P(retval);
@@ -314,9 +313,7 @@ int trigger(unsigned short type,...){
 	}else{
 		php_printf("Unable to call handler %s()\n", call_func_name);
 	}
-
 	zval_ptr_dtor(&retval);
-
 #ifdef PHP_SSP_DEBUG
 	printf("Remain Free Memory:\n\treal_size:%d,size:%d,real_peak:%d,peak:%d\n",
 		zend_memory_usage(1 TSRMLS_CC)-real_size,

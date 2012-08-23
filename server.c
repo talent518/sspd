@@ -174,6 +174,7 @@ int socket_send(int sockfd,const char *data,int data_len){
 		php_printf("Send Data Error! Length:%d,Package Length:%d\n",data_len,plen);
 	}
 #endif
+	free(package);
 	return ret;
 }
 

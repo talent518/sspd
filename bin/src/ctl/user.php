@@ -57,10 +57,9 @@ Class CtlUser extends CtlBase{
 				$exitLogin=new XML_Element('response');
 				$exitLogin->type='User.Login.Failed';
 				$exitLogin->setText('此用户在另一地点登录，你被迫退出！');
-				$this->send($exitId,$exitLogin);
-				echo 'exitLogin:1',PHP_EOL;
+				$this->send($exitId,(string)$exitLogin);
 				$this->close($exitId);
-				echo 'exitLogin:2',PHP_EOL;
+				$exitLogin=null;
 			}
 			if($user=MOD('user')->get($uid)){
 				$profile=MOD('user.profile')->get($uid);
