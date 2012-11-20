@@ -321,7 +321,7 @@ class LibValidate{
 	//URL地址
 	function chinese($data){
 		if(!$this->required($data)) return true;
-		return preg_match("/^[\x21-\x7E\x0391-\xFFE5]+$/",$data);
+		return preg_match("/^[\x21-\x7E\x{0391}-\x{FFE5}]+$/u",$data);
 	}
 
 	//URL地址
@@ -333,7 +333,7 @@ class LibValidate{
 	//URL地址
 	function username($data){
 		if(!$this->required($data)) return true;
-		return preg_match("/^[a-zA-Z\x0391-\xFFE5][a-zA-Z0-9_\-\x0391-\xFFE5]+$/",$data);
+		return preg_match("/^[a-zA-Z\x{0391}-\x{FFE5}][a-zA-Z0-9_\-\x{0391}-\x{FFE5}]+$/u",$data);
 	}
 
 	//URL地址

@@ -246,8 +246,10 @@ function uc_user_edit($username, $oldpw, $newpw, $email, $ignoreoldpw = 0, $ques
 
 	$user = MOD('uc.user')->get_by_where($where);
 
+	$where=sprintf('uid=%d',$user['uid']);
+
 	if($ignoreoldpw) {
-		$isprotected = UDB()->count('protectedmembers',"uid = '$data[uid]'");
+		$isprotected = UDB()->count('protectedmembers',$where);
 		if($isprotected) {
 			return -8;
 		}
@@ -260,7 +262,7 @@ function uc_user_edit($username, $oldpw, $newpw, $email, $ignoreoldpw = 0, $ques
 	$data=array();
 
 	if($newpw){
-		$data['password']=md5(md5($newpw).$data['salt']);
+		$data['password']=md5(md5($newpw).$user['salt']);
 	}
 	if($email){
 		$data['email']=$email;
