@@ -48,3 +48,30 @@ char *gad(const char *argv0){
 		return bpath;
 	}
 }
+
+int execi(const char *cmd){
+	FILE *fp;
+	int ret=0;
+	fp=popen(cmd,"r");
+	if(fp!=NULL){
+		fscanf(fp,"%d",&ret);
+		fclose(fp);
+	}
+	return ret;
+}
+
+char *str_repeat(const char *str,size_t str_len,size_t repeat){
+	char *ret=(char *)malloc(str_len*repeat);
+	size_t i;
+	for(i=0;i<repeat;i++){
+		strncpy(ret+i*str_len,str,str_len);
+	}
+	return ret;
+}
+
+void strnprint(const char *str,size_t repeat){
+	size_t i;
+	for(i=0;i<repeat;i++){
+		printf(str);
+	}
+}

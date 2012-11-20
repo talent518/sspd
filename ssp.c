@@ -227,7 +227,7 @@ int main(int argc, char *argv[])
 	setmode(_fileno(stderr), O_BINARY);		/* make the stdio mode be binary */
 #endif
 
-	php_init();
+	ssp_init();
 
 	CSM(executable_location) = strdup(argv[0]);
 
@@ -278,10 +278,7 @@ int main(int argc, char *argv[])
 	php_optind = orig_optind;
 	php_optarg = orig_optarg;
 
-	if(php_begin()==FAILURE){
-		exit_status=1;
-		goto err;
-	}
+	ssp_module_startup();
 
 	TSRMLS_FETCH();
 
@@ -446,6 +443,7 @@ out:
 		exit_status = EG(exit_status);
 	}
 err:
-	php_end();
+	ssp_module_shutdown();
+	ssp_destroy();
 	exit(exit_status);
 }

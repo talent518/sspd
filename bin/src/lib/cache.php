@@ -4,7 +4,13 @@ if(!defined('IN_SERVER')) {
 }
 
 function &ssp_attach($key,$memsize=2097152,$perm=0777){
-	return array(shm_attach($key,$memsize,$perm),sem_get($key,1,$perm));
+	$semid=sem_get($key,1,$perm);
+	$sret=sem_acquire($semid);
+	$shmid=shm_attach($key,$memsize,$perm);
+	if($sret){
+		sem_release($semid);
+	}
+	return array($shmid,$semid);
 }
 function ssp_has_var(&$shmid,$key){
 	return shm_has_var($shmid[0],$key);

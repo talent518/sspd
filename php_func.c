@@ -345,6 +345,7 @@ static void sapi_ssp_ini_defaults(HashTable *configuration_hash)
 	INI_DEFAULT("report_zend_debug", "1");
 	INI_DEFAULT("display_errors", "1");
 	INI_DEFAULT("memory_limit", "256M");
+	INI_DEFAULT("zend.enable_gc","1");
 }
 /* }}} */
 
@@ -396,13 +397,18 @@ static const zend_function_entry additional_functions[] = {
 
 /* {{{ main
  */
-void php_init(){
+void ssp_init(){
+#ifndef ZTS
+	ssp_mutex=(pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_init(ssp_mutex, NULL);
+#endif
+
 	CSM(ini_defaults) = sapi_ssp_ini_defaults;
 	CSM(php_ini_path_override) = NULL;
 	CSM(phpinfo_as_text) = 1;
 
 #ifdef ZTS
-	tsrm_startup(1, 1, 0, NULL);
+	tsrm_startup(128, 1, 0, NULL);
 #endif
 	sapi_startup(&ssp_sapi_module);
 
@@ -410,26 +416,16 @@ void php_init(){
 	memcpy(CSM(ini_entries), HARDCODED_INI, sizeof(HARDCODED_INI));
 
 	CSM(additional_functions) = additional_functions;
-
-#ifndef ZTS
-	ssp_mutex=(pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
-    pthread_mutex_init(ssp_mutex, NULL);
-#endif
 }
 
-int php_begin(){
-	TSRMLS_FETCH();
+void ssp_module_startup(){
 	if (CSM(startup)(&ssp_sapi_module)==FAILURE) {
-		return FAILURE;
+		printf("Module could not startup.\n");
 	}
-	return SUCCESS;
 }
 
 void ssp_request_startup(){
 	TSRMLS_FETCH();
-	/*if (CSM(startup)(&ssp_sapi_module)==FAILURE) {
-		return;
-	}*/
 	int lineno = 0;
 	zend_file_handle file_handle;
 
@@ -449,9 +445,11 @@ void ssp_request_startup(){
 
 	if (php_request_startup(TSRMLS_C)==FAILURE) {
 		fclose(file_handle.handle.fp);
-		PUTS("Could not startup.\n");
+		printf("Request could not startup.\n");
 		return;
 	}
+
+	CG(unclean_shutdown)=0;
 
 	CG(start_lineno) = lineno;
 
@@ -474,42 +472,48 @@ void ssp_request_startup(){
 
 	if (strcmp(file_handle.filename, "-")) {
 		ssp_register_file_handles(TSRMLS_C);
-		php_execute_script(&file_handle TSRMLS_CC);
+		zend_execute_scripts(ZEND_REQUIRE TSRMLS_CC, NULL, 1, &file_handle);
+		zend_destroy_file_handle(&file_handle TSRMLS_CC);
+		//php_execute_script(&file_handle TSRMLS_CC);
 	}
 }
 
 void ssp_request_shutdown(){
+	TSRMLS_FETCH();
+
 	php_request_shutdown(NULL);
+
+	zend_hash_del(EG(zend_constants),"SSP_PIDFILE",sizeof("SSP_PIDFILE"));
+	zend_hash_del(EG(zend_constants),"SSP_USER",sizeof("SSP_USER"));
+	zend_hash_del(EG(zend_constants),"SSP_HOST",sizeof("SSP_HOST"));
+	zend_hash_del(EG(zend_constants),"SSP_PORT",sizeof("SSP_PORT"));
+	zend_hash_del(EG(zend_constants),"SSP_MAX_CLIENTS",sizeof("SSP_MAX_CLIENTS"));
+	zend_hash_del(EG(zend_constants),"SSP_MAX_RECVS",sizeof("SSP_MAX_RECVS"));
+
+	zend_hash_del(EG(zend_constants),"STD_CHARSET",sizeof("STD_CHARSET"));
+	zend_hash_del(EG(zend_constants),"IS_DEBUG",sizeof("IS_DEBUG"));
 }
 
-void php_end(){
-#ifndef ZTS
-	pthread_mutex_destroy(ssp_mutex);
-#endif
+void ssp_module_shutdown(){
+	CSM(shutdown)(&ssp_sapi_module);
+}
 
-	TSRMLS_FETCH();
-//printf("%s:1\n",__func__);
-	sapi_deactivate(TSRMLS_C);
-//printf("%s:2\n",__func__);
-	zend_ini_deactivate(TSRMLS_C);
-//printf("%s:3\n",__func__);
-
+void ssp_destroy(){
 	if (CSM(php_ini_path_override)) {
 		free(CSM(php_ini_path_override));
 	}
 	if (CSM(ini_entries)) {
 		free(CSM(ini_entries));
 	}
-//printf("%s:4\n",__func__);
 
-	CSM(shutdown)(&ssp_sapi_module);
-//printf("%s:5\n",__func__);
-
+	//printf("%s:0\n",__func__);
 	sapi_shutdown();
-//printf("%s:6\n",__func__);
+	//printf("%s:1\n",__func__);
 #ifdef ZTS
 	tsrm_shutdown();
+	//printf("%s:2\n",__func__);
+#else
+	pthread_mutex_destroy(ssp_mutex);
 #endif
-//printf("%s:7\n",__func__);
 }
 /* }}} */

@@ -247,7 +247,7 @@ function uc_user_edit($username, $oldpw, $newpw, $email, $ignoreoldpw = 0, $ques
 	$user = MOD('uc.user')->get_by_where($where);
 
 	if($ignoreoldpw) {
-		$isprotected = $this->db->result_first("SELECT COUNT(*) FROM ".UC_DBTABLEPRE."protectedmembers WHERE uid = '$data[uid]'");
+		$isprotected = UDB()->count('protectedmembers',"uid = '$data[uid]'");
 		if($isprotected) {
 			return -8;
 		}
@@ -276,20 +276,24 @@ function uc_user_edit($username, $oldpw, $newpw, $email, $ignoreoldpw = 0, $ques
 
 	if(count($data)) {
 		MOD('uc.user')->update($data,$where);
-		return $this->db->affected_rows();
+		return UDB()->arows();
 	} else {
 		return -7;
 	}
-	
-	$status = $_ENV['user']->edit_user($username, $oldpw, $newpw, $email, $ignoreoldpw, $questionid, $answer);
 
 	if($newpw && $status > 0) {
-		$this->load('note');
-		MOD('uc.user')->add('updatepw', 'username='.urlencode($username).'&password=');
+		MOD('note')->add('updatepw', 'username='.urlencode($username).'&password=');
 	}
 	return $status;
 }
 function uc_user_delete($uid) {
+	$isprotected = UDB()->count('protectedmembers',"uid = '$uid'");
+	if($isprotected) {
+		return -8;
+	}else{
+		MOD('uc.user')->drop($uid);
+		return UDB()->arows();
+	}
 }
 function uc_get_user($username, $isuid=0) {
 	switch($isuid){

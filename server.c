@@ -17,6 +17,7 @@
 #include "php_func.h"
 #include "server.h"
 #include "node.h"
+#include "api.h"
 
 char *ssp_host="0.0.0.0";
 short int ssp_port=8083;
@@ -30,19 +31,7 @@ int ssp_maxrecvs=2*1024*1024;
 	pthread_mutex_t *ssp_mutex;
 #endif
 
-#define COLS shl_cols()
 #define flush() fflush(stdout)
-
-int shl_cols(){
-	FILE *fp;
-	int ret=0;
-	fp=popen("tput cols","r");
-	if(fp!=NULL){
-		fscanf(fp,"%d",&ret);
-		fclose(fp);
-	}
-	return ret;
-}
 
 int recv_int(int sockfd){
 	char *buf;
@@ -74,7 +63,8 @@ int recv_int(int sockfd){
 	}
 }
 
-void* socket_thread(node *ptr){
+static void *socket_thread(void *_ptr){
+	node *ptr=(node*)_ptr;
 	int recv_len=0,recved_len=0,len,i;
 	char *package;
 
@@ -82,11 +72,8 @@ void* socket_thread(node *ptr){
 	php_printf("\nAccept new connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
 #endif
 
-	TSRMLS_FETCH();
-
-#ifdef ZTS
-	ssp_request_startup();
-#endif
+	pthread_detach(pthread_self());
+	THREAD_STARTUP();
 
 	trigger(PHP_SSP_CONNECT,ptr);
 
@@ -125,13 +112,11 @@ void* socket_thread(node *ptr){
 		recved_len+=len;
 
 		if(recved_len==recv_len && recv_len>0){
-			zend_first_try{
-				trigger(PHP_SSP_RECEIVE,ptr,&package,&recv_len);
-				if(recv_len>0){
-					trigger(PHP_SSP_SEND,ptr,&package,&recv_len);
-					socket_send(ptr->sockfd,package,recv_len);
-				}
-			}zend_end_try();
+			trigger(PHP_SSP_RECEIVE,ptr,&package,&recv_len);
+			if(recv_len>0){
+				trigger(PHP_SSP_SEND,ptr,&package,&recv_len);
+				socket_send(ptr->sockfd,package,recv_len);
+			}
 			free(package);
 			recved_len=0;
 		}
@@ -141,16 +126,11 @@ void* socket_thread(node *ptr){
 	shutdown(ptr->sockfd,2);
 	close(ptr->sockfd);
 
-	//printf("%s:1\n",__func__);
 	remove_node(ptr);
-	//printf("%s:2\n",__func__);
 
-#ifdef ZTS
-	ssp_request_shutdown();
-	//printf("%s:3\n",__func__);
-	ts_free_thread();
-	//printf("%s:4\n",__func__);
-#endif
+	THREAD_SHUTDOWN();
+
+	pthread_exit(NULL);
 	return NULL;
 }
 
@@ -180,16 +160,11 @@ int socket_send(int sockfd,const char *data,int data_len){
 
 int socket_status(){
 	FILE *fp;
-	int pid,ret,i=17,cols=COLS;
+	int pid,ret,i=17,cols=tput_cols();
 
 	printf("SSP server status");
 	flush();
-
-	while(cols-9>i){
-		printf(".");
-		flush();
-		i++;
-	}
+	strnprint(".",cols-i-9);
 
 	TSRMLS_FETCH();
 
@@ -211,7 +186,7 @@ int socket_status(){
 
 int socket_stop(){
 	FILE *fp;
-	int pid,i=19,cols=COLS;
+	int pid,i=19,cols=tput_cols();
 
 	printf("Stopping SSP server");
 	flush();
@@ -230,21 +205,15 @@ int socket_stop(){
 				i++;
 				sleep(1);
 			}
-			while(cols-9>i){
-				printf(".");
-				flush();
-				i++;
-			}
+			strnprint(".",cols-i-9);
+			flush();
 			system("echo -e \"\\E[32m\"[Succeed]");
 			system("tput sgr0");
 			return 1;
 		}
 	}
-	while(cols-8>i){
-		printf(".");
-		flush();
-		i++;
-	}
+	strnprint(".",cols-i-8);
+	flush();
 	system("echo -e \"\\E[31m\"[Failed]");
 	system("tput sgr0");
 	return 0;
@@ -290,13 +259,10 @@ int socket_start(){
 	int ret;
 	node *ptr;
 
-	int pid,i=19,cols=COLS;
+	int pid,i=19,cols=tput_cols();
 
 	printf("Starting SSP server");
-	while(cols-9>i){
-		printf(".");
-		i++;
-	}
+	strnprint(".",cols-i-9);
 	flush();
 
 	signal(SIGHUP,socket_exit);
@@ -396,9 +362,7 @@ int socket_start(){
 	php_printf("\nListen host for the %s, port %d.\n",head->host,head->port);
 #endif
 
-#ifdef ZTS
-	ssp_request_startup();
-#endif
+	SERVICE_STARTUP();
 
 	trigger(PHP_SSP_START);
 
@@ -419,13 +383,11 @@ int socket_start(){
 		ptr->port=ntohs(pin.sin_port);
 		ptr->flag=true;
 
-		pthread_create(&ptr->tid,NULL,(void*)socket_thread,ptr);
+		pthread_create(&ptr->tid,&attr,socket_thread,ptr);
 	}
 	pthread_attr_destroy(&attr);
 
 	close(listen_fd);
-
-//printf("%s:1\n",__func__);
 
 	pthread_t tid;
 	void *tret;
@@ -435,34 +397,30 @@ int socket_start(){
 			p->flag=false;
 			tid=p->tid;
 			if(shutdown(p->sockfd,2)!=0){
-				printf("shutdown node(%d) error(%d)",node_num,errno);
+				printf("\nShutdown socket(%d) error(%d)\n",p->sockfd,errno);
 			}
 			p=p->next;
-			pthread_join(tid,&tret);
+			if(ret=pthread_join(tid,&tret)){
+				printf("\nWait thread exit(%d) error(%d)\n",tid,ret);
+			}
 		}else{
 			php_printf("\nNode (%d) host %s, port %d.\n",p->sockfd,p->host,p->port);
 			p=p->next;
 		}
 	}
-//printf("%s:2\n",__func__);
 
 	if(node_num>0){
 		printf("There are %d nodes have successfully removed.",node_num);
 	}
 
 	detach_node();
-//printf("%s:3\n",__func__);
+	//printf("%s:1\n",__func__);
 
 	trigger(PHP_SSP_STOP);
-//printf("%s:4\n",__func__);
+	//printf("%s:2\n",__func__);
 
-#ifdef ZTS
-	ssp_request_shutdown();
-#endif
-//printf("%s:5\n",__func__);
-
-	php_end();
-//printf("%s:6\n",__func__);
+	SERVICE_SHUTDOWN();
+	//printf("%s:3\n",__func__);
 
 	exit(0);
 }

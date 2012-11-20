@@ -1,12 +1,15 @@
+#include "php_func.h"
 #include "php_ext.h"
 #include "server.h"
 #include "node.h"
+#include "api.h"
 #include <error.h>
 #include <malloc.h>
 
 int le_ssp_descriptor;
-int le_ssp_mutex_descriptor;
-
+#ifndef ZTS
+	int le_ssp_mutex_descriptor;
+#endif
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mallinfo, 0, 0, 0)
 ZEND_END_ARG_INFO()
@@ -111,6 +114,7 @@ static void php_destroy_ssp(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
 	//efree(ptr);
 }
 
+#ifndef ZTS
 static void php_destroy_ssp_mutex(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
 {
 	pthread_mutex_t *mutex = (pthread_mutex_t *) rsrc->ptr;
@@ -121,6 +125,7 @@ static void php_destroy_ssp_mutex(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ *
 
 	pthread_mutex_destroy(mutex);
 }
+#endif
 
 /* {{{ MINIT */
 static PHP_MINIT_FUNCTION(ssp)
@@ -143,7 +148,9 @@ static PHP_MINIT_FUNCTION(ssp)
 	REGISTER_LONG_CONSTANT("SSP_OPT_MAX_RECVS",  SSP_OPT_MAX_RECVS,  CONST_CS | CONST_PERSISTENT);
 	
 	le_ssp_descriptor = zend_register_list_destructors_ex(php_destroy_ssp, NULL, PHP_SSP_DESCRIPTOR_RES_NAME,module_number);
+#ifndef ZTS
 	le_ssp_mutex_descriptor = zend_register_list_destructors_ex(php_destroy_ssp_mutex, NULL, PHP_SSP_MUTEX_DESCRIPTOR_RES_NAME,module_number);
+#endif
 
 #ifdef PHP_SSP_DEBUG
 	printf("ssp module init\n");
@@ -157,9 +164,13 @@ static PHP_MINIT_FUNCTION(ssp)
 */
 static PHP_MSHUTDOWN_FUNCTION(ssp)
 {
+#ifdef ZTS
+	ts_free_id(ssp_globals_id);
+#endif
 #ifdef PHP_SSP_DEBUG
 	printf("ssp module shutdown\n");
 #endif
+	return SUCCESS;
 }
 /* }}} */
 
@@ -178,7 +189,7 @@ static PHP_GINIT_FUNCTION(ssp)
 #endif
 
 #ifdef PHP_SSP_DEBUG
-	printf("ssp module globals init\n");
+	printf("ssp_globals init\n");
 #endif
 }
 /* }}} */
@@ -194,7 +205,7 @@ static PHP_GSHUTDOWN_FUNCTION(ssp)
 	}
 	free(ssp_globals->bind);
 #ifdef PHP_SSP_DEBUG
-	printf("ssp module globals shutdown\n");
+	printf("ssp_globals shutdown\n");
 #endif
 }
 /* }}} */
@@ -230,7 +241,9 @@ static zval *_ssp_string_zval(const char *str,int len)
 
 int trigger(unsigned short type,...){
 	TSRMLS_FETCH();
+	TRIGGER_STARTUP();
 	if(SSP_G(bind)[type]==NULL){
+		TRIGGER_SHUTDOWN();
 		return FAILURE;
 	}
 	zval *zval_ptr,*zval_data,*pfunc;
@@ -282,17 +295,26 @@ int trigger(unsigned short type,...){
 #ifdef PHP_SSP_DEBUG
 	long real_size=zend_memory_usage(1 TSRMLS_CC),size=zend_memory_usage(0 TSRMLS_CC);
 	long real_peak=zend_memory_peak_usage(1 TSRMLS_CC),peak=zend_memory_peak_usage(0 TSRMLS_CC);
-	printf("\nMemory:\n\treal_size:%d,size:%d,real_peak:%d,peak:%d\n",real_size,size,real_peak,peak);
+	printf("\n");
+	strnprint("=",tput_cols());
+	printf("\nMemory(%s):\n\treal_size:%d\n\tsize:%d\n\treal_peak:%d\n\tpeak:%d",call_func_name,real_size,size,real_peak,peak);
 	if(type==PHP_SSP_RECEIVE){
-		printf("recv_bytes:%d+%d\n",SSP_G(recv_bytes),*data_len);
+		printf("\nrecv_bytes:%d+%d",SSP_G(recv_bytes),*data_len);
 		SSP_G(recv_bytes)+=*data_len;
 	}
 	if(type==PHP_SSP_SEND){
-		printf("send_bytes:%d+%d\n",SSP_G(send_bytes),*data_len);
+		printf("\nsend_bytes:%d+%d",SSP_G(send_bytes),*data_len);
 		SSP_G(send_bytes)+=*data_len;
 	}
+	printf("\n");
+	strnprint("-",tput_cols());fflush(stdout);
 #endif
-	ret=call_user_function_ex(CG(function_table), NULL, pfunc, &retval, param_count, params,0,NULL TSRMLS_CC);
+	ret=call_user_function_ex(CG(function_table), NULL, pfunc, &retval, param_count, params,1,NULL TSRMLS_CC);
+#ifdef PHP_SSP_DEBUG
+	strnprint("*",tput_cols());
+	printf("gc_enabled:%d,gc_collect_cycles:%d\n",GC_G(gc_enabled),gc_collect_cycles(TSRMLS_C));
+	strnprint("-",tput_cols());
+#endif
 	if(ret==SUCCESS){
 		if(param_count>1){
 			if(Z_TYPE_P(retval)!=IS_STRING){
@@ -306,23 +328,26 @@ int trigger(unsigned short type,...){
 				*data=NULL;
 				*data_len=0;
 			}
-#ifdef PHP_SSP_DEBUG
-			printf("return bytes:%d\n",Z_STRLEN_P(retval));
-#endif
+		#ifdef PHP_SSP_DEBUG
+			printf("\nreturn bytes(%s):%d",call_func_name,Z_STRLEN_P(retval));
+		#endif
 		}
 	}else{
-		php_printf("Unable to call handler %s()\n", call_func_name);
+		php_printf("\nUnable to call handler(%s)", call_func_name);
 	}
 	zval_ptr_dtor(&retval);
 #ifdef PHP_SSP_DEBUG
-	printf("Remain Free Memory:\n\treal_size:%d,size:%d,real_peak:%d,peak:%d\n",
+	printf("\nRemain Free Memory(%s):\n\treal_size:%d\n\tsize:%d\n\treal_peak:%d\n\tpeak:%d\n",
+		call_func_name,
 		zend_memory_usage(1 TSRMLS_CC)-real_size,
 		zend_memory_usage(0 TSRMLS_CC)-size,
 		zend_memory_peak_usage(1 TSRMLS_CC)-real_peak,
 		zend_memory_peak_usage(0 TSRMLS_CC)-peak
 	);
+	strnprint("=",tput_cols());
+	printf("\n");
+	fflush(stdout);
 #endif
-
 	if(param_count>0){
 		int i;
 		for(i=0;i<param_count;i++){
@@ -332,6 +357,7 @@ int trigger(unsigned short type,...){
 	}
 	zval_ptr_dtor(&pfunc);
 	free(call_func_name);
+	TRIGGER_SHUTDOWN();
 	return ret;
 }
 
