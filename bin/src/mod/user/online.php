@@ -13,7 +13,6 @@ class ModUserOnline extends ModBase{
 
 	protected $ushmid,$cshmid;
 	function __construct(){
-		echo __CLASS__,':',__FUNCTION__,PHP_EOL;
 		$this->ushmid=ssp_attach(ftok(__FILE__,'u'),SSP_MAX_CLIENTS*20,0777);
 		$this->cshmid=ssp_attach(ftok(__FILE__,'c'),SSP_MAX_CLIENTS*500,0777);
 	}
@@ -72,7 +71,6 @@ class ModUserOnline extends ModBase{
 		$this->delete('1>0');
 	}
 	function __destruct(){
-		echo __CLASS__,':',__FUNCTION__,PHP_EOL;
 		ssp_detach($this->ushmid);
 		ssp_detach($this->cshmid);
 	}
