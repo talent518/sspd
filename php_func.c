@@ -398,11 +398,6 @@ static const zend_function_entry additional_functions[] = {
 /* {{{ main
  */
 void ssp_init(){
-#ifndef ZTS
-	ssp_mutex=(pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
-    pthread_mutex_init(ssp_mutex, NULL);
-#endif
-
 	CSM(ini_defaults) = sapi_ssp_ini_defaults;
 	CSM(php_ini_path_override) = NULL;
 	CSM(phpinfo_as_text) = 1;
@@ -512,8 +507,6 @@ void ssp_destroy(){
 #ifdef ZTS
 	tsrm_shutdown();
 	//printf("%s:2\n",__func__);
-#else
-	pthread_mutex_destroy(ssp_mutex);
 #endif
 }
 /* }}} */

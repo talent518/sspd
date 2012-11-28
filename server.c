@@ -19,6 +19,8 @@
 #include "node.h"
 #include "api.h"
 
+#define SERV_DEBUG
+
 char *ssp_host="0.0.0.0";
 short int ssp_port=8083;
 char *ssp_pidfile="/var/run/ssp.pid";
@@ -27,146 +29,476 @@ char *ssp_user="daemon";
 int ssp_maxclients=1000;
 int ssp_maxrecvs=2*1024*1024;
 
-#ifndef ZTS
-	pthread_mutex_t *ssp_mutex;
-#endif
-
 #define flush() fflush(stdout)
 
-int recv_int(int sockfd){
-	char *buf;
-	int len=0,ret,i;
-	buf=(char*)malloc(sizeof(int));
-	bzero(buf,sizeof(int));
-	i=0;
-	do{
-		ret=recv(sockfd,buf+i,1,MSG_WAITALL);
-		if(ret!=1){
-			return ret;
-		}
-		if(*buf==0){
-			i++;
-		}
-	}while(i!=sizeof(int));
+static bool listened;
+static pthread_attr_t pth_recv_attr;
+static pthread_t *tids;
+
+int recv_data_len(node *ptr){
+	unsigned char buf[4];
+	int len=0,i,ret;
+
+	ret=recv(ptr->sockfd,buf,sizeof(buf),MSG_WAITALL);
+
+	if(ret!=sizeof(buf)){
+		return ret>0?-1:0;
+	}
+
+	if(buf[0]){
+		return 0;
+	}
 
 	for(i=0;i<4;i++){
 		len+=(buf[i]&0xff)<<((3-i)*8);
 	}
+#ifdef SERV_DEBUG
+	printf("recv_data_len:%d\n",len);
+#endif
+	return len;
+}
 
-	free(buf);
-
-	if(len>0){
-		return len;
+//接收来自客户端数据
+//返回值:0(关闭连接),-1(接收到的数据长度与数据包长度不一致),>0(接收成功)
+int socket_recv(node *ptr,char **data,int *data_len){
+	int ret=recv_data_len(ptr);
+	if(ret>0){
+		*data_len=ret;
+		if(*data_len>ssp_maxrecvs){
+#ifdef SERV_DEBUG
+			printf("Server Recieve Package Length Must %d<=%d!\n",*data_len,ssp_maxrecvs);
+#endif
+			return 0;
+		}
+		if(*data!=NULL){
+			free(*data);
+			*data=NULL;
+		}
+		*data=(char*)malloc(*data_len+1);
 	}else{
-		php_printf("Server Recieve Package Header Error:%d\n",len);
-		return len;
+		return ret;
 	}
+	ret=recv(ptr->sockfd,*data,*data_len,MSG_WAITALL);
+	if(ret!=*data_len){
+		free(*data);
+		*data=NULL;
+		if(ret>0){
+#ifdef SERV_DEBUG
+			printf("Recv Data Error! Length:%d,Recved Length\n",*data_len,ret);
+#endif
+			return -1;
+		}else{
+			return 0;
+		}
+	}else{
+		*(*data+(*data_len))=0;//把最后一个字符设置为\0
+	}
+	return 1;
 }
 
-static void *socket_thread(void *_ptr){
-	node *ptr=(node*)_ptr;
-	int recv_len=0,recved_len=0,len,i;
-	char *package;
-
-#ifdef PHP_SSP_DEBUG
-	php_printf("\nAccept new connections (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
-#endif
-
-	pthread_detach(pthread_self());
-	THREAD_STARTUP();
-
-	trigger(PHP_SSP_CONNECT,ptr);
-
-	if(node_num>ssp_maxclients){
-		trigger(PHP_SSP_CONNECT_DENIED,ptr);
-		ptr->flag=false;
-	}
-
-	while(ptr->flag){
-		if(recved_len==0){
-			recv_len=recv_int(ptr->sockfd);
-			if(recv_len>0){
-				if(recv_len>ssp_maxrecvs){
-					php_printf("Server Recieve Package Length Must %d<=%d!\n",recv_len,ssp_maxrecvs);
-					break;
-				}
-				package=(char*)malloc(sizeof(char*)*recv_len);
-			}else{
-				break;
-			}
-		}
-
-		len=recv(ptr->sockfd,package+recved_len,recv_len-recved_len,MSG_WAITALL);
-		if(len<0){
-			free(package);
-#ifdef PHP_SSP_DEBUG
-			php_printf("Server Recieve Package Data Failed!\n");
-#endif
-			break;
-		}
-		if(len==0){
-			free(package);
-			break;
-		}
-
-		recved_len+=len;
-
-		if(recved_len==recv_len && recv_len>0){
-			trigger(PHP_SSP_RECEIVE,ptr,&package,&recv_len);
-			if(recv_len>0){
-				trigger(PHP_SSP_SEND,ptr,&package,&recv_len);
-				socket_send(ptr->sockfd,package,recv_len);
-			}
-			free(package);
-			recved_len=0;
-		}
-	}
-	trigger(PHP_SSP_CLOSE,ptr);
-
-	shutdown(ptr->sockfd,2);
-	close(ptr->sockfd);
-
-	remove_node(ptr);
-
-	THREAD_SHUTDOWN();
-
-	pthread_exit(NULL);
-	return NULL;
-}
-
-int socket_send(int sockfd,const char *data,int data_len){
+int socket_send(node *ptr,const char *data,int data_len){
 	if(data_len<=0){
 		return -1;
 	}
-	int plen=sizeof(int)+data_len;
+	int plen=4+data_len;
 	char *package;
 	package=(char*)malloc(plen);
+
 	int i;
 	for(i=0;i<4;i++){
 		package[i]=data_len>>((3-i)*8);
 	}
 
-	memcpy(package+sizeof(int),data,data_len);
+	memcpy(package+4,data,data_len);//数据包内容
 
-	int ret=send(sockfd,package,plen,0);
-#ifdef PHP_SSP_DEBUG
-	if(ret!=sizeof(data_len)+data_len){
-		php_printf("Send Data Error! Length:%d,Package Length:%d\n",data_len,plen);
+	int ret=send(ptr->sockfd,package,plen,0);
+#ifdef SERV_DEBUG
+	if(ret>0 && ret!=plen){
+		printf("Send Data Error! Package Length:%d,Sent Length\n",plen,ret);
 	}
 #endif
 	free(package);
 	return ret;
 }
 
+void socket_break(int sid){
+	shutdown(head->sockfd,2);
+	unlink(ssp_pidfile);
+}
+
+static void node_clear(node *ptr){
+	shutdown(ptr->sockfd,2);
+	close(ptr->sockfd);
+}
+
+static void *socket_recv_thread(void *_ptr){
+	node *ptr=(node*)_ptr;
+	int data_len=0,ret;
+	char *data=NULL;
+
+	ret=socket_recv(ptr,&data,&data_len);
+
+#ifdef SERV_DEBUG
+	printf("socket_recv_thread:%d,%s\n",data_len,data);
+#endif
+
+	THREAD_STARTUP();
+
+	if(ret<0){//接收的数据包不完整
+#ifdef SERV_DEBUG
+		printf("with client(sockfd:%d,host:\"%s\",port:%d) recv data package not full!\n",ptr->sockfd,ptr->host,ptr->port);
+#endif
+	}else if(ret==0){//关闭连接
+		trigger(PHP_SSP_CLOSE,ptr);
+		node_clear(ptr);
+		remove_node(ptr);
+	}else{//接收数据成功
+		trigger(PHP_SSP_RECEIVE,ptr,&data,&data_len);
+		if(data_len>0){
+			trigger(PHP_SSP_SEND,ptr,&data,&data_len);
+			socket_send(ptr,data,data_len);
+		}
+	}
+	free(data);
+
+	if(ret!=0){
+		ptr->tid=0;
+		ptr->reading=false;
+	}
+
+	THREAD_SHUTDOWN();
+
+	pthread_detach(pthread_self());
+	pthread_exit(NULL);
+	return NULL;
+}
+
+static void *socket_accept_thread(void *_ptr){
+	node *ptr=(node*)_ptr;
+
+#ifdef SERV_DEBUG
+	printf("accept(sockfd:%d,host:\"%s\",port:%d)\n",ptr->sockfd,ptr->host,ptr->port);
+#endif
+
+	insert_node(ptr);
+
+	THREAD_STARTUP();
+
+	if(ptr->index==0){
+		trigger(PHP_SSP_CONNECT_DENIED,ptr);
+
+		node_clear(ptr);
+		free(ptr);
+	}else{
+		trigger(PHP_SSP_CONNECT,ptr);
+
+		ptr->tid=0;
+		ptr->reading=false;
+	}
+
+	THREAD_SHUTDOWN();
+
+	pthread_detach(pthread_self());
+	pthread_exit(NULL);
+	return NULL;
+}
+
+static void *socket_daemon_thread(void *_indx){
+	int i,n=1,indx=*(int*)_indx;
+	bool flag=false;
+	struct timeval tv;
+	fd_set fds;
+	int maxsock;
+	int ret;
+	node *ptr;
+	int idxs[col_num];
+	while(listened){
+		FD_ZERO(&fds);
+		n=0;
+		maxsock=0;
+		BEGIN_READ_NODE{
+			for(i=0;i<col_num;i++){
+					ptr=gnodes[indx][i];
+					if(ptr!=NULL && ptr->reading==false){
+						FD_SET(ptr->sockfd,&fds);
+						if(ptr->sockfd>maxsock){
+							maxsock=ptr->sockfd;
+						}
+						idxs[n++]=i;
+						flag=true;
+					}
+			}
+		}END_READ_NODE;
+
+		if(n==0){
+			usleep(100);
+			continue;
+		}
+
+		tv.tv_sec=0;
+		tv.tv_usec=10;
+
+		ret=select(maxsock+1,&fds,NULL,NULL,&tv);
+		if(ret<=0){
+			continue;
+		}
+		BEGIN_READ_NODE{
+			for(i=0;i<n;i++){
+				ptr=gnodes[indx][idxs[i]];
+				if(ptr!=NULL && FD_ISSET(ptr->sockfd,&fds)){
+#ifdef SERV_DEBUG
+					printf("select(sockfd:%d,port:%d,index:%d)\n",ptr->sockfd,ptr->port,ptr->index);
+#endif
+					ptr->reading=true;
+					while(pthread_create(&ptr->tid,&pth_recv_attr,socket_recv_thread,ptr)!=0){
+#ifdef SERV_DEBUG
+						printf("create socket(%d:%d) recv thread error!\n",indx,idxs[i]);
+#endif
+						END_READ_NODE{
+							usleep(10);
+						}BEGIN_READ_NODE;
+					}
+				}
+			}
+		}END_READ_NODE;
+	}
+
+	free(_indx);
+	tids[indx]=0;
+
+	pthread_detach(pthread_self());
+	pthread_exit(NULL);
+	return NULL;
+}
+
+int socket_start(){
+	struct sockaddr_in sin;
+	struct sockaddr_in pin;
+	socklen_t len=sizeof(pin);
+	int listen_fd;
+	int conn_fd;
+	int ret;
+	node *ptr;
+
+	int pid,i=19,cols=tput_cols();
+
+	printf("Starting SSP server");
+	strnprint(".",cols-i-9);
+	flush();
+
+	signal(SIGHUP,socket_break);
+	signal(SIGTERM,socket_break);
+	signal(SIGINT,socket_break);
+	signal(SIGTSTP,socket_break);
+
+	listen_fd=socket(AF_INET,SOCK_STREAM,0);
+	if(listen_fd<0){
+		system("echo -e \"\\E[31m\".[Failed]");
+		system("tput sgr0");
+		printf("Not on the host %s bind port %d\n",ssp_host,ssp_port);
+		return 0;
+	}
+	int opt=1;
+	setsockopt(listen_fd,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(int));
+
+	int send_timeout=5000,recv_timeout=5000;
+	setsockopt(listen_fd,SOL_SOCKET,SO_SNDTIMEO,&send_timeout,sizeof(int));//发送超时
+	setsockopt(listen_fd,SOL_SOCKET,SO_RCVTIMEO,&recv_timeout,sizeof(int));//接收超时
+
+	typedef struct {
+		u_short l_onoff;
+		u_short l_linger;
+	} linger;
+	linger m_sLinger;
+	m_sLinger.l_onoff=1;//(在closesocket()调用,但是还有数据没发送完毕的时候容许逗留)
+	// 如果m_sLinger.l_onoff=0;则功能和2.)作用相同;
+	m_sLinger.l_linger=5;//(容许逗留的时间为5秒)
+	setsockopt(listen_fd,SOL_SOCKET,SO_LINGER,(const char*)&m_sLinger,sizeof(linger));
+
+	int send_buffer=0,recv_buffer=0;
+	setsockopt(listen_fd,SOL_SOCKET,SO_SNDBUF,(char *)&send_buffer,sizeof(int));//发送缓冲区大小
+	setsockopt(listen_fd,SOL_SOCKET,SO_RCVBUF,(char *)&recv_buffer,sizeof(int));//接收缓冲区大小
+
+	bzero(&sin,sizeof(sin));
+	sin.sin_family=AF_INET;
+	sin.sin_addr.s_addr=inet_addr(ssp_host);
+	sin.sin_port=htons(ssp_port);
+
+	ret=bind(listen_fd,(struct sockaddr *)&sin,sizeof(sin));
+	if(ret<0){
+		system("echo -e \"\\E[31m\".[Failed]");
+		system("tput sgr0");
+		printf("Not on the host %s bind port %d\n",ssp_host,ssp_port);
+		return 0;
+	}
+
+	ret=listen(listen_fd,128);
+	if(ret<0){
+		system("echo -e \"\\E[31m\".[Failed]");
+		system("tput sgr0");
+		return 0;
+	}
+
+	struct passwd *pwnam;
+	pwnam = getpwnam(ssp_user);
+/*
+	printf("name:%s\n",pwnam->pw_name);
+	printf("passwd:%s\n",pwnam->pw_passwd);
+	printf("uid:%d\n",pwnam->pw_uid);
+	printf("gid:%d\n",pwnam->pw_gid);
+	printf("home:%s\n",pwnam->pw_dir);
+	printf("gecos:%s\n",pwnam->pw_gecos);
+	printf("shell:%s\n",pwnam->pw_shell);
+*/
+
+	pid=fork();
+
+	if(pid==-1){
+		system("echo -e \"\\E[31m\".[Failed]");
+		system("tput sgr0");
+		printf("fork failure!\n");
+		return 0;
+	}
+	if(pid>0){
+		FILE *fp;
+		fp=fopen(ssp_pidfile,"w+");
+		if(fp==NULL){
+			printf("file '%s' open fail.\n",ssp_pidfile);
+		}else{
+			fprintf(fp,"%d",pid);
+			fclose(fp);
+		}
+		sleep(1);
+		return 1;
+	}
+
+#ifdef HAVE_SIGNAL_H
+#if defined(SIGPIPE) && defined(SIG_IGN)
+	signal(SIGPIPE, SIG_IGN);
+#endif
+#if defined(SIGCHLD) && defined(SIG_IGN)
+	signal(SIGCHLD,SIG_IGN);
+#endif
+#endif
+
+	setuid(pwnam->pw_uid);
+	setgid(pwnam->pw_gid);
+
+	ret=setsid();
+	if(ret<1){
+		system("echo -e \"\\E[31m\".[Failed]");
+		system("tput sgr0");
+	}else{
+		system("echo -e \"\\E[32m\"[Succeed]");
+		system("tput sgr0");
+	}
+
+	pthread_attr_init(&pth_recv_attr);
+	pthread_attr_setguardsize(&pth_recv_attr,0);
+	pthread_attr_setstacksize(&pth_recv_attr,32*1024);//set stack size 1M
+	pthread_attr_setdetachstate(&pth_recv_attr,PTHREAD_CREATE_DETACHED);
+	pthread_attr_setscope(&pth_recv_attr,PTHREAD_SCOPE_SYSTEM);
+
+	attach_node();
+	head->sockfd=listen_fd;
+	inet_ntop(AF_INET, &sin.sin_addr, head->host, sizeof(head->host));
+	head->port=ntohs(sin.sin_port);
+
+	listened=true;
+
+	SERVICE_STARTUP();
+	trigger(PHP_SSP_START);
+
+	//创建接收守护线程
+	int *indx;
+	tids=(pthread_t *)malloc(sizeof(pthread_t)*row_num);
+
+	pthread_attr_t pth_daemon_attr;
+	pthread_attr_init(&pth_daemon_attr);
+	pthread_attr_setguardsize(&pth_daemon_attr,0);
+	pthread_attr_setstacksize(&pth_daemon_attr,16*1024);//set stack size 1M
+	pthread_attr_setscope(&pth_daemon_attr,PTHREAD_SCOPE_SYSTEM);
+
+	for(i=0;i<row_num;i++){
+		indx=(int*)malloc(sizeof(int));
+		*indx=i;
+		if(pthread_create(&tids[i],&pth_daemon_attr,socket_daemon_thread,indx)!=0){
+#ifdef SERV_DEBUG
+			printf("create daemon thread(%d) error!\n",i);
+#endif
+		}
+	}
+
+	while(listened){
+		conn_fd=accept(listen_fd,(struct sockaddr *)&pin,&len);
+		if(conn_fd<=0){
+			break;
+		}
+
+		ptr=(node *)malloc(sizeof(node));
+
+		bzero(ptr,sizeof(node));
+
+		ptr->sockfd=conn_fd;
+		inet_ntop(AF_INET,&pin.sin_addr,ptr->host,sizeof(ptr->host));
+		ptr->port=ntohs(pin.sin_port);
+
+		ptr->reading=true;
+
+		while(pthread_create(&ptr->tid,&pth_recv_attr,socket_accept_thread,ptr)!=0){
+#ifdef SERV_DEBUG
+			printf("create socket(%d) accept thread error!\n",conn_fd);
+#endif
+			usleep(100);
+		}
+	}
+	close(listen_fd);
+
+	listened=false;
+	usleep(100);
+	//等待接收守护线程结束
+	for(i=0;i<row_num;i++){
+		if(tids[i]){
+			pthread_join(tids[i],NULL);
+		}
+	}
+	pthread_attr_destroy(&pth_daemon_attr);
+	
+	BEGIN_READ_NODE{
+		pthread_t tid;
+		node *p=head;
+		while(p->next!=head){
+			p=p->next;
+
+			if(p->tid>0){
+				pthread_join(p->tid,NULL);
+			}
+
+			p->reading=false;
+
+			trigger(PHP_SSP_CLOSE,p);
+
+			node_clear(p);
+		}
+	}END_READ_NODE;
+
+	trigger(PHP_SSP_STOP);
+	SERVICE_SHUTDOWN();
+
+	detach_node();
+
+	pthread_attr_destroy(&pth_recv_attr);
+
+	exit(0);
+}
+
 int socket_status(){
 	FILE *fp;
-	int pid,ret,i=17,cols=tput_cols();
+	int pid,i=17,cols=tput_cols();
 
 	printf("SSP server status");
 	flush();
 	strnprint(".",cols-i-9);
-
-	TSRMLS_FETCH();
 
 	fp=fopen(ssp_pidfile,"r+");
 	if(fp!=NULL){
@@ -191,7 +523,6 @@ int socket_stop(){
 	printf("Stopping SSP server");
 	flush();
 
-	TSRMLS_FETCH();
 	fp=fopen(ssp_pidfile,"r+");
 	if(fp!=NULL){
 		fscanf(fp,"%d",&pid);
@@ -204,6 +535,9 @@ int socket_stop(){
 				flush();
 				i++;
 				sleep(1);
+				if(cols-i-9==0){
+					kill(pid,SIGKILL);break;
+				}
 			}
 			strnprint(".",cols-i-9);
 			flush();
@@ -217,210 +551,4 @@ int socket_stop(){
 	system("echo -e \"\\E[31m\"[Failed]");
 	system("tput sgr0");
 	return 0;
-}
-
-void socket_exit(int sid){
-	//node *p;
-	//pthread_mutex_lock(&node_mutex);
-	head->flag=false;
-	shutdown(head->sockfd,2);
-	//close(head->sockfd);
-	/*p=head;
-	while(p->next!=head){
-		p=p->next;
-		p->flag=false;
-		if(shutdown(p->sockfd,2)!=0){
-			//node_num--;
-			printf("shutdown node(%d) error(%d)",node_num,errno);
-		}
-		//close(p->sockfd);
-		//trigger(PHP_SSP_CLOSE,p);
-		//usleep(100);
-	}
-	pthread_mutex_unlock(&node_mutex);
-*/
-	unlink(ssp_pidfile);
-
-	//sleep(1);
-	//trigger(PHP_SSP_STOP);
-
-	//php_request_shutdown((void *) 0);
-	//php_end();
-
-	//exit(EG(exit_status));
-}
-
-int socket_start(){
-	struct sockaddr_in sin;
-	struct sockaddr_in pin;
-	socklen_t len=sizeof(pin);
-	int listen_fd;
-	int conn_fd;
-	int ret;
-	node *ptr;
-
-	int pid,i=19,cols=tput_cols();
-
-	printf("Starting SSP server");
-	strnprint(".",cols-i-9);
-	flush();
-
-	signal(SIGHUP,socket_exit);
-	signal(SIGTERM,socket_exit);
-	signal(SIGINT,socket_exit);
-	signal(SIGTSTP,socket_exit);
-
-	listen_fd=socket(AF_INET,SOCK_STREAM,0);
-	{
-		int opt=1;
-		setsockopt(listen_fd,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
-	}
-
-	bzero(&sin,sizeof(sin));
-	sin.sin_family=AF_INET;
-	sin.sin_addr.s_addr=inet_addr(ssp_host);
-	sin.sin_port=htons(ssp_port);
-
-	ret=bind(listen_fd,(struct sockaddr *)&sin,sizeof(sin));
-	if(ret<0){
-		system("echo -e \"\\E[31m\".[Failed]");
-		system("tput sgr0");
-		printf("Not on the host %s bind port %d\n",ssp_host,ssp_port);
-		return 1;
-	}
-
-	ret=listen(listen_fd,ssp_maxclients);
-	if(ret<0){
-		system("echo -e \"\\E[31m\".[Failed]");
-		system("tput sgr0");
-		return 1;
-	}
-
-	struct passwd *pwnam;
-	pwnam = getpwnam(ssp_user);
-/*
-	printf("name:%s\n",pwnam->pw_name);
-	printf("passwd:%s\n",pwnam->pw_passwd);
-	printf("uid:%d\n",pwnam->pw_uid);
-	printf("gid:%d\n",pwnam->pw_gid);
-	printf("home:%s\n",pwnam->pw_dir);
-	printf("gecos:%s\n",pwnam->pw_gecos);
-	printf("shell:%s\n",pwnam->pw_shell);
-*/
-
-	pid=fork();
-
-	if(pid==-1){
-		system("echo -e \"\\E[31m\".[Failed]");
-		system("tput sgr0");
-		printf("fork failure!\n");
-		return 1;
-	}
-	if(pid>0){
-		FILE *fp;
-		fp=fopen(ssp_pidfile,"w+");
-		if(fp==NULL){
-			printf("file '%s' open fail.\n",ssp_pidfile);
-		}else{
-			fprintf(fp,"%d",pid);
-			fclose(fp);
-		}
-		sleep(1);
-		return 0;
-	}
-
-#ifdef HAVE_SIGNAL_H
-#if defined(SIGPIPE) && defined(SIG_IGN)
-	signal(SIGPIPE, SIG_IGN);
-#endif
-#if defined(SIGCHLD) && defined(SIG_IGN)
-	signal(SIGCHLD,SIG_IGN);
-#endif
-#endif
-
-	setuid(pwnam->pw_uid);
-	setgid(pwnam->pw_gid);
-
-	ret=setsid();
-	if(ret<1){
-		system("echo -e \"\\E[31m\".[Failed]");
-		system("tput sgr0");
-		printf("sid:%d\n",ret);
-		return 1;
-	}
-
-	system("echo -e \"\\E[32m\"[Succeed]");
-	system("tput sgr0");
-
-	attach_node();
-	head->sockfd=listen_fd;
-	inet_ntop(AF_INET, &sin.sin_addr, head->host, sizeof(head->host));
-	head->port=ntohs(sin.sin_port);
-	head->flag=true;
-
-#ifdef PHP_SSP_DEBUG
-	php_printf("\nListen host for the %s, port %d.\n",head->host,head->port);
-#endif
-
-	SERVICE_STARTUP();
-
-	trigger(PHP_SSP_START);
-
-	pthread_attr_t attr;
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_DETACHED);
-	while(head->flag){
-		conn_fd=accept(listen_fd,(struct sockaddr *)&pin,&len);
-		if(conn_fd<=0){
-			break;
-		}
-
-		ptr=(node *)malloc(sizeof(node));
-		insert_node(ptr);
-
-		ptr->sockfd=conn_fd;
-		inet_ntop(AF_INET, &pin.sin_addr, ptr->host, sizeof(ptr->host));
-		ptr->port=ntohs(pin.sin_port);
-		ptr->flag=true;
-
-		pthread_create(&ptr->tid,&attr,socket_thread,ptr);
-	}
-	pthread_attr_destroy(&attr);
-
-	close(listen_fd);
-
-	pthread_t tid;
-	void *tret;
-	node *p=head->next;
-	while(p!=head){
-		if(p->flag){
-			p->flag=false;
-			tid=p->tid;
-			if(shutdown(p->sockfd,2)!=0){
-				printf("\nShutdown socket(%d) error(%d)\n",p->sockfd,errno);
-			}
-			p=p->next;
-			if(ret=pthread_join(tid,&tret)){
-				printf("\nWait thread exit(%d) error(%d)\n",tid,ret);
-			}
-		}else{
-			php_printf("\nNode (%d) host %s, port %d.\n",p->sockfd,p->host,p->port);
-			p=p->next;
-		}
-	}
-
-	if(node_num>0){
-		printf("There are %d nodes have successfully removed.",node_num);
-	}
-
-	detach_node();
-	//printf("%s:1\n",__func__);
-
-	trigger(PHP_SSP_STOP);
-	//printf("%s:2\n",__func__);
-
-	SERVICE_SHUTDOWN();
-	//printf("%s:3\n",__func__);
-
-	exit(0);
 }

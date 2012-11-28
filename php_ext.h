@@ -11,7 +11,6 @@
 #define PHP_SSP_DEBUG
 
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp user node"
-#define PHP_SSP_MUTEX_DESCRIPTOR_RES_NAME "ssp thread mutex"
 #define PHP_SSP_VERSION "v2.0.0"
 
 #define PHP_SSP_BIND_LEN 7
@@ -25,9 +24,6 @@
 #define PHP_SSP_STOP 6
 
 extern int le_ssp_descriptor;
-#ifndef ZTS
-	extern int le_ssp_mutex_descriptor;
-#endif
 
 extern function_entry ssp_functions[];
 extern zend_module_entry ssp_module_entry;
@@ -60,12 +56,6 @@ static PHP_FUNCTION(ssp_mallinfo);
 static PHP_FUNCTION(ssp_bind);
 static PHP_FUNCTION(ssp_resource);
 static PHP_FUNCTION(ssp_info);
-#ifndef ZTS
-static PHP_FUNCTION(ssp_mutex_create);
-static PHP_FUNCTION(ssp_mutex_destroy);
-static PHP_FUNCTION(ssp_mutex_lock);
-static PHP_FUNCTION(ssp_mutex_unlock);
-#endif
 static PHP_FUNCTION(ssp_send);
 static PHP_FUNCTION(ssp_close);
 

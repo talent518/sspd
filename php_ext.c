@@ -7,19 +7,10 @@
 #include <malloc.h>
 
 int le_ssp_descriptor;
-#ifndef ZTS
-	int le_ssp_mutex_descriptor;
-#endif
+
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mallinfo, 0, 0, 0)
 ZEND_END_ARG_INFO()
-
-/*
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_setopt, 0, 0, 2)
-	ZEND_ARG_INFO(0, option)
-	ZEND_ARG_INFO(0, value)
-ZEND_END_ARG_INFO()
-*/
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_bind, 0, 0, 2)
 	ZEND_ARG_INFO(0, eventtype)
@@ -35,23 +26,6 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 2)
 	ZEND_ARG_INFO(0, socket)
 	ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
-
-#ifndef ZTS
-	ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mutex_create, 0, 0, 0)
-	ZEND_END_ARG_INFO()
-
-	ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mutex_destroy, 0, 0, 1)
-		ZEND_ARG_INFO(0, mutex)
-	ZEND_END_ARG_INFO()
-
-	ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mutex_lock, 0, 0, 0)
-		ZEND_ARG_INFO(0, mutex)
-	ZEND_END_ARG_INFO()
-
-	ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mutex_unlock, 0, 0, 0)
-		ZEND_ARG_INFO(0, mutex)
-	ZEND_END_ARG_INFO()
-#endif
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_send, 0, 0, 2)
 	ZEND_ARG_INFO(0, socket)
@@ -70,12 +44,6 @@ function_entry ssp_functions[] = {
 	PHP_FE(ssp_bind, arginfo_ssp_bind)
 	PHP_FE(ssp_resource, arginfo_ssp_resource)
 	PHP_FE(ssp_info, arginfo_ssp_info)
-#ifndef ZTS
-	PHP_FE(ssp_mutex_create, arginfo_ssp_mutex_create)
-	PHP_FE(ssp_mutex_destroy, arginfo_ssp_mutex_destroy)
-	PHP_FE(ssp_mutex_lock, arginfo_ssp_mutex_lock)
-	PHP_FE(ssp_mutex_unlock, arginfo_ssp_mutex_unlock)
-#endif
 	PHP_FE(ssp_send, arginfo_ssp_send)
 	PHP_FE(ssp_close, arginfo_ssp_close)
 	{NULL, NULL, NULL}
@@ -114,19 +82,6 @@ static void php_destroy_ssp(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
 	//efree(ptr);
 }
 
-#ifndef ZTS
-static void php_destroy_ssp_mutex(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
-{
-	pthread_mutex_t *mutex = (pthread_mutex_t *) rsrc->ptr;
-
-#ifdef PHP_SSP_DEBUG
-	php_printf("\nDestroy SSP Mutex Resource type(%d),refcount(%d).\n",rsrc->type,rsrc->refcount);
-#endif
-
-	pthread_mutex_destroy(mutex);
-}
-#endif
-
 /* {{{ MINIT */
 static PHP_MINIT_FUNCTION(ssp)
 {
@@ -148,9 +103,6 @@ static PHP_MINIT_FUNCTION(ssp)
 	REGISTER_LONG_CONSTANT("SSP_OPT_MAX_RECVS",  SSP_OPT_MAX_RECVS,  CONST_CS | CONST_PERSISTENT);
 	
 	le_ssp_descriptor = zend_register_list_destructors_ex(php_destroy_ssp, NULL, PHP_SSP_DESCRIPTOR_RES_NAME,module_number);
-#ifndef ZTS
-	le_ssp_mutex_descriptor = zend_register_list_destructors_ex(php_destroy_ssp_mutex, NULL, PHP_SSP_MUTEX_DESCRIPTOR_RES_NAME,module_number);
-#endif
 
 #ifdef PHP_SSP_DEBUG
 	printf("ssp module init\n");
@@ -322,9 +274,11 @@ int trigger(unsigned short type,...){
 			}
 			if(Z_STRLEN_P(retval)>0){
 				char *_data=strndup(Z_STRVAL_P(retval),Z_STRLEN_P(retval));
+				free(*data);
 				*data=_data;
 				*data_len=Z_STRLEN_P(retval);
 			}else{
+				free(*data);
 				*data=NULL;
 				*data_len=0;
 			}
@@ -466,7 +420,6 @@ static PHP_FUNCTION(ssp_info){
 		add_assoc_long(return_value,"sockfd",ptr->sockfd);
 		add_assoc_string(return_value,"host",ptr->host,1); /* cast to avoid gcc-warning */
 		add_assoc_long(return_value,"port",ptr->port);
-		add_assoc_long(return_value,"flag",ptr->flag);
 	}else{
 		if(!strcasecmp(key,"sockfd")){
 			RETURN_LONG(ptr->sockfd);
@@ -474,70 +427,11 @@ static PHP_FUNCTION(ssp_info){
 			RETURN_STRING(strdup(ptr->host),strlen(ptr->host));
 		}else if(!strcasecmp(key,"port")){
 			RETURN_LONG(ptr->port);
-		}else if(!strcasecmp(key,"flag")){
-			RETURN_LONG(ptr->flag);
 		}else{
 			RETURN_NULL();
 		}
 	}
 }
-
-#ifndef ZTS
-	static PHP_FUNCTION(ssp_mutex_create){
-		pthread_mutex_t *mutex;
-		mutex=(pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
-		//php_printf("create mutex,%d\n",mutex);
-		if(pthread_mutex_init(mutex,NULL)==0){
-			//php_printf("inited create mutex,%d\n",mutex);
-			ZEND_REGISTER_RESOURCE(return_value,mutex,le_ssp_mutex_descriptor);
-		}else{
-			RETURN_FALSE;
-		}
-	}
-	static PHP_FUNCTION(ssp_mutex_destroy){
-		zval *res;
-		pthread_mutex_t *mutex;
-		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &res) == FAILURE) {
-			RETURN_FALSE;
-		}
-		ZEND_FETCH_RESOURCE(mutex,pthread_mutex_t*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_mutex_descriptor);
-		pthread_mutex_destroy(mutex);
-		//php_printf("destroy mutex,%d\n",mutex);
-		RETURN_NULL();
-	}
-	static PHP_FUNCTION(ssp_mutex_lock){
-		zval *res=NULL;
-		pthread_mutex_t *mutex;
-		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|r", &res) == FAILURE) {
-			RETURN_FALSE;
-		}
-		if(res){
-			ZEND_FETCH_RESOURCE(mutex,pthread_mutex_t*, &res, -1, PHP_SSP_MUTEX_DESCRIPTOR_RES_NAME,le_ssp_mutex_descriptor);
-			pthread_mutex_lock(mutex);
-			//php_printf("lock mutex,%d\n",mutex);
-		}else{
-			pthread_mutex_lock(ssp_mutex);
-			//php_printf("lock ssp_mutex\n");
-		}
-		RETURN_NULL();
-	}
-	static PHP_FUNCTION(ssp_mutex_unlock){
-		zval *res=NULL;
-		pthread_mutex_t *mutex;
-		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|r", &res) == FAILURE) {
-			RETURN_FALSE;
-		}
-		if(res){
-			ZEND_FETCH_RESOURCE(mutex,pthread_mutex_t*, &res, -1, PHP_SSP_MUTEX_DESCRIPTOR_RES_NAME,le_ssp_mutex_descriptor);
-			pthread_mutex_unlock(mutex);
-			//php_printf("unlock mutex,%d\n",mutex);
-		}else{
-			pthread_mutex_unlock(ssp_mutex);
-			//php_printf("unlock ssp_mutex\n");
-		}
-		RETURN_NULL();
-	}
-#endif
 
 static PHP_FUNCTION(ssp_send)
 {
@@ -550,7 +444,7 @@ static PHP_FUNCTION(ssp_send)
 	}
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
 	trigger(PHP_SSP_SEND,ptr,&data,&data_len);
-	int ret=socket_send(ptr->sockfd,data,data_len);
+	int ret=socket_send(ptr,data,data_len);
 	RETURN_LONG(ret);
 }
 
@@ -564,4 +458,5 @@ static PHP_FUNCTION(ssp_close)
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
 	trigger(PHP_SSP_CLOSE,ptr);
 	shutdown(ptr->sockfd,2);
+	close(ptr->sockfd);
 }
