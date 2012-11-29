@@ -29,20 +29,20 @@ extern node *head;
 
 #define NODE_NUM num_node()
 
-//è¯»å†™é”
+//¶ÁĞ´Ëø
 void begin_read_node();
 void end_read_node();
 void begin_write_node();
 void end_write_node();
 
-//æ¥ç‚¹ä¸ªæ•°ï¼Œä¸åŒ…æ‹¬headæ¥ç‚¹
+//½Óµã¸öÊı£¬²»°üÀ¨head½Óµã
 unsigned int num_node();
 
-//æ¥ç‚¹è¯»
+//½Óµã¶Á
 node* index_node(unsigned int index);
 node* search_node(int sockfd,bool is_port);
 
-//æ¥ç‚¹å†™
+//½ÓµãĞ´
 void attach_node();
 void insert_node(node *ptr);
 void remove_node(node *ptr);

@@ -51,7 +51,6 @@ void end_write_node(){
 	pthread_mutex_unlock(&mx_writer);
 }
 
-//根据index计算出坐标位置x,y
 void calc_xy_by_index(unsigned int index,int *x,int *y){
 	*x=index/row_num;
 	*y=index%row_num;
@@ -122,7 +121,7 @@ node *search_node(int sockfd,bool is_port){
 
 void insert_node(node *ptr){
 	if(ptr==head || ptr==NULL){
-		printf("\nInsert node (ptr can't NULL or head) error!\n");
+		dprintf("\nInsert node (ptr can't NULL or head) error!\n");
 		return;
 	}
 	BEGIN_WRITE_NODE{
@@ -152,7 +151,7 @@ void insert_node(node *ptr){
 
 void remove_node(node *ptr){
 	if(ptr==head || ptr==NULL){
-		printf("\nRemove node (ptr can't NULL or head) error!\n");
+		dprintf("\nRemove node (ptr can't NULL or head) error!\n");
 		return;
 	}
 	BEGIN_WRITE_NODE{

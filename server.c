@@ -19,7 +19,7 @@
 #include "node.h"
 #include "api.h"
 
-#define SERV_DEBUG
+#define flush() fflush(stdout)
 
 char *ssp_host="0.0.0.0";
 short int ssp_port=8083;
@@ -28,8 +28,6 @@ char *ssp_pidfile="/var/run/ssp.pid";
 char *ssp_user="daemon";
 int ssp_maxclients=1000;
 int ssp_maxrecvs=2*1024*1024;
-
-#define flush() fflush(stdout)
 
 static bool listened;
 static pthread_attr_t pth_recv_attr;
@@ -46,15 +44,13 @@ int recv_data_len(node *ptr){
 	}
 
 	if(buf[0]){
+		dprintf("Recieve From Client (sockfd:%d,host:\"%s\",port:%d) Data Package Header Error!\n",ptr->sockfd,ptr->host,ptr->port);
 		return 0;
 	}
 
 	for(i=0;i<4;i++){
 		len+=(buf[i]&0xff)<<((3-i)*8);
 	}
-#ifdef SERV_DEBUG
-	printf("recv_data_len:%d\n",len);
-#endif
 	return len;
 }
 
@@ -65,9 +61,7 @@ int socket_recv(node *ptr,char **data,int *data_len){
 	if(ret>0){
 		*data_len=ret;
 		if(*data_len>ssp_maxrecvs){
-#ifdef SERV_DEBUG
-			printf("Server Recieve Package Length Must %d<=%d!\n",*data_len,ssp_maxrecvs);
-#endif
+			dprintf("Recieve From Client (sockfd:%d,host:\"%s\",port:%d) Data Package Length (%d) Larger Than maxrecvs(%d)!\n",ptr->sockfd,ptr->host,ptr->port,*data_len,ssp_maxrecvs);
 			return 0;
 		}
 		if(*data!=NULL){
@@ -83,9 +77,7 @@ int socket_recv(node *ptr,char **data,int *data_len){
 		free(*data);
 		*data=NULL;
 		if(ret>0){
-#ifdef SERV_DEBUG
-			printf("Recv Data Error! Length:%d,Recved Length\n",*data_len,ret);
-#endif
+			dprintf("Recieve From Client (sockfd:%d,host:\"%s\",port:%d) Package Length (%d),Recved Length(%d)!\n",ptr->sockfd,ptr->host,ptr->port,*data_len,ret);
 			return -1;
 		}else{
 			return 0;
@@ -112,12 +104,10 @@ int socket_send(node *ptr,const char *data,int data_len){
 	memcpy(package+4,data,data_len);//数据包内容
 
 	int ret=send(ptr->sockfd,package,plen,0);
-#ifdef SERV_DEBUG
-	if(ret>0 && ret!=plen){
-		printf("Send Data Error! Package Length:%d,Sent Length\n",plen,ret);
-	}
-#endif
 	free(package);
+	if(ret>0 && ret!=plen){
+		dprintf("Send Data Error! Package Length (%d),Sent Length(%d)!\n",plen,ret);
+	}
 	return ret;
 }
 
@@ -138,17 +128,9 @@ static void *socket_recv_thread(void *_ptr){
 
 	ret=socket_recv(ptr,&data,&data_len);
 
-#ifdef SERV_DEBUG
-	printf("socket_recv_thread:%d,%s\n",data_len,data);
-#endif
-
 	THREAD_STARTUP();
 
-	if(ret<0){//接收的数据包不完整
-#ifdef SERV_DEBUG
-		printf("with client(sockfd:%d,host:\"%s\",port:%d) recv data package not full!\n",ptr->sockfd,ptr->host,ptr->port);
-#endif
-	}else if(ret==0){//关闭连接
+	if(ret<=0){//关闭连接
 		trigger(PHP_SSP_CLOSE,ptr);
 		node_clear(ptr);
 		remove_node(ptr);
@@ -175,10 +157,6 @@ static void *socket_recv_thread(void *_ptr){
 
 static void *socket_accept_thread(void *_ptr){
 	node *ptr=(node*)_ptr;
-
-#ifdef SERV_DEBUG
-	printf("accept(sockfd:%d,host:\"%s\",port:%d)\n",ptr->sockfd,ptr->host,ptr->port);
-#endif
 
 	insert_node(ptr);
 
@@ -246,14 +224,9 @@ static void *socket_daemon_thread(void *_indx){
 			for(i=0;i<n;i++){
 				ptr=gnodes[indx][idxs[i]];
 				if(ptr!=NULL && FD_ISSET(ptr->sockfd,&fds)){
-#ifdef SERV_DEBUG
-					printf("select(sockfd:%d,port:%d,index:%d)\n",ptr->sockfd,ptr->port,ptr->index);
-#endif
 					ptr->reading=true;
 					while(pthread_create(&ptr->tid,&pth_recv_attr,socket_recv_thread,ptr)!=0){
-#ifdef SERV_DEBUG
-						printf("create socket(%d:%d) recv thread error!\n",indx,idxs[i]);
-#endif
+						dprintf("Create socket(%d:%d) recv thread error!\n",indx,idxs[i]);
 						END_READ_NODE{
 							usleep(10);
 						}BEGIN_READ_NODE;
@@ -423,9 +396,7 @@ int socket_start(){
 		indx=(int*)malloc(sizeof(int));
 		*indx=i;
 		if(pthread_create(&tids[i],&pth_daemon_attr,socket_daemon_thread,indx)!=0){
-#ifdef SERV_DEBUG
-			printf("create daemon thread(%d) error!\n",i);
-#endif
+			dprintf("Create daemon thread(%d) error!\n",i);
 		}
 	}
 
@@ -446,9 +417,7 @@ int socket_start(){
 		ptr->reading=true;
 
 		while(pthread_create(&ptr->tid,&pth_recv_attr,socket_accept_thread,ptr)!=0){
-#ifdef SERV_DEBUG
-			printf("create socket(%d) accept thread error!\n",conn_fd);
-#endif
+			dprintf("Create socket(%d) accept thread error!\n",conn_fd);
 			usleep(100);
 		}
 	}

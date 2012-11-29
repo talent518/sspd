@@ -8,10 +8,10 @@
 
 #include "TSRM.h"
 
-#define PHP_SSP_DEBUG
+//#define PHP_SSP_DEBUG
 
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp user node"
-#define PHP_SSP_VERSION "v2.0.0"
+#define PHP_SSP_VERSION "v2.1.0"
 
 #define PHP_SSP_BIND_LEN 7
 
@@ -52,7 +52,6 @@ static PHP_MINFO_FUNCTION(ssp);
 int trigger(unsigned short type,...);
 
 static PHP_FUNCTION(ssp_mallinfo);
-//static PHP_FUNCTION(ssp_setopt);
 static PHP_FUNCTION(ssp_bind);
 static PHP_FUNCTION(ssp_resource);
 static PHP_FUNCTION(ssp_info);

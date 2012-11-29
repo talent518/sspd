@@ -5,6 +5,7 @@
 #include "api.h"
 #include <error.h>
 #include <malloc.h>
+#include <signal.h>
 
 int le_ssp_descriptor;
 
@@ -94,13 +95,6 @@ static PHP_MINIT_FUNCTION(ssp)
 	REGISTER_LONG_CONSTANT("SSP_CONNECT_DENIED",  PHP_SSP_CONNECT_DENIED,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_CLOSE",  PHP_SSP_CLOSE,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_STOP",  PHP_SSP_STOP,  CONST_CS | CONST_PERSISTENT);
-
-	REGISTER_LONG_CONSTANT("SSP_OPT_USER",  SSP_OPT_USER,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_OPT_PIDFILE",  SSP_OPT_PIDFILE,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_OPT_HOST",  SSP_OPT_HOST,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_OPT_PORT",  SSP_OPT_PORT,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_OPT_MAX_CLIENTS",  SSP_OPT_MAX_CLIENTS,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_OPT_MAX_RECVS",  SSP_OPT_MAX_RECVS,  CONST_CS | CONST_PERSISTENT);
 	
 	le_ssp_descriptor = zend_register_list_destructors_ex(php_destroy_ssp, NULL, PHP_SSP_DESCRIPTOR_RES_NAME,module_number);
 
@@ -330,54 +324,7 @@ static PHP_FUNCTION(ssp_mallinfo){
 	add_assoc_long(return_value,"keepcost",info.keepcost);//size of trimmable space
 }
 
-/*
-static PHP_FUNCTION(ssp_setopt)
-{
-	int option;
-	zval *setval;
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lz", &option, &setval) == FAILURE) {
-		RETURN_FALSE;
-	}
-	switch(option){
-		case SSP_OPT_USER:
-			if(Z_TYPE_P(setval)==IS_STRING){
-				ssp_user=strndup(Z_STRVAL_P(setval),Z_STRLEN_P(setval));
-			}
-			break;
-		case SSP_OPT_PIDFILE:
-			if(Z_TYPE_P(setval)==IS_STRING){
-				ssp_pidfile=strndup(Z_STRVAL_P(setval),Z_STRLEN_P(setval));
-			}
-			break;
-		case SSP_OPT_HOST:
-			if(Z_TYPE_P(setval)==IS_STRING){
-				ssp_host=strndup(Z_STRVAL_P(setval),Z_STRLEN_P(setval));
-			}
-			break;
-		case SSP_OPT_PORT:
-			if(Z_TYPE_P(setval)==IS_LONG){
-				ssp_port=Z_LVAL_P(setval);
-			}
-			break;
-		case SSP_OPT_MAX_CLIENTS:
-			if(Z_TYPE_P(setval)==IS_LONG){
-				int mc=Z_LVAL_P(setval);
-				if(mc>0xffffff){
-					ssp_maxclients=mc;
-				}
-			}
-			break;
-		case SSP_OPT_MAX_RECVS:
-			if(Z_TYPE_P(setval)==IS_LONG){
-				ssp_maxrecvs=Z_LVAL_P(setval);
-			}
-			break;
-	}
-	RETURN_TRUE;
-}*/
-
-static PHP_FUNCTION(ssp_bind)
-{
+static PHP_FUNCTION(ssp_bind){
 	unsigned short eventtype;
 	char *callback;
 	long callback_len;
