@@ -53,6 +53,8 @@ class ModUserGroup extends ModBase{
 		if(!ssp_set_var($this->shmid,$id,$group)){
 			echo '$this->shmid mod.user.group:edit id "',$id,'" error!',PHP_EOL;
 		}
+		$this->rules['gname']['query']=array('user_group',sprintf('gname=\'%s\' AND gid!=%d',$data['gname'],$id));
+		$this->rules['title']['query']=array('user_group',sprintf('title=\'%s\' AND gid!=%d',$data['title'],$id));
 		return parent::edit($id,$data,$isCheck,$isString);
 	}
 	function drop($id){

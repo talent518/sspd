@@ -13,10 +13,10 @@ class ModUserServ extends ModBase{
 	function get_list_by_uid($uid){
 		return DB()->select(array(
 				'table'=>$this->table.' us',
-				'field'=>'us.*,IF(uo.uid,1,0) as isonline',
+				'field'=>'u.username,us.*,IF(uo.uid,1,0) as isonline',
 				'join_split'=>true,
 				'join'=>array('user u'=>'u.uid=us.cuid','user_online uo'=>'uo.uid=us.cuid'),
-				'where'=>'u.gid=3 AND us.uid='.$uid,
+				'where'=>'us.uid='.$uid,
 				'order'=>'IF(uo.uid,1,0) DESC,unreads DESC,CONVERT(nickname using gb2312) ASC'
 			),SQL_SELECT_LIST,'cuid');
 	}

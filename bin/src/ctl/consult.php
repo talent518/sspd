@@ -8,6 +8,9 @@ import('lib.xml');
 Class CtlConsult extends CtlBase{
 	function userTree($uid){
 		$xml=new XML_Element('userTree');
+		$ug=0;
+		$xml->{$ug}=array_to_xml(array('gid'=>0,'name'=>'未读消息','remark'=>'未读消息','onlines'=>0,'counts'=>0),'group');
+		$without_unread=true;
 		foreach(MOD('user.serv')->get_list_by_uid($uid+0) as $id=>$r){
 			if(!$xml->{$r['gid']}){
 				$g=MOD('user.serv.group')->get($r['gid']);
@@ -19,7 +22,22 @@ Class CtlConsult extends CtlBase{
 				$xml->{$r['gid']}->onlines++;
 			}
 			$r['avatar']=avatar($id,'small');
+			if(empty($r['nickname'])){
+				$r['nickname']=$r['username'];
+			}
 			$xml->{$r['gid']}->$id=array_to_xml($r,'user');
+			if($r['unreads']){
+				$xml->{$ug}->counts++;
+				if($r['isonline']){
+					$xml->{$ug}->onlines++;
+				}
+				$xml->{$ug}->$id=$xml->{$r['gid']}->$id;
+				$without_unread=false;
+			}
+		}
+		if($without_unread){
+			$xml->{$ug}=null;
+			unset($xml->{$ug});
 		}
 		return $xml;
 	}

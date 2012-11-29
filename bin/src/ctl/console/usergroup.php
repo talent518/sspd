@@ -119,12 +119,6 @@ Class CtlConsoleUserGroup extends CtlBase{
 				'daily'=>(string)($request->params->daily)+0,
 				'daily_add'=>(string)($request->params->daily_add)+0,
 			);
-			if($group['gname']==$data['gname']){
-				$data['gname']=null;unset($data['gname']);
-			}
-			if($group['title']==$data['title']){
-				$data['title']=null;unset($data['title']);
-			}
 			if(!MOD('user.group')->edit($gid,$data)){
 				$response->type='Console.UserGroup.EditSave.Failed';
 				$response->setText(MOD('user.group')->error?MOD('user.group')->error:'未知错误！');
