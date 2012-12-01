@@ -102,7 +102,7 @@ Class CtlStock extends CtlBase{
 			$remind->type='Remind.OS';
 			foreach(MOD('user.online')->get_list_by_where('uid>0') as $sf=>$r){
 				if(UGK($r['uid'],'stock_eval')){
-					$this->send($sf,$remind);
+					$this->send($sf,(string)$remind);
 				}
 			}
 		}elseif($error=MOD('user.stock')->error){
@@ -111,6 +111,75 @@ Class CtlStock extends CtlBase{
 		}else{
 			$response->type='Stock.Add.Failed';
 			$response->setText('未知错误!');
+		}
+		return $response;
+	}
+	function onEdit($request){
+		$sockfd=ssp_info($request->ClientId,'sockfd');
+		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		if(!UGK($uid,'stock_add')){
+			$response=new XML_Element('response');
+			$response->type='Stock.Edit.Failed';
+			$response->setText(USER_NOPRIV_MSG);
+		}
+		$params=&$request->params;
+		$sid=(string)($params->sid);
+		$data=array(
+			'uid'=>$uid,
+			'code'=>(string)($params->code),
+			'name'=>(string)($params->name),
+			'type'=>(string)($params->type),
+			'dealdate'=>(string)($params->dealdate),
+			'amount'=>(string)($params->amount),
+			'location'=>(string)($params->location),
+			'price'=>(string)($params->price),
+			'stoploss'=>(string)($params->stoploss),
+			'reason'=>(string)($params->reason),
+			'profitloss'=>(string)($params->profitloss),
+			'dateline'=>time(),
+			'evaluid'=>0,
+			'evaluation'=>'',
+			'evaldate'=>0,
+			'isread'=>0,
+			'readtime'=>0,
+		);
+		$response=new XML_Element('response');
+		if(MOD('user.stock')->edit($sid,$data)){
+			$response->type='Stock.Edit.Succeed';
+			$response->setText('提交成功！');
+
+			$remind=new XML_Element('response');
+			$remind->type='Remind.OS';
+			foreach(MOD('user.online')->get_list_by_where('uid>0') as $sf=>$r){
+				if(UGK($r['uid'],'stock_eval')){
+					$this->send($sf,(string)$remind);
+				}
+			}
+		}elseif($error=MOD('user.stock')->error){
+			$response->type='Stock.Edit.Failed';
+			$response->setText($error);
+		}else{
+			$response->type='Stock.Edit.Failed';
+			$response->setText('未知错误!');
+		}
+		return $response;
+	}
+	function onDrop($request){
+		$sockfd=ssp_info($request->ClientId,'sockfd');
+		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		if(!UGK($uid,'stock_add')){
+			$response=new XML_Element('response');
+			$response->type='Stock.Drop.Failed';
+			$response->setText(USER_NOPRIV_MSG);
+		}
+		$sid=(string)($request->params->sid)+0;
+		$response=new XML_Element('response');
+		if(MOD('user.stock')->drop($sid)){
+			$response->type='Stock.Drop.Succeed';
+			$response->setText('删除成功！');
+		}else{
+			$response->type='Stock.Drop.Failed';
+			$response->setText('删除失败!');
 		}
 		return $response;
 	}
@@ -174,7 +243,7 @@ Class CtlStock extends CtlBase{
 				$remind=new XML_Element('response');
 				$remind->type='Remind.OS';
 				if(UGK($stock['uid'],'stock_add')){
-					$this->send($sf,$remind);
+					$this->send($sf,(string)$remind);
 				}
 			}
 		}elseif($error=MOD('user.stock')->error){

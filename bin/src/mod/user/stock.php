@@ -104,4 +104,14 @@ class ModUserStock extends ModBase{
 		}
 		return false;
 	}
+	function edit($id,$data,$isCheck=true,$isString=true){
+		$this->rules['profitloss']['required']=$data['type']>2;
+		if(!$isCheck || $this->check($data)){
+			$data['dealdate']=strtotime($data['dealdate']);
+			$data['dateline']=strtotime($data['dateline']);
+			parent::edit($id,$data,false,$isString);
+			return true;
+		}
+		return false;
+	}
 }

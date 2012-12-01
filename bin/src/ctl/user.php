@@ -141,6 +141,7 @@ Class CtlUser extends CtlBase{
 				$response->user->profile=array_to_xml($profile,'profile');
 				$response->user->setting=new XML_Element('setting');
 				$response->user->setting->servday=$servday;
+				$response->user->setting->mute=MOD('user.setting')->get($uid,'mute');
 				$response->user->prevlogtime=udate('Y-m-d H:i:s',$user['prevlogtime'],$uid);
 				$response->user->logtime=udate('Y-m-d H:i:s',$user['logtime'],$uid);
 				$response->multiConsult=UGK($uid,'consult_reply');
@@ -278,25 +279,6 @@ Class CtlUser extends CtlBase{
 		}
 		return $response;
 	}
-	function onSetting($request){
-		$keys=array();
-		$data=array();
-		foreach($request->params as $key=>$value){
-			if(in_array($key,$keys)){
-				$data[$key]=(string)$value;
-			}
-		}
-		if($profile=MOD('user.profile')->get($uid)){
-			MOD('user.profile')->edit($uid,$data);
-		}else{
-			$data['uid']=$uid;
-			MOD('user.profile')->add($data);
-		}
-		$response=new XML_Element('response');
-		$response->type='User.Setting.Succeed';
-		$response->setText('保存成功！');
-		return $response;
-	}
 	function onProfile($request){
 		$keys=array('nickname','sex','signature');
 		$data=array();
@@ -332,6 +314,10 @@ Class CtlUser extends CtlBase{
 			$response->args->{$args[$i]}=$args[$i+1];
 		}
 		return $response;
+	}
+	function onMute($request){
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		MOD('user.setting')->set($uid,'mute',(string)($request->params->mute));
 	}
 	function onSendKey($request){
 		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');

@@ -69,6 +69,20 @@ Class CtlInvest extends CtlBase{
 		}
 		return $xml;
 	}
+	function onRestore($request){
+		$sockfd=ssp_info($request->ClientId,'sockfd');
+		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		if(!UGK($uid,'invest_add')){
+			return;
+		}
+		$response=new XML_Element('response');
+		$response->type='Invest.Restore';
+		foreach(MOD('invest.stock')->get_list_by_where(0) as $isid=>$r){
+			$r['code']=substr('000000'.$r['code'],-6);
+			$response->$isid=array_to_xml($r,'stock');
+		}
+		return $response;
+	}
 	function onAdd($request){
 		$sockfd=ssp_info($request->ClientId,'sockfd');
 		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
@@ -108,7 +122,7 @@ Class CtlInvest extends CtlBase{
 			$remind->type='Remind.Invest';
 			foreach(MOD('user.online')->get_list_by_where('uid>0') as $sf=>$r){
 				if(UGK($r['uid'],'invest')){
-					$this->send($sf,$remind);
+					$this->send($sf,(string)$remind);
 				}
 			}
 		}elseif($error=MOD('invest')->error){
@@ -117,6 +131,68 @@ Class CtlInvest extends CtlBase{
 		}else{
 			$response->type='Invest.Add.Failed';
 			$response->setText('未知错误!');
+		}
+		return $response;
+	}
+	function onEdit($request){
+		$sockfd=ssp_info($request->ClientId,'sockfd');
+		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		if(!UGK($uid,'invest_add')){
+			$response=new XML_Element('response');
+			$response->type='Invest.Edit.Failed';
+			$response->setText(USER_NOPRIV_MSG);
+		}
+		$params=&$request->params;
+		$isids=array();
+		if($_isids=explode(',',$params->isids)){
+			foreach($_isids as $isid){
+				if(LIB('validate')->integer($isid)){
+					$isids[]=(int)$isid;
+				}
+			}
+		}
+		if(count($isids)==0){
+			$response=new XML_Element('response');
+			$response->type='Invest.Edit.Failed';
+			$response->setText('您还没有添加关联的股票！');
+		}
+		$iid=(string)($params->iid)+0;
+		$data=array(
+			'uid'=>$uid,
+			'title'=>(string)($params->title),
+			'dateline'=>time(),
+		);
+		$response=new XML_Element('response');
+		if(MOD('invest')->edit($iid,$data)){
+			MOD('invest.stock')->update(array('iid'=>$iid),'isid IN('.iimplode($isids).')');
+			$response->type='Invest.Edit.Succeed';
+			$response->setText('保存成功！');
+		}elseif($error=MOD('invest')->error){
+			$response->type='Invest.Edit.Failed';
+			$response->setText($error);
+		}else{
+			$response->type='Invest.Edit.Failed';
+			$response->setText('未知错误!');
+		}
+		return $response;
+	}
+	function onDrop($request){
+		$sockfd=ssp_info($request->ClientId,'sockfd');
+		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		if(!UGK($uid,'invest_add')){
+			$response=new XML_Element('response');
+			$response->type='Invest.Drop.Failed';
+			$response->setText(USER_NOPRIV_MSG);
+		}
+		$iid=(string)($request->params->iid)+0;
+		$response=new XML_Element('response');
+		if(MOD('invest')->drop($iid)){
+			MOD('invest.stock')->delete('iid='.$iid);
+			$response->type='Invest.Drop.Succeed';
+			$response->setText('删除成功！');
+		}else{
+			$response->type='Invest.Drop.Failed';
+			$response->setText('删除失败!');
 		}
 		return $response;
 	}
@@ -130,6 +206,7 @@ Class CtlInvest extends CtlBase{
 		}
 		$params=&$request->params;
 		$data=array(
+			'iid'=>(string)($params->iid)+0,
 			'code'=>(string)($params->code),
 			'name'=>(string)($params->name),
 			'reason'=>(string)($params->reason),
@@ -140,12 +217,60 @@ Class CtlInvest extends CtlBase{
 			$response->type='Invest.AddStock.Succeed';
 			$response->isid=DB()->insert_id();
 			$response->setText('添加股票成功！<br/><font color="#960003" size="18"><b>随后别忘了保存幺！</b></font>');
-		}elseif($error=MOD('invest')->error){
+		}elseif($error=MOD('invest.stock')->error){
 			$response->type='Invest.AddStock.Failed';
 			$response->setText($error);
 		}else{
 			$response->type='Invest.AddStock.Failed';
 			$response->setText('未知错误!');
+		}
+		return $response;
+	}
+	function onEditStock($request){
+		$sockfd=ssp_info($request->ClientId,'sockfd');
+		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		if(!UGK($uid,'invest_add')){
+			$response=new XML_Element('response');
+			$response->type='Invest.EditStock.Failed';
+			$response->setText(USER_NOPRIV_MSG);
+		}
+		$params=&$request->params;
+		$isid=(string)($params->isid)+0;
+		$data=array(
+			'code'=>(string)($params->code),
+			'name'=>(string)($params->name),
+			'reason'=>(string)($params->reason),
+			'think'=>(string)($params->think),
+		);
+		$response=new XML_Element('response');
+		if(MOD('invest.stock')->edit($isid,$data)){
+			$response->type='Invest.EditStock.Succeed';
+			$response->setText('编辑股票成功！');
+		}elseif($error=MOD('invest.stock')->error){
+			$response->type='Invest.EditStock.Failed';
+			$response->setText($error);
+		}else{
+			$response->type='Invest.EditStock.Failed';
+			$response->setText('未知错误!');
+		}
+		return $response;
+	}
+	function onDropStock($request){
+		$sockfd=ssp_info($request->ClientId,'sockfd');
+		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		if(!UGK($uid,'invest_add')){
+			$response=new XML_Element('response');
+			$response->type='Invest.DropStock.Failed';
+			$response->setText(USER_NOPRIV_MSG);
+		}
+		$isid=(string)($request->params->isid)+0;
+		$response=new XML_Element('response');
+		if(MOD('invest.stock')->drop($isid)){
+			$response->type='Invest.DropStock.Succeed';
+			$response->setText('删除成功！');
+		}else{
+			$response->type='Invest.DropStock.Failed';
+			$response->setText('删除失败!');
 		}
 		return $response;
 	}

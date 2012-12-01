@@ -110,9 +110,7 @@ static PHP_MINIT_FUNCTION(ssp)
 */
 static PHP_MSHUTDOWN_FUNCTION(ssp)
 {
-#ifdef ZTS
 	ts_free_id(ssp_globals_id);
-#endif
 #ifdef PHP_SSP_DEBUG
 	printf("ssp module shutdown\n");
 #endif
@@ -263,21 +261,21 @@ int trigger(unsigned short type,...){
 #endif
 	if(ret==SUCCESS){
 		if(param_count>1){
-			if(Z_TYPE_P(retval)!=IS_STRING){
-				convert_to_string_ex(&retval);
-			}
+			convert_to_string_ex(&retval);
+		#ifdef PHP_SSP_DEBUG
+			printf("\nfree(%d):0x%x\n",*data_len,*data);
+		#endif
+			free(*data);
 			if(Z_STRLEN_P(retval)>0){
 				char *_data=strndup(Z_STRVAL_P(retval),Z_STRLEN_P(retval));
-				free(*data);
 				*data=_data;
 				*data_len=Z_STRLEN_P(retval);
 			}else{
-				free(*data);
 				*data=NULL;
 				*data_len=0;
 			}
 		#ifdef PHP_SSP_DEBUG
-			printf("\nreturn bytes(%s):%d",call_func_name,Z_STRLEN_P(retval));
+			printf("\nreturn data after(%s):%d",call_func_name,Z_STRLEN_P(retval));
 		#endif
 		}
 	}else{
@@ -390,8 +388,11 @@ static PHP_FUNCTION(ssp_send)
 		RETURN_FALSE;
 	}
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
-	trigger(PHP_SSP_SEND,ptr,&data,&data_len);
-	int ret=socket_send(ptr,data,data_len);
+	printf("\nPHP_FUNCTION(ssp_send)\n");
+	char *_data=strndup(data,data_len+1);
+	trigger(PHP_SSP_SEND,ptr,&_data,&data_len);
+	int ret=socket_send(ptr,_data,data_len);
+	free(_data);
 	RETURN_LONG(ret);
 }
 

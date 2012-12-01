@@ -37,11 +37,7 @@ ZEND_BEGIN_MODULE_GLOBALS(ssp)
 	char **bind;
 ZEND_END_MODULE_GLOBALS(ssp)
 
-#ifdef ZTS
-	#define SSP_G(v) TSRMG(ssp_globals_id, zend_ssp_globals *, v)
-#else
-	#define SSP_G(v) (ssp_globals.v)
-#endif
+#define SSP_G(v) TSRMG(ssp_globals_id, zend_ssp_globals *, v)
 
 static PHP_MINIT_FUNCTION(ssp);
 static PHP_MSHUTDOWN_FUNCTION(ssp);

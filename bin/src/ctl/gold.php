@@ -96,7 +96,7 @@ Class CtlGold extends CtlBase{
 			$remind->type='Remind.Gold';
 			foreach(MOD('user.online')->get_list_by_where('uid>0') as $sf=>$r){
 				if(UGK($r['uid'],'gold')){
-					$this->send($sf,$remind);
+					$this->send($sf,(string)$remind);
 				}
 			}
 		}elseif($error=MOD('gold')->error){
@@ -105,6 +105,58 @@ Class CtlGold extends CtlBase{
 		}else{
 			$response->type='Gold.Add.Failed';
 			$response->setText('未知错误!');
+		}
+		return $response;
+	}
+	function onEdit($request){
+		$sockfd=ssp_info($request->ClientId,'sockfd');
+		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		if(!UGK($uid,'gold_add')){
+			$response=new XML_Element('response');
+			$response->type='Gold.Edit.Failed';
+			$response->setText(USER_NOPRIV_MSG);
+		}
+		$params=&$request->params;
+		$gid=(string)($params->gid)+0;
+		$data=array(
+			'title'=>(string)($params->title),
+			'code'=>(string)($params->code),
+			'name'=>(string)($params->name),
+			'reason'=>(string)($params->reason),
+			'prompt'=>(string)($params->prompt),
+			'buy_condition'=>(string)($params->buy_condition),
+			'sell_condition'=>(string)($params->sell_condition),
+			'dateline'=>time(),
+		);
+		$response=new XML_Element('response');
+		if(MOD('gold')->edit($gid,$data)){
+			$response->type='Gold.Edit.Succeed';
+			$response->setText('提交成功！');
+		}elseif($error=MOD('gold')->error){
+			$response->type='Gold.Edit.Failed';
+			$response->setText($error);
+		}else{
+			$response->type='Gold.Edit.Failed';
+			$response->setText('未知错误!');
+		}
+		return $response;
+	}
+	function onDrop($request){
+		$sockfd=ssp_info($request->ClientId,'sockfd');
+		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		if(!UGK($uid,'gold_add')){
+			$response=new XML_Element('response');
+			$response->type='Gold.Drop.Failed';
+			$response->setText(USER_NOPRIV_MSG);
+		}
+		$gid=(string)($request->params->gid)+0;
+		$response=new XML_Element('response');
+		if(MOD('gold')->drop($gid)){
+			$response->type='Gold.Drop.Succeed';
+			$response->setText('删除成功！');
+		}else{
+			$response->type='Gold.Drop.Failed';
+			$response->setText('删除失败!');
 		}
 		return $response;
 	}

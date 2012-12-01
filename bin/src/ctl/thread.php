@@ -102,7 +102,7 @@ Class CtlThread extends CtlBase{
 		$dateline=intval((string)$request->thread->dateline);
 		foreach($users as $r){
 			$response->thread->dateline=cdate('m-d H:i',$dataline,$request->ClientId);
-			if($this->send($r['onid'],$response))
+			if($this->send($r['onid'],(string)$response))
 				$sends++;
 		}
 		$response=new XML_Element('response');

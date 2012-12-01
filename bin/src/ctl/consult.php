@@ -264,7 +264,7 @@ Class CtlConsult extends CtlBase{
 					$sendXML->message->message=xml_to_object($message);
 					$sendXML->message->message->setTag('message');
 					$sendXML->message->dateline=udate('H:i:s',$data['dateline'],$tuid);
-					if($this->send($online['onid'],$sendXML)){
+					if($this->send($online['onid'],(string)$sendXML)){
 						$isRecv=true;
 						$msg='对方收到已消息！';
 						MOD('user.consult')->update(array('isread'=>1),$ucid+0);
@@ -274,7 +274,7 @@ Class CtlConsult extends CtlBase{
 				}else{
 					$remind=new XML_Element('response');
 					$remind->type='Remind.Consult';
-					if($this->send($online['onid'],$remind)){
+					if($this->send($online['onid'],(string)$remind)){
 						$msg='对方收到提醒！';
 					}else{
 						$msg='发送提醒失败！';

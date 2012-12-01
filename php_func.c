@@ -402,9 +402,7 @@ void ssp_init(){
 	CSM(php_ini_path_override) = NULL;
 	CSM(phpinfo_as_text) = 1;
 
-#ifdef ZTS
 	tsrm_startup(128, 1, 0, NULL);
-#endif
 	sapi_startup(&ssp_sapi_module);
 
 	CSM(ini_entries) = malloc(sizeof(HARDCODED_INI));
@@ -504,9 +502,7 @@ void ssp_destroy(){
 	//printf("%s:0\n",__func__);
 	sapi_shutdown();
 	//printf("%s:1\n",__func__);
-#ifdef ZTS
 	tsrm_shutdown();
 	//printf("%s:2\n",__func__);
-#endif
 }
 /* }}} */

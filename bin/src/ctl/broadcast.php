@@ -118,7 +118,7 @@ Class CtlBroadcast extends CtlBase{
 			$list=MOD('user.online')->get_list_by_where('uid>0 && broadcast>0');
 			foreach($list as $onid=>$r){
 				$sendXML->message->dateline=udate('H:i:s',$data['dateline'],$r['uid']);
-				if($onid!=$sockfd && $this->send($onid,$sendXML)){
+				if($onid!=$sockfd && $this->send($onid,(string)$sendXML)){
 					$count++;
 				}
 			}
