@@ -69,6 +69,11 @@ Class CtlConsoleUser extends CtlBase{
 		$username=(string)($request->params->username);
 		$email=(string)($request->params->email);
 		$userGid=(string)($request->params->gid)+0;
+		$fromExpiry=(string)($request->params->from_expiry);
+		$fromExpiry=(LIB('validate')->date($fromExpiry)?@strtotime($fromExpiry):0);
+		$toExpiry=(string)($request->params->to_expiry);
+		$toExpiry=(LIB('validate')->date($toExpiry)?@strtotime($toExpiry):0);
+		$status=(string)($request->params->status)+0;
 
 		$xml=new XML_Element('response');
 		$xml->type='Console.User.List.Succeed';
@@ -91,11 +96,24 @@ Class CtlConsoleUser extends CtlBase{
 			$where.=' AND `gid`='.$userGid;
 		}
 
+		if($fromExpiry){
+			$where.=' AND uid IN(SELECT uid FROM '.DB()->tname('user_setting').' WHERE expiry>'.$fromExpiry.')';
+		}
+		if($toExpiry){
+			$where.=' AND uid IN(SELECT uid FROM '.DB()->tname('user_setting').' WHERE expiry<'.$toExpiry.')';
+		}
+
+		if($status){
+			$where.=' AND uid'.($status<0?' NOT ':' ').'IN(SELECT uid FROM '.DB()->tname('user_online').' WHERE uid>0)';
+		}
+
 		if($xml->counts=MOD('user')->count($where)){
 			$limit=get_limit($page,$size,$xml->counts);
 			$users=MOD('user')->get_list_by_where($where,$limit);
 			foreach($users as $r){
-				$r['regtime']=udate('Y-m-d H:i',$r['regtime'],$uid);
+				$r['group']=MOD('user.group')->get($r['gid'],'title');
+				$r['online']=(MOD('user.online')->get_by_user($r['uid'])?'在线':'离线');
+				$r['onlinetime']=formatsecond($r['onlinetime'],'未登录过');
 				$xml->$r['uid']=array_to_xml($r,'user');
 			}
 		}else{
@@ -276,11 +294,20 @@ Class CtlConsoleUser extends CtlBase{
 		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
 		if(!MUK($uid,'user')){
 			$response=new XML_Element('response');
-			$response->type='Console.User.EditSave.Failed';
+			$response->type='Console.User.Drop.Failed';
 			$response->setText(USER_NOPRIV_MSG);
 			return $response;
 		}
 		$userId=(string)($request->params->uid)+0;
+		$response=new XML_Element('response');
+		if(MOD('user')->drop($userId)){
+			$response->type='Console.User.Drop.Succeed';
+			$response->setText('删除成功！');
+		}else{
+			$response->type='Console.User.Drop.Failed';
+			$response->setText('删除失败!');
+		}
+		return $response;
 	}
 	function onView($request){
 		$sockfd=ssp_info($request->ClientId,'sockfd');
@@ -295,10 +322,27 @@ Class CtlConsoleUser extends CtlBase{
 		$user=MOD('user')->get($userId);
 		if($user){
 			$response->type='Console.User.View.Succeed';
+			$user['online']=(MOD('user.online')->get_by_user($userId)?'在线':'离线');
+			$user['onlinetime']=formatsecond($user['onlinetime'],'从未登录过');
 			$user['regtime']=udate('Y-m-d H:i',$user['regtime'],$uid);
-			$user['prevlogtime']=udate('Y-m-d H:i',$user['prevlogtime'],$uid);
-			$user['logtime']=udate('Y-m-d H:i',$user['logtime'],$uid);
+			$user['group']=MOD('user.group')->get($user['gid'],'title');
 			$response->user=array_to_xml($user,'user');
+			$response->user->minavatar=avatar($userId,'small');
+			$response->user->midavatar=avatar($userId,'middle');
+			$response->user->maxavatar=avatar($userId,'big');
+			$response->user->prevlogtime=udate('Y-m-d H:i:s',$user['prevlogtime'],$uid);
+			$response->user->logtime=udate('Y-m-d H:i:s',$user['logtime'],$uid);
+			$response->profile=array_to_xml(MOD('user.profile')->get($userId),'profile');
+			$serv=MOD('user.serv')->get($userId);
+			$response->serv=array_to_xml($serv,'serv');
+			$group=MOD('user.serv.group')->get($serv['gid']);
+			$response->serv->group=$group['name'];
+			if(UGK($userId,'use_expiry',false)){
+				$expiry=MOD('user.setting')->get($userId,'expiry');
+				$response->serv->servday=round(($expiry-time())/86400,1);
+			}else{
+				$response->serv->servday='无限';
+			}
 		}else{
 			$response->type='Console.User.View.Failed';
 			$response->setText('用户记录不存在!');

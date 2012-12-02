@@ -2,7 +2,6 @@
 if(!defined('IN_SERVER'))
 	exit('Access Denied');
 
-import('api.uc.client');
 import('mod.base');
 
 class ModUserServGroup extends ModBase{
@@ -23,4 +22,10 @@ class ModUserServGroup extends ModBase{
 			'query'=>'客户分组名称已经存在！',
 		),
 	);
+	function drop($id){
+		if($ret=parent::drop($id)){
+			MOD('user.serv')->delete('gid='.$id);
+		}
+		return $ret;
+	}
 }

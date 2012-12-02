@@ -35,7 +35,7 @@ class ModBase{
 			),SQL_SELECT_ONLY,$this->priKey):0;
 	}
 	function get($id,$key=''){
-		return $id!==0?$this->get_by_where($this->priKey.'='.($id+0),$key):false;
+		return $id!==0?$this->get_by_where($this->priKey.'='.($id+0),$key):array();
 	}
 	function get_by_where($where='',$key=''){
 		return DB()->select(array(

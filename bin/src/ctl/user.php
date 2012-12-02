@@ -299,22 +299,6 @@ Class CtlUser extends CtlBase{
 		$response->setText('保存成功！');
 		return $response;
 	}
-	function onAvatar($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
-		$response=new XML_Element('response');
-		$response->type='User.Avatar';
-		$response->avatar=new XML_Element('avatar');
-		$response->avatar->min=avatar($uid,'small');
-		$response->avatar->mid=avatar($uid,'middle');
-		$response->avatar->max=avatar($uid,'big');
-		$args=uc_avatar($uid,'virtual', 0);
-		$response->args=new XML_Element('args');
-		for($i=0;$i<count($args);$i+=2){
-			$response->args->{$args[$i]}=$args[$i+1];
-		}
-		return $response;
-	}
 	function onMute($request){
 		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
 		MOD('user.setting')->set($uid,'mute',(string)($request->params->mute));

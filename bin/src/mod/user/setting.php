@@ -13,7 +13,7 @@ class ModUserSetting extends ModBase{
 
 	protected $shmid;
 	function ModUserSetting(){
-		$this->shmid=ssp_attach(ftok(__FILE__,'j'),SSP_MAX_CLIENTS*100,0777);
+		$this->shmid=ssp_attach(ftok(__FILE__,'j'),SSP_MAX_CLIENTS*512,0777);
 	}
 
 	function get($uid,$key='',$isCache=true){

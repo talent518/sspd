@@ -289,12 +289,31 @@ function uc_user_edit($username, $oldpw, $newpw, $email, $ignoreoldpw = 0, $ques
 	return $status;
 }
 function uc_user_delete($uid) {
-	$isprotected = UDB()->count('protectedmembers',"uid = '$uid'");
-	if($isprotected) {
-		return -8;
-	}else{
-		MOD('uc.user')->drop($uid);
+	$uidsarr = (array)$uid;
+	if(!$uidsarr) {
+		return 0;
+	}
+	$uids=iimplode($uidsarr);
+	import('mod.uc.base');
+	$puids = UDB()->count('protectedmembers',"uid IN ($uids)");
+	$uids=iimplode(array_diff($uidsarr, $puids));
+	if($uids){
+		MOD('uc.user')->delete("uid IN ($uids)");
+		UDB()->delete('memberfields',"uid IN ($uids)");
+		uc_user_deleteavatar($uid);
 		return UDB()->arows();
+	}else{
+		return 0;
+	}
+}
+function uc_user_deleteavatar($uid){
+	if(define('UC_DIR') && is_dir(UC_DIR) && ($uids=(array)$uid)){
+		foreach($uids as $id){
+			$file = UC_DIR.'./data/avatar/'.avatar_dir($uid, 'middle');
+			@unlink($file);
+		}
+	}else{
+		return 0;
 	}
 }
 function uc_get_user($username, $isuid=0) {

@@ -2,7 +2,6 @@
 if(!defined('IN_SERVER'))
 	exit('Access Denied');
 
-import('api.uc.client');
 import('mod.base');
 
 class ModUserGroup extends ModBase{
@@ -59,7 +58,10 @@ class ModUserGroup extends ModBase{
 	}
 	function drop($id){
 		ssp_remove_var($this->shmid,$id);
-		return parent::drop($id);
+		if($ret=parent::drop($id)){
+			MOD('user')->drops(DB()->select(array('table'=>'user','field'=>'uid','where'=>'gid='.$gid),SQL_SELECT_LIST,null,'uid'));
+		}
+		return $ret;
 	}
 	function clean(){
 		ssp_remove($this->shmid);

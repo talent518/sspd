@@ -141,10 +141,9 @@ function simplode(&$strs) {
 	return "'".implode("','", $strs)."'";
 }
 
-//最小时间之差
-function timediff($aTime,$bTime){
+function formatsecond($second,$default='现在'){
 	$td=array();
-	$td['second']=$aTime-$bTime;
+	$td['second']=$second;
 	$td['mintue']=$td ['second']/60;
 	$td['hour']=$td ['mintue']/60;
 	$td['day']=$td ['hour']/24;
@@ -167,7 +166,7 @@ function timediff($aTime,$bTime){
 	}elseif($td['second']>1){
 		return round($td['second'],2).'秒';
 	}else{
-		return '现在';
+		return $default;
 	}
 }
 

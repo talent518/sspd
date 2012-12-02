@@ -173,9 +173,6 @@ function object_to_xml(&$object,$head=false){
 }
 
 function array_to_xml($array,$tagname,$textkey=''){
-	if(!is_array($array)){
-		return;
-	}
 	$xml=new XML_Element($tagname);
 	foreach($array as $key=>$value){
 		if(!empty($textkey) && $textkey==$key){
