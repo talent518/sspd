@@ -388,7 +388,6 @@ static PHP_FUNCTION(ssp_send)
 		RETURN_FALSE;
 	}
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
-	printf("\nPHP_FUNCTION(ssp_send)\n");
 	char *_data=strndup(data,data_len+1);
 	trigger(PHP_SSP_SEND,ptr,&_data,&data_len);
 	int ret=socket_send(ptr,_data,data_len);
@@ -407,4 +406,5 @@ static PHP_FUNCTION(ssp_close)
 	trigger(PHP_SSP_CLOSE,ptr);
 	shutdown(ptr->sockfd,2);
 	close(ptr->sockfd);
+	remove_node(ptr);
 }
