@@ -95,7 +95,7 @@ node *index_node(unsigned int index){
 
 	BEGIN_READ_NODE{
 		int x,y;
-		calc_xy_by_index(index,&x,&y);
+		calc_xy_by_index(index-1,&x,&y);
 		ptr=gnodes[y][x];
 	}END_READ_NODE;
 	return ptr;

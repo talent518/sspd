@@ -343,7 +343,11 @@ static PHP_FUNCTION(ssp_resource){
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|b", &sockfd,&is_port) == FAILURE) {
 		RETURN_FALSE;
 	}
-	ptr=search_node(sockfd,is_port);
+	if(is_port){
+		ptr=search_node(sockfd,is_port);
+	}else{
+		ptr=index_node(sockfd);
+	}
 	if(ptr!=NULL){
 		ZEND_REGISTER_RESOURCE(return_value,ptr,le_ssp_descriptor);
 	}else{
@@ -362,12 +366,12 @@ static PHP_FUNCTION(ssp_info){
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
 	if(key_len==0){
 		array_init(return_value);
-		add_assoc_long(return_value,"sockfd",ptr->sockfd);
+		add_assoc_long(return_value,"sockfd",ptr->index);
 		add_assoc_string(return_value,"host",ptr->host,1); /* cast to avoid gcc-warning */
 		add_assoc_long(return_value,"port",ptr->port);
 	}else{
 		if(!strcasecmp(key,"sockfd")){
-			RETURN_LONG(ptr->sockfd);
+			RETURN_LONG(ptr->index);
 		}else if(!strcasecmp(key,"host")){
 			RETURN_STRING(strdup(ptr->host),strlen(ptr->host));
 		}else if(!strcasecmp(key,"port")){
@@ -388,9 +392,10 @@ static PHP_FUNCTION(ssp_send)
 		RETURN_FALSE;
 	}
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
+	int ret=0;
 	char *_data=strndup(data,data_len+1);
 	trigger(PHP_SSP_SEND,ptr,&_data,&data_len);
-	int ret=socket_send(ptr,_data,data_len);
+	ret=socket_send(ptr,_data,data_len);
 	free(_data);
 	RETURN_LONG(ret);
 }
@@ -404,7 +409,8 @@ static PHP_FUNCTION(ssp_close)
 	}
 	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
 	trigger(PHP_SSP_CLOSE,ptr);
-	shutdown(ptr->sockfd,2);
-	close(ptr->sockfd);
+	int sockfd=ptr->sockfd;
 	remove_node(ptr);
+	shutdown(sockfd,2);
+	close(sockfd);
 }
