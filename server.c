@@ -466,8 +466,8 @@ int socket_status(){
 	int pid,i=17,cols=tput_cols();
 
 	printf("SSP server status");
-	flush();
 	strnprint(".",cols-i-9);
+	flush();
 
 	fp=fopen(ssp_pidfile,"r+");
 	if(fp!=NULL){
