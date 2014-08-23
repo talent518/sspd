@@ -1,6 +1,6 @@
 CC=gcc
 
-PHP_DIR = /usr
+PHP_DIR = /opt/ssp
 INC_DIR=$(PHP_DIR)/include/php
 BIN_DIR=$(PWD)/bin
 
