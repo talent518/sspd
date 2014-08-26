@@ -341,6 +341,7 @@ if [ ! -f php.lock ]; then
     OPT_EXT="--with-pic --disable-rpath --without-pear --with-ldap=shared --with-bz2=shared --enable-zip=shared --with-freetype-dir=$INST_DIR --with-png-dir=$INST_DIR --with-xpm-dir=$INST_DIR --enable-gd-native-ttf --without-gdbm --with-gettext --with-iconv --with-jpeg-dir=$INST_DIR --with-imap --with-imap-ssl=$INST_DIR --with-openssl=shared,$INST_DIR --with-zlib --with-layout=GNU --enable-exif --enable-ftp --enable-magic-quotes --enable-sockets --with-kerberos --enable-ucd-snmp-hack --enable-shmop --enable-calendar --with-sqlite=shared --with-sqlite3=shared --with-xsl=shared,$INST_DIR --with-libxml-dir=$INST_DIR --enable-xml=shared --with-xmlrpc=shared --enable-dom=shared --enable-soap=shared --with-gd=shared,$INST_DIR --disable-dba --without-unixODBC --enable-xmlreader=shared --enable-xmlwriter=shared --enable-phar=shared --enable-fileinfo=shared --enable-json=shared --without-pspell --enable-wddx=shared --with-curl=shared,$INST_DIR --enable-bcmath=shared --with-mcrypt=shared,$INST_DIR --with-mhash=shared,$INST_DIR --enable-mbstring=shared,all --enable-mbregex=shared --with-mysql=shared --with-mysqli=shared --with-pdo-mysql=shared --with-pdo-sqlite=shared --with-pgsql=shared --with-pdo-pgsql=shared --enable-posix=shared --enable-pcntl=shared --enable-sysvsem=shared --enable-sysvshm=shared --enable-sysvmsg=shared --enable-maintainer-zts --enable-zend-multibyte --enable-inline-optimization"
     OPT_OTH="--enable-embed"
 
+    export EXTENSION_DIR=$INST_DIR/lib/extensions
     ./configure ${OPT_MAK} ${OPT_EXT} ${OPT_OTH} && make && make install && cp -u php.ini-* $INST_DIR/etc/
     
     if [ "$?" = "0" ]; then
@@ -351,6 +352,30 @@ if [ ! -f php.lock ]; then
     else
         popd
         echo Installed php error.
+        exit 1
+    fi
+fi
+
+#libevent
+if [ ! -f libevent.lock ]; then
+    echo Installing libevent ...
+    if [ ! -d "libevent-2.0.21-stable" ]; then
+        tar -zxvf libevent-2.0.21-stable.tar.gz
+    fi
+    pushd libevent-2.0.21-stable
+    
+    ./configure --prefix=$INST_DIR \
+    && make \
+    && make install
+    
+    if [ "$?" = "0" ]; then
+        popd
+        rm -rf libevent-2.0.21-stable
+        touch libevent.lock
+        echo Installed libevent Success.
+    else
+        popd
+        echo Installed libevent error.
         exit 1
     fi
 fi
