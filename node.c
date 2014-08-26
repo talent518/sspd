@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <malloc.h>
 
-#include "server.h"
+#include "ssp.h"
 #include "node.h"
 
 unsigned int node_num=0;
@@ -173,6 +173,11 @@ void remove_node(node *ptr){
 		}
 		free(ptr);
 	}END_WRITE_NODE;
+}
+
+void clean_node(node *ptr){
+	shutdown(ptr->sockfd,2);
+	close(ptr->sockfd);
 }
 
 void detach_node(){

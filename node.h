@@ -46,6 +46,7 @@ node* search_node(int sockfd,bool is_port);
 void attach_node();
 void insert_node(node *ptr);
 void remove_node(node *ptr);
+void clean_node(node *ptr);
 void detach_node();
 
 #endif

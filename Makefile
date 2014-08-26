@@ -12,7 +12,7 @@ all: $(BIN_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/daemon
 $(BIN_DIR):
 	@mkdir $@
 
-$(BIN_DIR)/ssp: $(BIN_DIR)/php_ext.o $(BIN_DIR)/php_func.o $(BIN_DIR)/server.o $(BIN_DIR)/node.o $(BIN_DIR)/ssp.o $(BIN_DIR)/api.o
+$(BIN_DIR)/ssp: $(BIN_DIR)/php_ext.o $(BIN_DIR)/php_func.o $(BIN_DIR)/socket.o $(BIN_DIR)/event.o $(BIN_DIR)/server.o $(BIN_DIR)/node.o $(BIN_DIR)/ssp.o $(BIN_DIR)/api.o
 	@echo -e "\E[34mbuild ssp"
 	@tput sgr0
 	@$(CC) $(LFLAGS) -o $@ $?
@@ -30,3 +30,4 @@ $(BIN_DIR)/%.o: %.c
 clean:
 	@rm -rf $(BIN_DIR)/*.o
 	@rm -rf $(BIN_DIR)/ssp
+	@rm -rf $(BIN_DIR)/daemon

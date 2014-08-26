@@ -1,6 +1,6 @@
 #include "php_func.h"
 #include "php_ext.h"
-#include "server.h"
+#include "ssp.h"
 #include "node.h"
 #include "api.h"
 #include <error.h>
@@ -185,9 +185,9 @@ static zval *_ssp_string_zval(const char *str,int len)
 
 int trigger(unsigned short type,...){
 	TSRMLS_FETCH();
-	TRIGGER_STARTUP();
+	REQUEST_STARTUP();
 	if(SSP_G(bind)[type]==NULL){
-		TRIGGER_SHUTDOWN();
+		REQUEST_SHUTDOWN();
 		return FAILURE;
 	}
 	zval *zval_ptr,*zval_data,*pfunc;
@@ -303,7 +303,7 @@ int trigger(unsigned short type,...){
 	}
 	zval_ptr_dtor(&pfunc);
 	free(call_func_name);
-	TRIGGER_SHUTDOWN();
+	REQUEST_SHUTDOWN();
 	return ret;
 }
 

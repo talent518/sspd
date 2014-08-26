@@ -5,9 +5,9 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#include "node.h"
+#include <event.h>
 
-#if 0
+#if 1
 	#define dprintf(...) printf(__VA_ARGS__)
 #else
 	#define dprintf(...)
@@ -18,13 +18,12 @@ extern short int ssp_port;
 extern char *ssp_pidfile;
 
 extern char *ssp_user;
+extern int ssp_nthreads;
 extern int ssp_maxclients;
 extern int ssp_maxrecvs;
 
-int socket_send(node *ptr,const char *data,int data_len);
-
-int socket_start();
-int socket_stop();
-int socket_status();
+int server_start();
+int server_stop();
+int server_status();
 
 #endif

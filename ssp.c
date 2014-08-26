@@ -1,5 +1,5 @@
 #include "php_func.h"
-#include "server.h"
+#include "ssp.h"
 #include "php_ext.h"
 
 #include "php.h"
@@ -34,6 +34,7 @@
 #define OPT_USER 4
 #define OPT_MAX_CLIENTS 5
 #define OPT_MAX_RECVS 6
+#define OPT_NTHREADS 7
 
 static char *php_optarg = NULL;
 static int php_optind = 1;
@@ -57,6 +58,7 @@ static const opt_struct OPTIONS[] = {
 	{OPT_PIDFILE,  1, "pidfile"},
 
 	{OPT_USER,  1, "user"},
+	{OPT_NTHREADS,  1, "nthreads"},
 	{OPT_MAX_CLIENTS,  1, "max-clients"},
 	{OPT_MAX_RECVS,  1, "max-recvs"},
 
@@ -95,6 +97,7 @@ static void php_ssp_usage(char *argv0)
 				"  --port <port>           Listen port\n"
 				"  --pidfile <file>        Service pidfile\n"
 				"  --user <username>       Run for user\n"
+				"  --nthreads <number>     LibEvent thread number\n"
 				"  --max-clients <number>  Max client connect number\n"
 				"  --max-recvs <size>      Max recv data size\n"
 				"\n"
@@ -394,6 +397,9 @@ int main(int argc, char *argv[])
 				case OPT_MAX_RECVS:
 					ssp_maxrecvs=atoi(php_optarg);
 					break;
+				case OPT_NTHREADS:
+					ssp_nthreads=atoi(php_optarg);
+					break;
 
 				default:
 					break;
@@ -418,14 +424,14 @@ int main(int argc, char *argv[])
 		exit_status=0;
 		goto err;
 	}else if(strcmp(serv_opt,"restart")==0){
-		socket_stop();
-		socket_start();
+		server_stop();
+		server_start();
 	}else if(strcmp(serv_opt,"stop")==0){
-		socket_stop();
+		server_stop();
 	}else if(strcmp(serv_opt,"start")==0){
-		socket_start();
+		server_start();
 	}else if(strcmp(serv_opt,"status")==0){
-		socket_status();
+		server_stop();
 	}else if(serv_opt){
 		php_ssp_usage(argv[0]);
 		php_end_ob_buffers(1 TSRMLS_CC);

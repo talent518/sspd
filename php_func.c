@@ -1,5 +1,5 @@
 #include "php_func.h"
-#include "server.h"
+#include "ssp.h"
 #include "php_ext.h"
 
 #include "php.h"
