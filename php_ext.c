@@ -122,14 +122,15 @@ static PHP_MSHUTDOWN_FUNCTION(ssp)
 */
 static PHP_GINIT_FUNCTION(ssp)
 {
-	ssp_globals->bind=(char **)malloc(sizeof(char*)*PHP_SSP_BIND_LEN);
+	SSP_G(requestes)=0;
+	SSP_G(bind)=(char **)malloc(sizeof(char*)*PHP_SSP_BIND_LEN);
 	int i;
 	for(i=0;i<PHP_SSP_BIND_LEN;i++){
-		ssp_globals->bind[i]=NULL;
+		SSP_G(bind)[i]=NULL;
 	}
 #ifdef PHP_SSP_DEBUG
-	ssp_globals->recv_bytes=0;
-	ssp_globals->send_bytes=0;
+	SSP_G(recv_bytes)=0;
+	SSP_G(send_bytes)=0;
 #endif
 
 #ifdef PHP_SSP_DEBUG
@@ -143,11 +144,11 @@ static PHP_GSHUTDOWN_FUNCTION(ssp)
 {
 	int i;
 	for(i=0;i<PHP_SSP_BIND_LEN;i++){
-		if(ssp_globals->bind[i]){
-			free(ssp_globals->bind[i]);
+		if(SSP_G(bind)[i]){
+			free(SSP_G(bind)[i]);
 		}
 	}
-	free(ssp_globals->bind);
+	free(SSP_G(bind));
 #ifdef PHP_SSP_DEBUG
 	printf("ssp_globals shutdown\n");
 #endif
@@ -185,9 +186,10 @@ static zval *_ssp_string_zval(const char *str,int len)
 
 int trigger(unsigned short type,...){
 	TSRMLS_FETCH();
-	REQUEST_STARTUP();
+
+	TRIGGER_STARTUP();
 	if(SSP_G(bind)[type]==NULL){
-		REQUEST_SHUTDOWN();
+		TRIGGER_SHUTDOWN();
 		return FAILURE;
 	}
 	zval *zval_ptr,*zval_data,*pfunc;
@@ -303,7 +305,7 @@ int trigger(unsigned short type,...){
 	}
 	zval_ptr_dtor(&pfunc);
 	free(call_func_name);
-	REQUEST_SHUTDOWN();
+	TRIGGER_SHUTDOWN();
 	return ret;
 }
 

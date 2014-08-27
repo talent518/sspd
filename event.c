@@ -95,6 +95,7 @@ static void read_handler(int sock, short event,	void* arg)
 		ptr->tid=0;
 		ptr->reading=false;
 	}
+
 }
 
 static void notify_handler(int fd, short which, void *arg)

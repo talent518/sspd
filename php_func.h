@@ -10,9 +10,6 @@ extern char *request_init_file;
 
 #define CSM(v) (ssp_sapi_module.v)
 
-#define REQUEST_STARTUP() ssp_request_startup()
-#define REQUEST_SHUTDOWN() ssp_request_shutdown()
-
 void ssp_init();
 void ssp_module_startup();
 void ssp_request_startup();

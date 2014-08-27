@@ -1,4 +1,4 @@
-#!/usr/bin/php -q
+#!/opt/ssp/bin/php -q
 <?php
 
 echo 'help:',$_SERVER['argv'][0],' [servname]',PHP_EOL;

@@ -104,7 +104,7 @@ class LibSocketClient{
 			$request=new XML_Element('request');
 			$request->type='Connect.Key';
 			$request->setText($sendKey);
-			$this->write((string)$request);
+			$this->write($request);
 			$this->sendKey=$sendKey;
 
 			$response=$this->read();
@@ -164,7 +164,6 @@ class LibSocketClient{
 					$recved_len+=$len;
 				$data.=$buf;
 				if($recved_len==$recv_len){
-					echo 'len:',$len,',buf:',$buf,PHP_EOL;
 					break;
 				}
 			}
@@ -176,6 +175,7 @@ class LibSocketClient{
 			$response=xml_to_object($data);
 			if($this->receiveKey && $response->type=='Connect.Data'){
 				$data=str_decode($response->getText(),$this->receiveKey);
+				echo 'decode: ',$data,PHP_EOL;
 				$response=xml_to_object($data);
 			}
 			return $response;
@@ -189,7 +189,7 @@ class LibSocketClient{
 	 * @access public
 	 * @param string $in
 	 */
-	function write($in){
+	function write(XML_Element $in){
 		if(!$this->is_connect()){
 			$this->error= 'Could not write to server!';
 			return false;
@@ -197,7 +197,7 @@ class LibSocketClient{
 		if(IS_DEBUG){
 			echo 'write:',$in,PHP_EOL;
 		}
-		if($this->sendKey){
+		if($this->sendKey && !in_array($in->type,array('Connect.Key','Connect.Ping'))){
 			$request=new XML_Element('request');
 			$request->type='Connect.Data';
 			$request->setText(str_encode((string)$in,$this->sendKey));

@@ -1,4 +1,4 @@
-#!/usr/bin/php -q
+#!/opt/ssp/bin/php -q
 <?php
 define('STD_CHARSET','utf-8');
 include_once('./console.php');

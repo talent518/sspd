@@ -34,10 +34,23 @@ ZEND_BEGIN_MODULE_GLOBALS(ssp)
 #ifdef PHP_SSP_DEBUG
 	unsigned long recv_bytes,send_bytes;
 #endif
+	int requestes;
 	char **bind;
 ZEND_END_MODULE_GLOBALS(ssp)
 
 #define SSP_G(v) TSRMG(ssp_globals_id, zend_ssp_globals *, v)
+
+#define TRIGGER_STARTUP() printf("trigger start: %d\n", SSP_G(requestes));\
+	if((SSP_G(requestes)++) == 0) {\
+		ssp_request_startup();\
+	}\
+	printf("trigger start: %d\n", SSP_G(requestes));
+
+#define TRIGGER_SHUTDOWN() printf("trigger end: %d\n", SSP_G(requestes));\
+	if((--SSP_G(requestes)) == 0) {\
+		ssp_request_shutdown();\
+	}\
+	printf("trigger end: %d\n", SSP_G(requestes));
 
 static PHP_MINIT_FUNCTION(ssp);
 static PHP_MSHUTDOWN_FUNCTION(ssp);

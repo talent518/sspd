@@ -1,0 +1,79 @@
+#!/opt/ssp/bin/php -q
+<?php
+define('IS_DEBUG', 1);
+define('STD_CHARSET','utf-8');
+
+require 'core.php';
+
+$socket=LIB('socket.client');
+
+@list(,$host,$port,$nthreads,$ntimes) = $_SERVER['argv'];
+
+if(!$host) {
+	$host = '127.0.0.1';
+}
+if(!$port) {
+	$port = 8083;
+}
+if(!$ntimes) {
+	$ntimes = 1000;
+}
+
+$beginTime=microtime(true);
+
+for($i=0;$i<$nthreads;$i++) {
+	$pid = pcntl_fork();
+	//父进程和子进程都会执行下面代码
+	if ($pid == -1) {
+		//错误处理：创建子进程失败时返回-1.
+		 die('could not fork');
+	} else if ($pid) {
+	} else {
+		break;
+	}
+}
+
+if($pid) {
+	$_pid = posix_getpid();
+
+	while(pcntl_wait($status) > 0) {
+	}
+
+	echo 'all run time: ',(microtime(true)-$beginTime)*1000,PHP_EOL;
+
+	exit;
+}
+
+$pid = posix_getpid();
+$beginTime=microtime(true);
+
+$socket->connect($host, $port);
+
+if($socket->is_connect()){
+	echo correct_charset('连接成功！'),PHP_EOL;
+}else{
+	echo correct_charset('连接失败！'),PHP_EOL;
+	exit;
+}
+
+$request=new XML_Element('request');
+$request->type='User.Login';
+$request->is_simple=true;
+$request->params=array_to_xml(array('username'=>'admin','password'=>'errorPasswd'),'params');
+
+for($i=0; $i<$ntimes; $i++) {
+	$request->pid=$pid;
+	$request->i=$i;
+	echo 'pid: ',$pid,', request: ',$i,PHP_EOL;
+	echo 'Send: ',$request,PHP_EOL;
+	$socket->write($request);
+	$response=$socket->read();
+	echo 'Recv: ',$response,PHP_EOL;
+	if(!$response) {
+		continue;
+	}
+}
+$socket->close();
+
+echo 'pid: ',$pid,', requests: ',$i,',run time: ',(microtime(true)-$beginTime)*1000,PHP_EOL;
+?>

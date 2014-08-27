@@ -56,110 +56,7 @@ const char HARDCODED_INI[] =
 	"max_execution_time=0\n"
 	"max_input_time=-1\n\0";
 
-/* {{{ ssp_seek_file_begin
- */
-static int ssp_seek_file_begin(zend_file_handle *file_handle, char *script_file, int *lineno TSRMLS_DC)
-{
-	char c;
-
-	*lineno = 1;
-
-	file_handle->type = ZEND_HANDLE_FP;
-	file_handle->opened_path = NULL;
-	file_handle->free_filename = 0;
-	if (!(file_handle->handle.fp = VCWD_FOPEN(script_file, "rb"))) {
-		php_printf("Could not open input file: %s\n", script_file);
-		return FAILURE;
-	}
-	file_handle->filename = script_file;
-
-	/* #!php support */
-	c = fgetc(file_handle->handle.fp);
-	if (c == '#' && (c = fgetc(file_handle->handle.fp)) == '!') {
-		while (c != '\n' && c != '\r' && c != EOF) {
-			c = fgetc(file_handle->handle.fp);	/* skip to end of line */
-		}
-		/* handle situations where line is terminated by \r\n */
-		if (c == '\r') {
-			if (fgetc(file_handle->handle.fp) != '\n') {
-				long pos = ftell(file_handle->handle.fp);
-				fseek(file_handle->handle.fp, pos - 1, SEEK_SET);
-			}
-		}
-		*lineno = 2;
-	} else {
-		rewind(file_handle->handle.fp);
-	}
-
-	return SUCCESS;
-}
-/* }}} */
-
 static php_stream *s_in_process = NULL;
-
-static void ssp_register_file_handles(TSRMLS_D) /* {{{ */
-{
-	zval *zin, *zout, *zerr;
-	php_stream *s_in, *s_out, *s_err;
-	php_stream_context *sc_in=NULL, *sc_out=NULL, *sc_err=NULL;
-	zend_constant ic, oc, ec;
-	
-	MAKE_STD_ZVAL(zin);
-	MAKE_STD_ZVAL(zout);
-	MAKE_STD_ZVAL(zerr);
-
-	s_in  = php_stream_open_wrapper_ex("php://stdin",  "rb", 0, NULL, sc_in);
-	s_out = php_stream_open_wrapper_ex("php://stdout", "wb", 0, NULL, sc_out);
-	s_err = php_stream_open_wrapper_ex("php://stderr", "wb", 0, NULL, sc_err);
-
-	if (s_in==NULL || s_out==NULL || s_err==NULL) {
-		FREE_ZVAL(zin);
-		FREE_ZVAL(zout);
-		FREE_ZVAL(zerr);
-		if (s_in) php_stream_close(s_in);
-		if (s_out) php_stream_close(s_out);
-		if (s_err) php_stream_close(s_err);
-		return;
-	}
-
-#if PHP_DEBUG
-	/* do not close stdout and stderr */
-	s_out->flags |= PHP_STREAM_FLAG_NO_CLOSE;
-	s_err->flags |= PHP_STREAM_FLAG_NO_CLOSE;
-#endif
-
-	s_in_process = s_in;
-
-	php_stream_to_zval(s_in,  zin);
-	php_stream_to_zval(s_out, zout);
-	php_stream_to_zval(s_err, zerr);
-	
-	ic.value = *zin;
-	ic.flags = CONST_CS;
-	ic.name = zend_strndup(ZEND_STRL("STDIN"));
-	ic.name_len = sizeof("STDIN");
-	ic.module_number = 0;
-	zend_register_constant(&ic TSRMLS_CC);
-
-	oc.value = *zout;
-	oc.flags = CONST_CS;
-	oc.name = zend_strndup(ZEND_STRL("STDOUT"));
-	oc.name_len = sizeof("STDOUT");
-	oc.module_number = 0;
-	zend_register_constant(&oc TSRMLS_CC);
-
-	ec.value = *zerr;
-	ec.flags = CONST_CS;
-	ec.name = zend_strndup(ZEND_STRL("STDERR"));
-	ec.name_len = sizeof("STDERR");
-	ec.module_number = 0;
-	zend_register_constant(&ec TSRMLS_CC);
-
-	FREE_ZVAL(zin);
-	FREE_ZVAL(zout);
-	FREE_ZVAL(zerr);
-}
-/* }}} */
 
 static inline int sapi_ssp_select(int fd TSRMLS_DC)
 {
@@ -419,34 +316,25 @@ void ssp_module_startup(){
 
 void ssp_request_startup(){
 	TSRMLS_FETCH();
-	int lineno = 0;
-	zend_file_handle file_handle;
 
-	if (request_init_file) {
-		if (ssp_seek_file_begin(&file_handle, request_init_file, &lineno TSRMLS_CC) != SUCCESS) {
-			return;
-		}
+	zend_file_handle zfd;
+
+	zfd.type = ZEND_HANDLE_FILENAME;
+	zfd.opened_path = NULL;
+
+	char real_path[MAXPATHLEN];
+	if (VCWD_REALPATH(request_init_file, real_path)) {
+		zfd.filename = strdup(real_path);
+		zfd.free_filename = 1;
 	} else {
-		file_handle.filename = "-";
-		//file_handle.handle.fp = stdin;
+		zfd.filename = request_init_file;
+		zfd.free_filename = 0;
 	}
-	file_handle.type = ZEND_HANDLE_FILENAME;
-	file_handle.opened_path = NULL;
-	file_handle.free_filename = 0;
-
-	SG(request_info).path_translated = file_handle.filename;
 
 	if (php_request_startup(TSRMLS_C)==FAILURE) {
-		fclose(file_handle.handle.fp);
 		printf("Request could not startup.\n");
 		return;
 	}
-
-	CG(unclean_shutdown)=0;
-
-	CG(start_lineno) = lineno;
-
-	zend_is_auto_global("_SERVER", sizeof("_SERVER")-1 TSRMLS_CC);
 
 	REGISTER_MAIN_STRING_CONSTANT("SSP_PIDFILE",ssp_pidfile,CONST_CS | CONST_PERSISTENT);
 	REGISTER_MAIN_STRING_CONSTANT("SSP_USER",ssp_user,CONST_CS | CONST_PERSISTENT);
@@ -463,12 +351,7 @@ void ssp_request_startup(){
 	REGISTER_MAIN_LONG_CONSTANT("IS_DEBUG",1,CONST_CS | CONST_PERSISTENT);
 #endif
 
-	if (strcmp(file_handle.filename, "-")) {
-		ssp_register_file_handles(TSRMLS_C);
-		zend_execute_scripts(ZEND_REQUIRE TSRMLS_CC, NULL, 1, &file_handle);
-		zend_destroy_file_handle(&file_handle TSRMLS_CC);
-		//php_execute_script(&file_handle TSRMLS_CC);
-	}
+	php_execute_script(&zfd TSRMLS_CC);
 }
 
 void ssp_request_shutdown(){
