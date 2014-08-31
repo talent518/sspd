@@ -14,7 +14,7 @@ fi
 pushd reflib
 
 #libtool
-if [ ! -f libtool.lock ]; then
+if [ ! -f "$(which libtool)" ] && [ ! -f libtool.lock ]; then
     echo Installing libtool ...
     if [ ! -d "libtool-2.4" ]; then
         tar -zxvf libtool-2.4.tar.gz
@@ -33,30 +33,6 @@ if [ ! -f libtool.lock ]; then
     else
         popd
         echo Installed libtool error.
-        exit 1
-    fi
-fi
-
-#libgcrypt
-if [ ! -f libgcrypt.lock ]; then
-    echo Installing libgcrypt ...
-    if [ ! -d "libgcrypt-1.4.5" ]; then
-        tar -jxvf libgcrypt-1.4.5.tar.bz2
-    fi
-    pushd libgcrypt-1.4.5
-    
-    ./configure --prefix=$INST_DIR \
-    && make \
-    && make install
-    
-    if [ "$?" = "0" ]; then
-        popd
-        rm -rf libgcrypt-1.4.5
-        touch libgcrypt.lock
-        echo Installed libgcrypt Success.
-    else
-        popd
-        echo Installed libgcrypt error.
         exit 1
     fi
 fi
@@ -205,6 +181,30 @@ if [ ! -f libxml.lock ]; then
     fi
 fi
 
+#libgcrypt
+if [ ! -f libgcrypt.lock ]; then
+    echo Installing libgcrypt ...
+    if [ ! -d "libgcrypt-1.4.5" ]; then
+        tar -jxvf libgcrypt-1.4.5.tar.bz2
+    fi
+    pushd libgcrypt-1.4.5
+    
+    ./configure --prefix=/usr \
+    && make \
+    && make install
+    
+    if [ "$?" = "0" ]; then
+        popd
+        rm -rf libgcrypt-1.4.5
+        touch libgcrypt.lock
+        echo Installed libgcrypt Success.
+    else
+        popd
+        echo Installed libgcrypt error.
+        exit 1
+    fi
+fi
+
 #libxslt
 if [ ! -f libxslt.lock ]; then
     echo Installing libxslt ...
@@ -213,7 +213,7 @@ if [ ! -f libxslt.lock ]; then
     fi
     pushd libxslt-1.1.22
     
-    ./configure --prefix=$INST_DIR --with-libxml-prefix=/usr/local/libxml2 \
+    ./configure --prefix=$INST_DIR --with-libxml-prefix=$INST_DIR \
     && make \
     && make install
     
@@ -232,10 +232,10 @@ fi
 #openssl
 if [ ! -f openssl.lock ]; then
     echo Installing openssl ...
-    if [ ! -d "/tmp/openssl-1.0.0d" ]; then
-        tar -zxvf openssl-1.0.0d.tar.gz -C /tmp/
+    if [ ! -d "openssl-1.0.0d" ]; then
+        tar -zxvf openssl-1.0.0d.tar.gz
     fi
-    pushd /tmp/openssl-1.0.0d
+    pushd openssl-1.0.0d
     
     ./config --prefix=$INST_DIR \
     && make \
@@ -243,7 +243,7 @@ if [ ! -f openssl.lock ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf /tmp/openssl-1.0.0d
+        rm -rf openssl-1.0.0d
         touch openssl.lock
         echo Installed openssl Success.
     else
@@ -257,10 +257,10 @@ fi
 #alter files /etc/inetd.conf and /etc/services exclude pop3 and imap front # number:
 if [ ! -f imap.lock ]; then
     echo Installing imap ...
-    if [ ! -d "/tmp/imap-2007a" ]; then
-        tar -zxvf imap-2007a1.tar.gz -C /tmp/
+    if [ ! -d "imap-2007a" ]; then
+        tar -zxvf imap-2007a1.tar.gz
     fi
-    pushd /tmp/imap-2007a
+    pushd imap-2007a
     
     make lr5 \
     && cp -u c-client/c-client.a $INST_DIR/lib/libc-client.a \
@@ -332,13 +332,13 @@ fi
 #php
 if [ ! -f php.lock ]; then
     echo Installing php ...
-    if [ ! -d "/tmp/php-5.3.15" ]; then
-        tar -jxvf php-5.3.15.tar.bz2 -C /tmp/
+    if [ ! -d "php-5.3.15" ]; then
+        tar -jxvf php-5.3.15.tar.bz2
     fi
-    pushd /tmp/php-5.3.15
+    pushd php-5.3.15
 
     OPT_MAK="--build=i386-redhat-linux-gnu --host=i386-redhat-linux-gnu --target=i686-redhat-linux-gnu --program-prefix= --prefix=$INST_DIR --exec-prefix=$INST_DIR --bindir=$INST_DIR/bin --sbindir=$INST_DIR/sbin --sysconfdir=$INST_DIR/etc --datadir=$INST_DIR/share --includedir=$INST_DIR/include --libdir=$INST_DIR/lib --libexecdir=$INST_DIR/libexec --localstatedir=$INST_DIR/var --sharedstatedir=$INST_DIR/var/lib --mandir=$INST_DIR/share/man --infodir=$INST_DIR/share/info --with-libdir=lib --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --with-exec-dir=$INST_DIR/bin --disable-debug"
-    OPT_EXT="--with-pic --disable-rpath --without-pear --with-ldap=shared --with-bz2=shared --enable-zip=shared --with-freetype-dir=$INST_DIR --with-png-dir=$INST_DIR --with-xpm-dir=$INST_DIR --enable-gd-native-ttf --without-gdbm --with-gettext --with-iconv --with-jpeg-dir=$INST_DIR --with-imap --with-imap-ssl=$INST_DIR --with-openssl=shared,$INST_DIR --with-zlib --with-layout=GNU --enable-exif --enable-ftp --enable-magic-quotes --enable-sockets --with-kerberos --enable-ucd-snmp-hack --enable-shmop --enable-calendar --with-sqlite=shared --with-sqlite3=shared --with-xsl=shared,$INST_DIR --with-libxml-dir=$INST_DIR --enable-xml=shared --with-xmlrpc=shared --enable-dom=shared --enable-soap=shared --with-gd=shared,$INST_DIR --disable-dba --without-unixODBC --enable-xmlreader=shared --enable-xmlwriter=shared --enable-phar=shared --enable-fileinfo=shared --enable-json=shared --without-pspell --enable-wddx=shared --with-curl=shared,$INST_DIR --enable-bcmath=shared --with-mcrypt=shared,$INST_DIR --with-mhash=shared,$INST_DIR --enable-mbstring=shared,all --enable-mbregex=shared --with-mysql=shared --with-mysqli=shared --with-pdo-mysql=shared --with-pdo-sqlite=shared --with-pgsql=shared --with-pdo-pgsql=shared --enable-posix=shared --enable-pcntl=shared --enable-sysvsem=shared --enable-sysvshm=shared --enable-sysvmsg=shared --enable-maintainer-zts --enable-zend-multibyte --enable-inline-optimization"
+    OPT_EXT="--disable-rpath --without-pear --with-ldap=shared --with-bz2=shared --enable-zip=shared --with-freetype-dir=$INST_DIR --with-png-dir=$INST_DIR --with-xpm-dir=$INST_DIR --enable-gd-native-ttf --with-jpeg-dir=$INST_DIR --with-gd=shared,$INST_DIR --without-gdbm --with-iconv --with-openssl=shared,$INST_DIR --with-zlib=shared --with-layout=GNU --enable-exif=shared --disable-magic-quotes --enable-sockets --enable-shmop --with-sqlite=shared --with-sqlite3=shared --with-xsl=shared,$INST_DIR --with-libxml-dir=$INST_DIR --enable-xml --disable-simplexml --disable-dba --without-unixODBC --enable-xmlreader=shared, --enable-xmlwriter=shared --enable-json=shared --without-pspell --with-curl=shared,$INST_DIR --enable-bcmath=shared --with-mcrypt=shared,$INST_DIR --with-mhash=shared,$INST_DIR --enable-mbstring=all --enable-mbregex --with-mysql --with-mysqli --with-pdo-mysql --with-pdo-sqlite=shared --enable-posix --enable-pcntl --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-maintainer-zts  --with-tsrm-pthreads --enable-zend-multibyte --enable-inline-optimization --disable-ctype --disable-tokenizer --disable-session --disable-phar --disable-fileinfo"
     OPT_OTH="--enable-embed"
 
     export EXTENSION_DIR=$INST_DIR/lib/extensions
@@ -346,7 +346,7 @@ if [ ! -f php.lock ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf /tmp/php-5.3.15
+        rm -rf php-5.3.15
         touch php.lock
         echo Installed php Success.
     else

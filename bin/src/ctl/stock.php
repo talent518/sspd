@@ -7,7 +7,7 @@ import('lib.xml');
 
 Class CtlStock extends CtlBase{
 	function onState($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		$response=new XML_Element('response');
 		if(UGK($uid,'stock_add')){
 			$response->type='Stock.State.Succeed';
@@ -28,7 +28,7 @@ Class CtlStock extends CtlBase{
 		$xml=new XML_Element('response');
 		$xml->type='Stock.List';
 		if(is_object($request)){
-			$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+			$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 			$page=(string)($request->params->page)+0;
 			$size=(string)($request->params->size)+0;
 			$isEval=(string)($request->params->isEval)+0;
@@ -69,8 +69,8 @@ Class CtlStock extends CtlBase{
 		return $xml;
 	}
 	function onAdd($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'stock_add')){
 			$response=new XML_Element('response');
 			$response->type='Stock.Add.Failed';
@@ -115,8 +115,8 @@ Class CtlStock extends CtlBase{
 		return $response;
 	}
 	function onEdit($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'stock_add')){
 			$response=new XML_Element('response');
 			$response->type='Stock.Edit.Failed';
@@ -165,8 +165,8 @@ Class CtlStock extends CtlBase{
 		return $response;
 	}
 	function onDrop($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'stock_add')){
 			$response=new XML_Element('response');
 			$response->type='Stock.Drop.Failed';
@@ -184,8 +184,8 @@ Class CtlStock extends CtlBase{
 		return $response;
 	}
 	function onView($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		$sid=(string)($request->params->sid)+0;
 		$response=new XML_Element('response');
 		$stock=MOD('user.stock')->get($sid);
@@ -217,8 +217,8 @@ Class CtlStock extends CtlBase{
 		return $response;
 	}
 	function onEval($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'stock_eval')){
 			$response=new XML_Element('response');
 			$response->type='Stock.Eval.Failed';
@@ -239,7 +239,7 @@ Class CtlStock extends CtlBase{
 			$response->type='Stock.Eval.Succeed';
 			$response->setText('提交成功！');
 			$stock=MOD('user.stock')->get($sid);
-			if($sf=MOD('user.online')->get_by_user($stock['uid'],'onid')){
+			if($sf=MOD('user.online')->get_by_user($stock['uid'],'id')){
 				$remind=new XML_Element('response');
 				$remind->type='Remind.OS';
 				if(UGK($stock['uid'],'stock_add')){

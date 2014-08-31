@@ -2,7 +2,7 @@
 #define PHP_FUNC_H
 
 #include <stdbool.h>
-#include "SAPI.h"
+#include <SAPI.h>
 
 extern sapi_module_struct ssp_sapi_module;
 

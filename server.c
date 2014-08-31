@@ -15,12 +15,13 @@
 #include "php_ext.h"
 #include "php_func.h"
 #include "ssp.h"
-#include "node.h"
+#include "data.h"
 #include "api.h"
+#include "event.h"
 
 #define flush() fflush(stdout)
 
-#define	BACKLOG 16
+unsigned int ssp_backlog=1024;
 
 char *ssp_host="0.0.0.0";
 short int ssp_port=8083;
@@ -30,9 +31,6 @@ char *ssp_user="daemon";
 
 int ssp_maxclients=1000;
 int ssp_maxrecvs=2*1024*1024;
-
-// event.c÷–∂®“Â
-void event_daemon (int sockfd);
 
 int server_start(){
 	struct sockaddr_in sin;
@@ -86,7 +84,7 @@ int server_start(){
 		return 0;
 	}
 
-	ret=listen(listen_fd, BACKLOG);
+	ret=listen(listen_fd, ssp_backlog);
 	if(ret<0){
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
@@ -129,33 +127,18 @@ int server_start(){
 		system("tput sgr0");
 	}
 
-	attach_node();
-	head->sockfd=listen_fd;
-	inet_ntop(AF_INET, &sin.sin_addr, head->host, sizeof(head->host));
-	head->port=ntohs(sin.sin_port);
+	attach_conn();
 
 	trigger(PHP_SSP_START);
 
-	event_daemon(listen_fd);
+	loop_event(listen_fd);
 
+	shutdown(listen_fd, 2);
 	close(listen_fd);
-	
-	BEGIN_READ_NODE{
-		node *p=head;
-		while(p->next!=head){
-			p=p->next;
-
-			p->reading=false;
-
-			trigger(PHP_SSP_CLOSE,p);
-
-			clean_node(p);
-		}
-	}END_READ_NODE;
 
 	trigger(PHP_SSP_STOP);
 
-	detach_node();
+	detach_conn();
 
 	exit(0);
 }
@@ -173,7 +156,7 @@ int server_stop(){
 		fclose(fp);
 		unlink(ssp_pidfile);
 		if(pid==getsid(pid)){
-			kill(pid,SIGTERM);
+			kill(pid,SIGINT);
 			while(pid==getsid(pid)){
 				printf(".");
 				flush();

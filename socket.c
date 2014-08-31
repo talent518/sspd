@@ -9,11 +9,13 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
+#include <assert.h>
 
 #include "ssp.h"
 #include "socket.h"
+#include "event.h"
 
-int recv_data_len(node *ptr){
+int recv_data_len(conn_t *ptr){
 	unsigned char buf[4];
 	int len=0,i,ret;
 
@@ -36,7 +38,7 @@ int recv_data_len(node *ptr){
 
 //接收来自客户端数据
 //返回值:0(关闭连接),-1(接收到的数据长度与数据包长度不一致),>0(接收成功)
-int socket_recv(node *ptr,char **data,int *data_len){
+int socket_recv(conn_t *ptr,char **data,int *data_len){
 	int ret=recv_data_len(ptr);
 	if(ret>0){
 		*data_len=ret;
@@ -68,7 +70,7 @@ int socket_recv(node *ptr,char **data,int *data_len){
 	return 1;
 }
 
-int socket_send(node *ptr,const char *data,int data_len){
+int socket_send(conn_t *ptr,const char *data,int data_len){
 	if(data_len<=0){
 		return -1;
 	}
@@ -89,4 +91,36 @@ int socket_send(node *ptr,const char *data,int data_len){
 		dprintf("Send Data Error! Package Length (%d),Sent Length(%d)!\n",plen,ret);
 	}
 	return ret;
+}
+
+void socket_close(conn_t *ptr) {
+	dprintf("socket_close start\n");
+
+	dprintf("socket_close: index(%d), sockfd(%d), host(%s), port(%d)!\n", ptr->index, ptr->sockfd, ptr->host, ptr->port);
+
+	event_thread_t *thread=ptr->thread;
+assert(thread);
+	pthread_mutex_lock(&thread->queue_lock);
+	{
+		thread_queue_t *queue=thread->queue;
+dprintf("socket_close:%d\n", __LINE__);
+		thread_queue_t *n=queue->next;
+		thread_queue_t *c=(thread_queue_t *)malloc(sizeof(thread_queue_t *));
+dprintf("socket_close:%d\n", __LINE__);
+		c->value = ptr;
+
+		c->next=n;
+		n->prev=c;
+dprintf("socket_close:%d\n", __LINE__);
+		queue->next=c;
+		c->prev=queue;
+dprintf("socket_close:%d\n", __LINE__);
+	}
+	pthread_mutex_unlock(&thread->queue_lock);
+
+	dprintf("socket_close end\n");
+
+	char buf[1];
+	buf[0] = 'x';
+	write(thread->write_fd, buf, 1);
 }

@@ -7,7 +7,7 @@ import('lib.xml');
 
 Class CtlInvest extends CtlBase{
 	function onState($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		$response=new XML_Element('response');
 		if(UGK($uid,'invest_add')){
 			$response->type='Invest.State.Succeed';
@@ -27,7 +27,7 @@ Class CtlInvest extends CtlBase{
 		return $response;
 	}
 	function onAgree($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		$response=new XML_Element('response');
 
 		if(UGK($uid,'invest')){
@@ -44,7 +44,7 @@ Class CtlInvest extends CtlBase{
 		$xml=new XML_Element('response');
 		$xml->type='Invest.List';
 		if(is_object($request)){
-			$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+			$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 			$page=(string)($request->params->page)+0;
 			$size=(string)($request->params->size)+0;
 			$isToday=(string)($request->params->isToday)+0;
@@ -70,8 +70,8 @@ Class CtlInvest extends CtlBase{
 		return $xml;
 	}
 	function onRestore($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'invest_add')){
 			return;
 		}
@@ -84,8 +84,8 @@ Class CtlInvest extends CtlBase{
 		return $response;
 	}
 	function onAdd($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'invest_add')){
 			$response=new XML_Element('response');
 			$response->type='Invest.Add.Failed';
@@ -135,8 +135,8 @@ Class CtlInvest extends CtlBase{
 		return $response;
 	}
 	function onEdit($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'invest_add')){
 			$response=new XML_Element('response');
 			$response->type='Invest.Edit.Failed';
@@ -177,8 +177,8 @@ Class CtlInvest extends CtlBase{
 		return $response;
 	}
 	function onDrop($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'invest_add')){
 			$response=new XML_Element('response');
 			$response->type='Invest.Drop.Failed';
@@ -197,8 +197,8 @@ Class CtlInvest extends CtlBase{
 		return $response;
 	}
 	function onAddStock($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'invest_add')){
 			$response=new XML_Element('response');
 			$response->type='Invest.AddStock.Failed';
@@ -227,8 +227,8 @@ Class CtlInvest extends CtlBase{
 		return $response;
 	}
 	function onEditStock($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'invest_add')){
 			$response=new XML_Element('response');
 			$response->type='Invest.EditStock.Failed';
@@ -256,8 +256,8 @@ Class CtlInvest extends CtlBase{
 		return $response;
 	}
 	function onDropStock($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'invest_add')){
 			$response=new XML_Element('response');
 			$response->type='Invest.DropStock.Failed';
@@ -275,8 +275,8 @@ Class CtlInvest extends CtlBase{
 		return $response;
 	}
 	function onView($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'invest_add')){
 			$response=new XML_Element('response');
 			$response->type='Invest.View.Failed';

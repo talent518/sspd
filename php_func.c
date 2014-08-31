@@ -2,25 +2,25 @@
 #include "ssp.h"
 #include "php_ext.h"
 
-#include "php.h"
-#include "php_globals.h"
-#include "php_ini.h"
-#include "php_main.h"
-#include "php_variables.h"
+#include <php.h>
+#include <php_globals.h>
+#include <php_ini.h>
+#include <php_main.h>
+#include <php_variables.h>
 
-#include "zend.h"
-#include "zend_constants.h"
-#include "zend_hash.h"
-#include "zend_modules.h"
+#include <zend.h>
+#include <zend_constants.h>
+#include <zend_hash.h>
+#include <zend_modules.h>
 
-#include "SAPI.h"
+#include <SAPI.h>
 
-#include "fopen_wrappers.h"
-#include "ext/standard/php_standard.h"
+#include <fopen_wrappers.h>
+#include <ext/standard/php_standard.h>
 #ifdef PHP_WIN32
 	#include <io.h>
 	#include <fcntl.h>
-	#include "win32/php_registry.h"
+	#include <win32/php_registry.h>
 #endif
 
 #if HAVE_SIGNAL_H
@@ -31,14 +31,14 @@
 	#include <unixlib/local.h>
 #endif
 
-#include "zend_compile.h"
-#include "zend_execute.h"
-#include "zend_exceptions.h"
+#include <zend_compile.h>
+#include <zend_execute.h>
+#include <zend_exceptions.h>
 
 #ifndef PHP_WIN32
 	#define php_select(m, r, w, e, t)	select(m, r, w, e, t)
 #else
-	#include "win32/select.h"
+	#include <win32/select.h>
 #endif
 
 #ifndef STDOUT_FILENO
@@ -242,7 +242,7 @@ static void sapi_ssp_ini_defaults(HashTable *configuration_hash)
 	INI_DEFAULT("report_zend_debug", "1");
 	INI_DEFAULT("display_errors", "1");
 	INI_DEFAULT("memory_limit", "256M");
-	INI_DEFAULT("zend.enable_gc","1");
+	INI_DEFAULT("zend.enable_gc","0");
 }
 /* }}} */
 
@@ -299,7 +299,7 @@ void ssp_init(){
 	CSM(php_ini_path_override) = NULL;
 	CSM(phpinfo_as_text) = 1;
 
-	tsrm_startup(128, 1, 0, NULL);
+	tsrm_startup(ssp_nthreads+1, 1, 0, NULL);
 	sapi_startup(&ssp_sapi_module);
 
 	CSM(ini_entries) = malloc(sizeof(HARDCODED_INI));

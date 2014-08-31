@@ -3,20 +3,18 @@
 
 echo 'help:',$_SERVER['argv'][0],' [servname]',PHP_EOL;
 echo 'help:',$_SERVER['argv'][0],' <servname> [port]',PHP_EOL;
-echo 'help:',$_SERVER['argv'][0],' <servname> <port> [pidfile]',PHP_EOL;
 
 $SSP_DIR=dirname(__FILE__);
 $SERV_NAME=(($_SERVER['argc']>=2 && preg_match("/[a-z0-9-_]+/i",$_SERVER['argv'][1]))?$_SERVER['argv'][1]:'ssp');
 $SERV_PORT=(($_SERVER['argc']>=3 && preg_match("/[0-9]+/i",$_SERVER['argv'][2]))?$_SERVER['argv'][2]:'8086');
-$SERV_PIDFILE=(($_SERVER['argc']==4 && preg_match("/[a-z0-9-_\/\.]+/i",$_SERVER['argv'][3]))?$_SERVER['argv'][3]:$SSP_DIR.'/log/ssp.pid');
 
+is_dir($SSP_DIR.'/log') or mkdir($SSP_DIR.'/log',0755);
 system('rm -f /etc/init.d/'.$SERV_NAME);
 
 $content=file_get_contents('./ssp-serv');
 $content=str_replace('{SSP_DIR}',$SSP_DIR,$content);
 $content=str_replace('{SERV_NAME}',$SERV_NAME,$content);
 $content=str_replace('{SERV_PORT}',$SERV_PORT,$content);
-$content=str_replace('{SERV_PIDFILE}',$SERV_PIDFILE,$content);
 file_put_contents('/etc/init.d/'.$SERV_NAME,$content);
 
 system('chmod 773 /etc/init.d/'.$SERV_NAME);

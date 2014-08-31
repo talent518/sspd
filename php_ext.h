@@ -1,16 +1,17 @@
 #ifndef PHP_EXT_H
 #define PHP_EXT_H
 
-#include "php.h"
+#include <php.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include "TSRM.h"
+#include <TSRM.h>
 
 //#define PHP_SSP_DEBUG
+//#define PHP_SSP_DEBUG_TRIGGER
 
-#define PHP_SSP_DESCRIPTOR_RES_NAME "ssp user node"
+#define PHP_SSP_DESCRIPTOR_RES_NAME "ssp user conn_t"
 #define PHP_SSP_VERSION "v2.1.0"
 
 #define PHP_SSP_BIND_LEN 7
@@ -22,6 +23,10 @@
 #define PHP_SSP_CONNECT_DENIED 4
 #define PHP_SSP_CLOSE 5
 #define PHP_SSP_STOP 6
+
+#define PHP_SSP_RES_INDEX 0
+#define PHP_SSP_RES_SOCKFD 1
+#define PHP_SSP_RES_PORT 2
 
 extern int le_ssp_descriptor;
 
@@ -40,17 +45,15 @@ ZEND_END_MODULE_GLOBALS(ssp)
 
 #define SSP_G(v) TSRMG(ssp_globals_id, zend_ssp_globals *, v)
 
-#define TRIGGER_STARTUP() printf("trigger start: %d\n", SSP_G(requestes));\
+#define TRIGGER_STARTUP() \
 	if((SSP_G(requestes)++) == 0) {\
 		ssp_request_startup();\
-	}\
-	printf("trigger start: %d\n", SSP_G(requestes));
+	}
 
-#define TRIGGER_SHUTDOWN() printf("trigger end: %d\n", SSP_G(requestes));\
+#define TRIGGER_SHUTDOWN() \
 	if((--SSP_G(requestes)) == 0) {\
 		ssp_request_shutdown();\
-	}\
-	printf("trigger end: %d\n", SSP_G(requestes));
+	}
 
 static PHP_MINIT_FUNCTION(ssp);
 static PHP_MSHUTDOWN_FUNCTION(ssp);
@@ -58,7 +61,7 @@ static PHP_GINIT_FUNCTION(ssp);
 static PHP_GSHUTDOWN_FUNCTION(ssp);
 static PHP_MINFO_FUNCTION(ssp);
 
-int trigger(unsigned short type,...);
+bool trigger(unsigned short type,...);
 
 static PHP_FUNCTION(ssp_mallinfo);
 static PHP_FUNCTION(ssp_bind);

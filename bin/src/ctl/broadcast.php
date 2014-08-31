@@ -7,7 +7,7 @@ import('lib.xml');
 
 Class CtlBroadcast extends CtlBase{
 	function onState($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		$response=new XML_Element('response');
 		if(UGK($uid,'broadcast_add')){
 			$response->type='Broadcast.State.Succeed';
@@ -26,13 +26,13 @@ Class CtlBroadcast extends CtlBase{
 		return $response;
 	}
 	function onOpen($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 
 		$response=new XML_Element('response');
 		if(UGK($uid,'broadcast')){
 			$response->type='Broadcast.Open.Succeed';
-			MOD('user.online')->edit($sockfd,array('broadcast'=>1));
+			MOD('user.online')->edit($index,array('broadcast'=>1));
 		}else{
 			$response->type='Broadcast.Open.Failed';
 			$response->setText(USER_NOPRIV_MSG);
@@ -40,7 +40,7 @@ Class CtlBroadcast extends CtlBase{
 		return $response;
 	}
 	function onDate($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 
 		if(!UGK($uid,'broadcast')){
 			$response=new XML_Element('response');
@@ -59,7 +59,7 @@ Class CtlBroadcast extends CtlBase{
 		return $response;
 	}
 	function onHistory($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 
 		if(!UGK($uid,'broadcast')){
 			$response=new XML_Element('response');
@@ -86,9 +86,9 @@ Class CtlBroadcast extends CtlBase{
 		return $response;
 	}
 	function onSend($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
+		$index=ssp_info($request->ClientId,'index');
 
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		$profile=MOD('user')->get_by_profile($uid);
 
 		if(!UGK($uid,'broadcast_add')){
@@ -116,9 +116,9 @@ Class CtlBroadcast extends CtlBase{
 			$sendXML->message->message=xml_to_object($message);
 			$sendXML->message->message->setTag('message');
 			$list=MOD('user.online')->get_list_by_where('uid>0 && broadcast>0');
-			foreach($list as $onid=>$r){
+			foreach($list as $id=>$r){
 				$sendXML->message->dateline=udate('H:i:s',$data['dateline'],$r['uid']);
-				if($onid!=$sockfd && $this->send($onid,(string)$sendXML)){
+				if($id!=$index && $this->send($id,(string)$sendXML)){
 					$count++;
 				}
 			}
@@ -134,13 +134,13 @@ Class CtlBroadcast extends CtlBase{
 		return $response;
 	}
 	function onClose($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 
 		$response=new XML_Element('response');
 		if(UGK($uid,'broadcast')){
 			$response->type='Broadcast.Close.Succeed';
-			MOD('user.online')->edit($sockfd,array('broadcast'=>0));
+			MOD('user.online')->edit($index,array('broadcast'=>0));
 		}else{
 			$response->type='Broadcast.Close.Failed';
 			$response->setText(USER_NOPRIV_MSG);

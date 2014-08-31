@@ -175,7 +175,6 @@ class LibSocketClient{
 			$response=xml_to_object($data);
 			if($this->receiveKey && $response->type=='Connect.Data'){
 				$data=str_decode($response->getText(),$this->receiveKey);
-				echo 'decode: ',$data,PHP_EOL;
 				$response=xml_to_object($data);
 			}
 			return $response;

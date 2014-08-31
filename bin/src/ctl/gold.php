@@ -7,7 +7,7 @@ import('lib.xml');
 
 Class CtlGold extends CtlBase{
 	function onState($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		$response=new XML_Element('response');
 		if(UGK($uid,'gold_add')){
 			$response->type='Gold.State.Succeed';
@@ -27,7 +27,7 @@ Class CtlGold extends CtlBase{
 		return $response;
 	}
 	function onAgree($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		$response=new XML_Element('response');
 
 		if(UGK($uid,'gold')){
@@ -44,7 +44,7 @@ Class CtlGold extends CtlBase{
 		$xml=new XML_Element('response');
 		$xml->type='Gold.List';
 		if(is_object($request)){
-			$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+			$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 			$page=(string)($request->params->page)+0;
 			$size=(string)($request->params->size)+0;
 			$isToday=(string)($request->params->isToday)+0;
@@ -66,8 +66,8 @@ Class CtlGold extends CtlBase{
 		return $xml;
 	}
 	function onAdd($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'gold_add')){
 			$response=new XML_Element('response');
 			$response->type='Gold.Add.Failed';
@@ -109,8 +109,8 @@ Class CtlGold extends CtlBase{
 		return $response;
 	}
 	function onEdit($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'gold_add')){
 			$response=new XML_Element('response');
 			$response->type='Gold.Edit.Failed';
@@ -142,8 +142,8 @@ Class CtlGold extends CtlBase{
 		return $response;
 	}
 	function onDrop($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'gold_add')){
 			$response=new XML_Element('response');
 			$response->type='Gold.Drop.Failed';
@@ -161,8 +161,8 @@ Class CtlGold extends CtlBase{
 		return $response;
 	}
 	function onView($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!UGK($uid,'gold_add')){
 			$response=new XML_Element('response');
 			$response->type='Gold.View.Failed';

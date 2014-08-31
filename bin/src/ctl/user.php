@@ -8,7 +8,7 @@ import('lib.xml');
 
 Class CtlUser extends CtlBase{
 	function onLogin($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
+		$index=ssp_info($request->ClientId,'index');
 		$params=&$request->params;
 		$auth=explode("\t",str_decode($params->auth));
 		if(count($auth)==2)
@@ -41,7 +41,7 @@ Class CtlUser extends CtlBase{
 
 		$response=new XML_Element('response');
 		if($uid<0){
-			MOD('user.online')->edit($sockfd,array('logintimes'=>MOD('user.online')->get_by_client($sockfd,'logintimes')+1));
+			MOD('user.online')->edit($index,array('logintimes'=>MOD('user.online')->get_by_client($index,'logintimes')+1));
 		}
 		if($uid==-1){
 			$response->type='User.Login.Failed';
@@ -53,10 +53,11 @@ Class CtlUser extends CtlBase{
 			$response->type='User.Login.Failed';
 			$response->setText('安全问题回答不正确！');
 		}else{
-			if($exitId=MOD('user.online')->get_by_user($uid,'onid')){
+			if($exitId=MOD('user.online')->get_by_user($uid,'id')){
 				$exitLogin=new XML_Element('response');
 				$exitLogin->type='User.Login.Failed';
 				$exitLogin->setText('此用户在另一地点登录，你被迫退出！');
+
 				$this->send($exitId,(string)$exitLogin);
 				$this->close($exitId);
 				$exitLogin=null;
@@ -81,7 +82,7 @@ Class CtlUser extends CtlBase{
 					'username'=>$username,
 					'password'=>$password,
 					'email'=>$email,
-					'regip'=>MOD('user.online')->get_by_client($sockfd,'host'),
+					'regip'=>MOD('user.online')->get_by_client($index,'host'),
 					'regtime'=>time(),
 					'prevlogtime'=>time(),
 					'logtime'=>time(),
@@ -101,7 +102,7 @@ Class CtlUser extends CtlBase{
 				'broadcast'=>(string)$params->broadcast+0,
 				'consult'=>(string)$params->consult+0,
 			);
-			MOD('user.online')->edit($sockfd,$data);
+			MOD('user.online')->edit($index,$data);
 			if(UGK($uid,'consult_reply')){
 				if($consults=(string)$params->consults){
 					MOD('user.serv')->update(array('isopen'=>0),'uid='.$uid.' AND cuid NOT IN('.iimplode(explode(',',$consults)).')');
@@ -114,7 +115,7 @@ Class CtlUser extends CtlBase{
 				$expiry=MOD('user.setting')->get($uid,'expiry');
 				$servday=round(($expiry-$user['logtime'])/86400,1);
 				if($servday<=0){
-					MOD('user.online')->drop($sockfd,true);
+					MOD('user.online')->drop($index,true);
 					$response->type='User.Login.Failed';
 					$response->setText('服务已过期！请即时续费！');
 					return $response;
@@ -191,15 +192,15 @@ Class CtlUser extends CtlBase{
 		return $response;
 	}
 	function logout($ClientId){
-		$sockfd=ssp_info($ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if($uid>0){
 			$onlinetime=time()-MOD('user.online')->get_by_user($uid,'logintime');
 			$data=array(
 				'onlinetime'=>'`onlinetime`+'.$onlinetime,
 			);
 			MOD('user')->edit($uid,$data,false,false);
-			MOD('user.online')->drop($sockfd,true);
+			MOD('user.online')->drop($index,true);
 			return true;
 		}
 		return false;
@@ -210,7 +211,7 @@ Class CtlUser extends CtlBase{
 			'username'=>(string)($request->params->username),
 			'password'=>(string)($request->params->password),
 			'email'=>(string)($request->params->email),
-			'regip'=>MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'host'),
+			'regip'=>MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'host'),
 			'regtime'=>time(),
 		);
 		if($uid=MOD('user')->register($data)){
@@ -287,7 +288,7 @@ Class CtlUser extends CtlBase{
 				$data[$key]=(string)$value;
 			}
 		}
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		if($profile=MOD('user.profile')->get($uid)){
 			MOD('user.profile')->edit($uid,$data);
 		}else{
@@ -300,11 +301,11 @@ Class CtlUser extends CtlBase{
 		return $response;
 	}
 	function onMute($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		MOD('user.setting')->set($uid,'mute',(string)($request->params->mute));
 	}
 	function onSendKey($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		MOD('user.setting')->set($uid,'sendkey',(string)($request->params->key));
 	}
 }

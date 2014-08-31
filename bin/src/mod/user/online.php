@@ -8,7 +8,7 @@ import('lib.cache');
 
 class ModUserOnline extends ModBase{
 	protected $table='user_online';
-	protected $priKey='onid';
+	protected $priKey='id';
 	protected $order;
 
 	protected $ushmid,$cshmid;

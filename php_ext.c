@@ -1,7 +1,7 @@
 #include "php_func.h"
 #include "php_ext.h"
 #include "ssp.h"
-#include "node.h"
+#include "data.h"
 #include "api.h"
 #include <error.h>
 #include <malloc.h>
@@ -19,8 +19,8 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_bind, 0, 0, 2)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_resource, 0, 0, 2)
-	ZEND_ARG_INFO(0, sockfd)
-	ZEND_ARG_INFO(0, is_bool)
+	ZEND_ARG_INFO(0, var)
+	ZEND_ARG_INFO(0, type)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 2)
@@ -73,10 +73,10 @@ zend_module_entry ssp_module_entry = {
 
 static void php_destroy_ssp(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
 {
-	node *ptr = (node *) rsrc->ptr;
+	conn_t *ptr = (conn_t *) rsrc->ptr;
 
 #ifdef PHP_SSP_DEBUG
-	php_printf("\nDestroy SSP Resource (%d) for the host %s, port %d.\n",ptr->sockfd,ptr->host,ptr->port);
+	php_printf("\nDestroy SSP Resource (%d: %d) for the host %s, port %d.\n",ptr->index,ptr->sockfd,ptr->host,ptr->port);
 #endif
 
 	//close(ptr->sockfd);
@@ -95,7 +95,11 @@ static PHP_MINIT_FUNCTION(ssp)
 	REGISTER_LONG_CONSTANT("SSP_CONNECT_DENIED",  PHP_SSP_CONNECT_DENIED,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_CLOSE",  PHP_SSP_CLOSE,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_STOP",  PHP_SSP_STOP,  CONST_CS | CONST_PERSISTENT);
-	
+
+	REGISTER_LONG_CONSTANT("SSP_RES_INDEX",  PHP_SSP_RES_INDEX,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_RES_SOCKFD",  PHP_SSP_RES_SOCKFD,  CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_RES_PORT",  PHP_SSP_RES_PORT,  CONST_CS | CONST_PERSISTENT);
+
 	le_ssp_descriptor = zend_register_list_destructors_ex(php_destroy_ssp, NULL, PHP_SSP_DESCRIPTOR_RES_NAME,module_number);
 
 #ifdef PHP_SSP_DEBUG
@@ -165,7 +169,7 @@ static PHP_MINFO_FUNCTION(ssp)
 	php_info_print_table_end();
 }
 
-static zval *_ssp_resource_zval(node *value)
+static zval *_ssp_resource_zval(conn_t *value)
 {
 	zval *ret;
 	MAKE_STD_ZVAL(ret);
@@ -184,7 +188,7 @@ static zval *_ssp_string_zval(const char *str,int len)
 	return ret;
 }
 
-int trigger(unsigned short type,...){
+bool trigger(unsigned short type,...){
 	TSRMLS_FETCH();
 
 	TRIGGER_STARTUP();
@@ -195,9 +199,10 @@ int trigger(unsigned short type,...){
 	zval *zval_ptr,*zval_data,*pfunc;
 	zval ***params,*retval;
 	int i,param_count,ret;
+	bool retbool=true;
 	char *call_func_name;
 	va_list args;
-	node *ptr;
+	conn_t *ptr;
 	char **data=NULL;
 	long *data_len;
 
@@ -214,7 +219,7 @@ int trigger(unsigned short type,...){
 		case PHP_SSP_RECEIVE:
 		case PHP_SSP_SEND:
 			param_count=2;
-			ptr=va_arg(args,node*);
+			ptr=va_arg(args,conn_t*);
 			data=va_arg(args,char**);
 			data_len=va_arg(args,long*);
 			params=(zval ***) emalloc(sizeof(zval **)*param_count);
@@ -227,7 +232,7 @@ int trigger(unsigned short type,...){
 		case PHP_SSP_CONNECT_DENIED:
 		case PHP_SSP_CLOSE:
 			param_count=1;
-			ptr=va_arg(args,node*);
+			ptr=va_arg(args,conn_t*);
 			params=(zval ***) emalloc(sizeof(zval **)*param_count);
 			zval_ptr=_ssp_resource_zval(ptr);
 			params[0]=&zval_ptr;
@@ -238,7 +243,7 @@ int trigger(unsigned short type,...){
 	}
 	va_end(args);
 
-#ifdef PHP_SSP_DEBUG
+#ifdef PHP_SSP_DEBUG_TRIGGER
 	long real_size=zend_memory_usage(1 TSRMLS_CC),size=zend_memory_usage(0 TSRMLS_CC);
 	long real_peak=zend_memory_peak_usage(1 TSRMLS_CC),peak=zend_memory_peak_usage(0 TSRMLS_CC);
 	printf("\n");
@@ -256,15 +261,18 @@ int trigger(unsigned short type,...){
 	strnprint("-",tput_cols());fflush(stdout);
 #endif
 	ret=call_user_function_ex(CG(function_table), NULL, pfunc, &retval, param_count, params,1,NULL TSRMLS_CC);
-#ifdef PHP_SSP_DEBUG
+#ifdef PHP_SSP_DEBUG_TRIGGER
 	strnprint("*",tput_cols());
 	printf("gc_enabled:%d,gc_collect_cycles:%d\n",GC_G(gc_enabled),gc_collect_cycles(TSRMLS_C));
 	strnprint("-",tput_cols());
 #endif
 	if(ret==SUCCESS){
+		if(Z_TYPE_P(retval) == IS_BOOL) {
+			retbool=Z_LVAL_P(retval);
+		}
 		if(param_count>1){
 			convert_to_string_ex(&retval);
-		#ifdef PHP_SSP_DEBUG
+		#ifdef PHP_SSP_DEBUG_TRIGGER
 			printf("\nfree(%d):0x%x\n",*data_len,*data);
 		#endif
 			free(*data);
@@ -276,7 +284,7 @@ int trigger(unsigned short type,...){
 				*data=NULL;
 				*data_len=0;
 			}
-		#ifdef PHP_SSP_DEBUG
+		#ifdef PHP_SSP_DEBUG_TRIGGER
 			printf("\nreturn data after(%s):%d",call_func_name,Z_STRLEN_P(retval));
 		#endif
 		}
@@ -284,7 +292,7 @@ int trigger(unsigned short type,...){
 		php_printf("\nUnable to call handler(%s)", call_func_name);
 	}
 	zval_ptr_dtor(&retval);
-#ifdef PHP_SSP_DEBUG
+#ifdef PHP_SSP_DEBUG_TRIGGER
 	printf("\nRemain Free Memory(%s):\n\treal_size:%d\n\tsize:%d\n\treal_peak:%d\n\tpeak:%d\n",
 		call_func_name,
 		zend_memory_usage(1 TSRMLS_CC)-real_size,
@@ -306,12 +314,12 @@ int trigger(unsigned short type,...){
 	zval_ptr_dtor(&pfunc);
 	free(call_func_name);
 	TRIGGER_SHUTDOWN();
-	return ret;
+	return retbool;
 }
 
 static PHP_FUNCTION(ssp_mallinfo){
     struct mallinfo info = mallinfo();
-	array_init(return_value);
+	array_init_size(return_value,10);
 	add_assoc_long(return_value,"arena",info.arena);//size of data segment used by malloc
 	add_assoc_long(return_value,"ordblks",info.ordblks);//number of free chunks
 	add_assoc_long(return_value,"smblks",info.smblks);//number of fast bins
@@ -339,16 +347,23 @@ static PHP_FUNCTION(ssp_bind){
 	RETURN_TRUE;
 }
 static PHP_FUNCTION(ssp_resource){
-	zend_bool is_port=0;
-	int sockfd;
-	node *ptr;
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l|b", &sockfd,&is_port) == FAILURE) {
+	long var,type;
+	conn_t *ptr=NULL;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &var, &type) == FAILURE) {
 		RETURN_FALSE;
 	}
-	if(is_port){
-		ptr=search_node(sockfd,is_port);
-	}else{
-		ptr=index_node(sockfd);
+	switch(type) {
+		case PHP_SSP_RES_SOCKFD:
+			ptr=sockfd_conn(var);
+			break;
+		case PHP_SSP_RES_PORT:
+			ptr=port_conn(var);
+			break;
+		case PHP_SSP_RES_INDEX:
+			ptr=index_conn(var);
+			break;
+		default:
+			break;
 	}
 	if(ptr!=NULL){
 		ZEND_REGISTER_RESOURCE(return_value,ptr,le_ssp_descriptor);
@@ -359,21 +374,24 @@ static PHP_FUNCTION(ssp_resource){
 
 static PHP_FUNCTION(ssp_info){
 	zval *res;
-	node *ptr;
+	conn_t *ptr;
 	char *key;
 	int key_len=0;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r|s", &res,&key,&key_len) == FAILURE) {
 		RETURN_FALSE;
 	}
-	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
+	ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
 	if(key_len==0){
-		array_init(return_value);
-		add_assoc_long(return_value,"sockfd",ptr->index);
+		array_init_size(return_value,3);
+		add_assoc_long(return_value,"index",ptr->index);
+		add_assoc_long(return_value,"sockfd",ptr->sockfd);
 		add_assoc_string(return_value,"host",ptr->host,1); /* cast to avoid gcc-warning */
 		add_assoc_long(return_value,"port",ptr->port);
 	}else{
-		if(!strcasecmp(key,"sockfd")){
+		if(!strcasecmp(key,"index")){
 			RETURN_LONG(ptr->index);
+		}else if(!strcasecmp(key,"sockfd")){
+			RETURN_LONG(ptr->sockfd);
 		}else if(!strcasecmp(key,"host")){
 			RETURN_STRING(strdup(ptr->host),strlen(ptr->host));
 		}else if(!strcasecmp(key,"port")){
@@ -389,11 +407,11 @@ static PHP_FUNCTION(ssp_send)
 	char *data;
 	long data_len;
 	zval *res;
-	node *ptr;
+	conn_t *ptr;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs", &res, &data, &data_len) == FAILURE) {
 		RETURN_FALSE;
 	}
-	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
+	ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
 	int ret=0;
 	char *_data=strndup(data,data_len+1);
 	trigger(PHP_SSP_SEND,ptr,&_data,&data_len);
@@ -405,14 +423,11 @@ static PHP_FUNCTION(ssp_send)
 static PHP_FUNCTION(ssp_close)
 {
 	zval *res;
-	node *ptr;
+	conn_t *ptr;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &res) == FAILURE) {
 		RETURN_FALSE;
 	}
-	ZEND_FETCH_RESOURCE(ptr,node*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
-	trigger(PHP_SSP_CLOSE,ptr);
-	int sockfd=ptr->sockfd;
-	remove_node(ptr);
-	shutdown(sockfd,2);
-	close(sockfd);
+	ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
+
+	socket_close(ptr);
 }

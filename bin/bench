@@ -1,6 +1,6 @@
 #!/opt/ssp/bin/php -q
 <?php
-define('IS_DEBUG', 1);
+define('IS_DEBUG', 0);
 define('STD_CHARSET','utf-8');
 
 require 'core.php';
@@ -39,7 +39,7 @@ if($pid) {
 	while(pcntl_wait($status) > 0) {
 	}
 
-	echo 'all run time: ',(microtime(true)-$beginTime)*1000,PHP_EOL;
+	echo 'all run time: ',microtime(true)-$beginTime,PHP_EOL;
 
 	exit;
 }
@@ -64,16 +64,16 @@ $request->params=array_to_xml(array('username'=>'admin','password'=>'errorPasswd
 for($i=0; $i<$ntimes; $i++) {
 	$request->pid=$pid;
 	$request->i=$i;
-	echo 'pid: ',$pid,', request: ',$i,PHP_EOL;
-	echo 'Send: ',$request,PHP_EOL;
+	//echo 'pid: ',$pid,', request: ',$i,PHP_EOL;
+	//echo 'Send: ',$request,PHP_EOL;
 	$socket->write($request);
 	$response=$socket->read();
-	echo 'Recv: ',$response,PHP_EOL;
+	//echo 'Recv: ',$response,PHP_EOL;
 	if(!$response) {
 		continue;
 	}
 }
 $socket->close();
 
-echo 'pid: ',$pid,', requests: ',$i,',run time: ',(microtime(true)-$beginTime)*1000,PHP_EOL;
+echo 'pid: ',$pid,', requests: ',$i,',run time: ',microtime(true)-$beginTime,PHP_EOL;
 ?>

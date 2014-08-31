@@ -42,7 +42,7 @@ Class CtlConsult extends CtlBase{
 		return $xml;
 	}
 	function onState($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		$response=new XML_Element('response');
 		if(UGK($uid,'consult_reply')){
 			$response->type='Consult.State.Succeed';
@@ -71,7 +71,7 @@ Class CtlConsult extends CtlBase{
 		return $response;
 	}
 	function onClients($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		if(UGK($uid,'consult_reply')){
 			$response=$this->userTree($uid);
 			$response->type='Consult.Clients.Succeed';
@@ -83,8 +83,8 @@ Class CtlConsult extends CtlBase{
 		return $response;
 	}
 	function onOpen($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 
 		$tuid=(string)($request->params->userId)+0;
 
@@ -126,12 +126,12 @@ Class CtlConsult extends CtlBase{
 			MOD('user.serv')->update(array('isopen'=>1,'unreads'=>0),'cuid='.((string)($request->params->userId)+0).' AND uid='.$uid);
 		}elseif($isAsk){
 			$response->type='Consult.Open.Succeed';
-			MOD('user.online')->edit($sockfd,array('consult'=>1));
+			MOD('user.online')->edit($index,array('consult'=>1));
 		}
 		return $response;
 	}
 	function onDate($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 
 		$tuid=(string)($request->params->userId)+0;
 
@@ -165,7 +165,7 @@ Class CtlConsult extends CtlBase{
 		return $response;
 	}
 	function onHistory($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 
 		$tuid=(string)($request->params->userId)+0;
 
@@ -207,9 +207,9 @@ Class CtlConsult extends CtlBase{
 		return $response;
 	}
 	function onSend($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
+		$index=ssp_info($request->ClientId,'index');
 
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		$profile=MOD('user')->get_by_profile($uid);
 
 		$tuid=(string)($request->params->userId)+0;
@@ -264,7 +264,7 @@ Class CtlConsult extends CtlBase{
 					$sendXML->message->message=xml_to_object($message);
 					$sendXML->message->message->setTag('message');
 					$sendXML->message->dateline=udate('H:i:s',$data['dateline'],$tuid);
-					if($this->send($online['onid'],(string)$sendXML)){
+					if($this->send($online['id'],(string)$sendXML)){
 						$isRecv=true;
 						$msg='对方收到已消息！';
 						MOD('user.consult')->update(array('isread'=>1),$ucid+0);
@@ -274,7 +274,7 @@ Class CtlConsult extends CtlBase{
 				}else{
 					$remind=new XML_Element('response');
 					$remind->type='Remind.Consult';
-					if($this->send($online['onid'],(string)$remind)){
+					if($this->send($online['id'],(string)$remind)){
 						$msg='对方收到提醒！';
 					}else{
 						$msg='发送提醒失败！';
@@ -296,8 +296,8 @@ Class CtlConsult extends CtlBase{
 		return $response;
 	}
 	function onClose($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 
 		$response=new XML_Element('response');
 		if(UGK($uid,'consult_reply')){
@@ -305,7 +305,7 @@ Class CtlConsult extends CtlBase{
 			MOD('user.serv')->update(array('isopen'=>0),'cuid='.((string)($request->params->userId)+0).' AND uid='.$uid);
 		}elseif(UGK($uid,'consult_ask')){
 			$response->type='Consult.Close.Succeed';
-			MOD('user.online')->edit($sockfd,array('consult'=>0));
+			MOD('user.online')->edit($index,array('consult'=>0));
 		}else{
 			$response->type='Consult.Close.Failed';
 			$response->setText(USER_NOPRIV_MSG);

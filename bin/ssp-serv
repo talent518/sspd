@@ -4,28 +4,33 @@
 # description:SSP Server 1.0.1
 # Comments to support LSB init script conventions
 
+BIN_DIR=/opt/ssp/bin
+SRC_DIR={SSP_DIR}
+PID_FILE=${SRC_DIR}/log/ssp.pid
+DPID_FILE=${SRC_DIR}/log/ssp.pid.daemon
+
 # See how we were called.
 case $1 in
     start|stop|restart|status)
-        "{SSP_DIR}/ssp" -H -f "{SSP_DIR}/init.php" --port {SERV_PORT} --pidfile "{SERV_PIDFILE}" -s $1
+        "${BIN_DIR}/ssp" -H -f "${SRC_DIR}/init.php" --port {SERV_PORT} --pidfile "{SERV_PIDFILE}" -s $1
         if [ "$1" = "stop" ]; then
-	    if [ -s "{SSP_DIR}/daemon.pid" ];then
-	        kill `cat {SSP_DIR}/daemon.pid`
+	    if [ -s "${DPID_FILE}" ];then
+	        kill `cat ${DPID_FILE}`
             fi
 	    exit $?
         fi
         if [ "$1" = "status" ]; then
 	    exit $?
         fi
-        if [ -s "{SSP_DIR}/daemon.pid" ];then
-	    if [ -d "/proc/`cat {SSP_DIR}/daemon.pid`" ];then
+        if [ -s "${DPID_FILE}" ];then
+	    if [ -d "/proc/`cat ${DPID_FILE}`" ];then
 	        exit $?
 	    fi
         fi
-        "{SSP_DIR}/daemon" "{SSP_DIR}/log/ssp.pid" "service {SERV_NAME} start" > "{SSP_DIR}/log/daemon.log"
+        "${BIN_DIR}/daemon" "${PID_FILE}" "service {SERV_NAME} start" >> "${SRC_DIR}/log/daemon.log"
         ;;
     path)
-        echo "{SSP_DIR}"
+        echo "${SRC_DIR}"
         ;;
     *)
         echo $"Usage: $0 {start|stop|restart|status|path}"

@@ -2,17 +2,17 @@
 #include "ssp.h"
 #include "php_ext.h"
 
-#include "php.h"
-#include "php_ini.h"
-#include "php_getopt.h"
-#include "zend_extensions.h"
-#include "zend_hash.h"
+#include <php.h>
+#include <php_ini.h>
+#include <php_getopt.h>
+#include <zend_extensions.h>
+#include <zend_hash.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef PHP_WIN32
-	#include "win32/time.h"
-	#include "win32/signal.h"
+	#include <win32/time.h>
+	#include <win32/signal.h>
 	#include <process.h>
 #endif
 #if HAVE_SYS_TIME_H
@@ -51,6 +51,7 @@ static const opt_struct OPTIONS[] = {
 	{'?', 0, "usage"},/* help alias (both '?' and 'usage') */
 	{'v', 0, "version"},
 	{'z', 1, "zend-extension"},
+	{'b', 1, "backlog"},
 	{'s', 1, "service"},
 
 	{OPT_HOST,  1, "host"},
@@ -101,6 +102,7 @@ static void php_ssp_usage(char *argv0)
 				"  --max-clients <number>  Max client connect number\n"
 				"  --max-recvs <size>      Max recv data size\n"
 				"\n"
+				"  -b                      Set the backlog queue limit (default: 1024)\n"
 				"  -s <option>             socket service option\n"
 				"  option:\n"
 				"       start              start ssp service\n"
@@ -229,6 +231,39 @@ int main(int argc, char *argv[])
 	setmode(_fileno(stdout), O_BINARY);		/* make the stdio mode be binary */
 	setmode(_fileno(stderr), O_BINARY);		/* make the stdio mode be binary */
 #endif
+
+	while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 0, 2))!=-1) {
+		switch (c) {
+			case OPT_HOST:
+				ssp_host=strdup(php_optarg);
+				break;
+			case OPT_PORT:
+				ssp_port=atoi(php_optarg);
+				break;
+			case OPT_PIDFILE:
+				ssp_pidfile=strdup(php_optarg);
+				break;
+
+			case OPT_USER:
+				ssp_user = strdup(php_optarg);
+				break;
+			case OPT_MAX_CLIENTS:
+				ssp_maxclients=atoi(php_optarg);
+				break;
+			case OPT_MAX_RECVS:
+				ssp_maxrecvs=atoi(php_optarg);
+				break;
+			case OPT_NTHREADS:
+				ssp_nthreads=atoi(php_optarg);
+				break;
+			case 'b':
+				ssp_backlog=atoi(php_optarg);
+				break;
+		}
+	}
+
+	php_optind = orig_optind;
+	php_optarg = orig_optarg;
 
 	ssp_init();
 
@@ -376,29 +411,6 @@ int main(int argc, char *argv[])
 
 				case 'H':
 					hide_argv = 1;
-					break;
-
-				case OPT_HOST:
-					ssp_host=strdup(php_optarg);
-					break;
-				case OPT_PORT:
-					ssp_port=atoi(php_optarg);
-					break;
-				case OPT_PIDFILE:
-					ssp_pidfile=strdup(php_optarg);
-					break;
-
-				case OPT_USER:
-					ssp_user = strdup(php_optarg);
-					break;
-				case OPT_MAX_CLIENTS:
-					ssp_maxclients=atoi(php_optarg);
-					break;
-				case OPT_MAX_RECVS:
-					ssp_maxrecvs=atoi(php_optarg);
-					break;
-				case OPT_NTHREADS:
-					ssp_nthreads=atoi(php_optarg);
 					break;
 
 				default:

@@ -8,16 +8,18 @@ Class CtlBase{
 		list($uid,$password)=(count($auth)<2?array(0,''):$auth);
 	}
 	function send($i,$request){
-		$res=is_resource($i)?$i:ssp_resource($i,false);
+		$res=is_resource($i)?$i:ssp_resource($i,SSP_RES_INDEX);
+
 		if(is_resource($res)){
 			return ssp_send($res,(string)$request);
 		}else{
-			echo 'Send "'.$request.'" To ('.$i.') error!';
+			server_log('Send "'.$request.'" To ('.$i.') error!');
 			return false;
 		}
 	}
 	function close($i){
-		$res=is_resource($i)?$i:ssp_resource($i,false);
+		$res=is_resource($i)?$i:ssp_resource($i,SSP_RES_INDEX);
+
 		return is_resource($res)?ssp_close($res):0;
 	}
 }

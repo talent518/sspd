@@ -7,7 +7,7 @@ import('lib.xml');
 
 Class CtlConsoleUser extends CtlBase{
 	function onState($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		$response=new XML_Element('response');
 		if(MUK($uid,'user')){
 			$response->type='Console.User.State.Succeed';
@@ -53,8 +53,8 @@ Class CtlConsoleUser extends CtlBase{
 		return $xml;
 	}
 	function onList($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 
 		if(!MUK($uid,'user')){
 			$response=new XML_Element('response');
@@ -134,7 +134,7 @@ Class CtlConsoleUser extends CtlBase{
 				'username'=>$username,
 				'password'=>md5('123456'),
 				'email'=>$email,
-				'regip'=>MOD('user.online')->get_by_client($sockfd,'host'),
+				'regip'=>MOD('user.online')->get_by_client($index,'host'),
 				'regtime'=>time(),
 				'prevlogtime'=>time(),
 				'logtime'=>time(),
@@ -151,8 +151,8 @@ Class CtlConsoleUser extends CtlBase{
 		return $xml;
 	}
 	function onEdit($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!MUK($uid,'user')){
 			$response=new XML_Element('response');
 			$response->type='Console.User.Edit.Failed';
@@ -185,8 +185,8 @@ Class CtlConsoleUser extends CtlBase{
 		return $response;
 	}
 	function onEditSave($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!MUK($uid,'user')){
 			$response=new XML_Element('response');
 			$response->type='Console.User.EditSave.Failed';
@@ -290,8 +290,8 @@ Class CtlConsoleUser extends CtlBase{
 		return $response;
 	}
 	function onDrop($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!MUK($uid,'user')){
 			$response=new XML_Element('response');
 			$response->type='Console.User.Drop.Failed';
@@ -310,8 +310,8 @@ Class CtlConsoleUser extends CtlBase{
 		return $response;
 	}
 	function onView($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!MUK($uid,'user')){
 			$response=new XML_Element('response');
 			$response->type='Console.User.View.Failed';

@@ -32,11 +32,13 @@ int main(int argc, char *argv[]){
 	char *command;
 	char *ps;
 
-	apidfile=gad(argv[0]);
-	strcat(apidfile,"/daemon.pid");
-
 	pidfile=strdup(argv[1]);
 	command=strdup(argv[2]);
+
+	apidfile = (char *)malloc(strlen(pidfile)+8);
+
+	strcat(apidfile,pidfile);
+	strcat(apidfile,".daemon");
 
 	int i;
 	for (i = 1; i < argc; i++) {

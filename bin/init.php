@@ -19,8 +19,11 @@ function ssp_start_handler(){
 
 function ssp_connect_handler($ClientId){
 	$info=ssp_info($ClientId);
-	server_log( 'New connection ( '.$info['sockfd'].' ) from '.$info['host'].' on port '.$info['port'].'. Time at '.date('m-d H:i:s',time()));
+	server_log( 'New connection ( '.$info['index'].' ) from '.$info['host'].' on port '.$info['port'].'. Time at '.date('m-d H:i:s',time()));
+
 	$info=null;
+
+	// return $info['index'] % 2 === 1; // 禁止index为偶数的连接
 }
 
 function ssp_connect_denied_handler($ClientId){
@@ -39,7 +42,8 @@ function ssp_receive_handler($ClientId,$data){
 			case 'Connect.Key':
 				$sendKey=LIB('string')->rand(128,STRING_RAND_BOTH);
 				$data=array(
-					'onid'=>$sockfd,
+					'id'=>$index,
+					'sockfd'=>$sockfd,
 					'host'=>$host,
 					'port'=>$port,
 					'time'=>time(),
@@ -48,7 +52,7 @@ function ssp_receive_handler($ClientId,$data){
 				);
 				MOD('user.online')->add($data);
 
-				data_log( 'Received: "'.trim( $request ).'" from '.$sockfd );
+				data_log( 'Received: "'.trim( $request ).'" from '.$index );
 
 				$response=new XML_Element('response');
 				$response->type='Connect.Key';
@@ -58,7 +62,7 @@ function ssp_receive_handler($ClientId,$data){
 				$request=$response=$data=null;
 				return $return;
 			case 'Connect.Data':
-				if($key=MOD('user.online')->get_by_client($sockfd,'receiveKey')){
+				if($key=MOD('user.online')->get_by_client($index,'receiveKey')){
 					$request=xml_to_object(str_decode($request->getText(),$key));
 				}
 				if(empty($request)){
@@ -66,19 +70,19 @@ function ssp_receive_handler($ClientId,$data){
 				}
 				break;
 			case 'Connect.Ping':
-				data_log( 'Received: "'.trim( $request ).'" from '.$sockfd );
+				data_log( 'Received: "'.trim( $request ).'" from '.$index );
 				return '<response type="Connect.Ping"/>';
 				break;
 			default:
 				break;
 		}
 
-		data_log( 'Received: "'.trim( $request ).'" from '.$sockfd );
+		data_log( 'Received: "'.trim( $request ).'" from '.$index );
 
 		$request->ClientId=$ClientId;
 		$type=preg_replace("/^\.?([a-z\.]+)\.?$/i","\\1",$request->type);
 		$authTypes=array('user.login','user.register','user.lostpasswd');
-		if(!in_array(strtolower($type),$authTypes) && !MOD('user.online')->get_by_client($sockfd,'uid')){
+		if(!in_array(strtolower($type),$authTypes) && !MOD('user.online')->get_by_client($index,'uid')){
 			$response=CTL('user')->login($ClientId);
 			if($response instanceof XML_Element || substr($response,0,1)=='<'){
 				$return=(string)$response;
@@ -92,7 +96,7 @@ function ssp_receive_handler($ClientId,$data){
 			$ctl=implode('.',$ctl);
 			$ctl_obj=CTL($ctl);
 			if($ctl_obj===false){
-				server_log("Client $sockfd controller \"$ctl\" not exists!");
+				server_log("Client $index controller \"$ctl\" not exists!");
 			}elseif(method_exists($ctl_obj,$mod)){
 				$response=$ctl_obj->$mod($request);
 				if($response instanceof XML_Element || substr($response,0,1)=='<'){
@@ -101,10 +105,10 @@ function ssp_receive_handler($ClientId,$data){
 					return $return;
 				}
 			}else{
-				server_log("Client $sockfd controller \"$ctl\" for method \"$mod\" not exists!");
+				server_log("Client $index controller \"$ctl\" for method \"$mod\" not exists!");
 			}
 		}else{
-			server_log("Client $sockfd type \"$type\" error!");
+			server_log("Client $index type \"$type\" error!");
 		}
 		$request=null;
 	}
@@ -116,11 +120,11 @@ function ssp_receive_handler($ClientId,$data){
 }
 
 function ssp_send_handler($ClientId,$data){
-	$sockfd=ssp_info($ClientId,'sockfd');
-	data_log('Sending: "'.$data.'" to: '.$sockfd);
+	$index=ssp_info($ClientId,'index');
+	data_log('Sending: "'.$data.'" to: '.$index);
 	$xml=xml_to_object($data);
 	if(!in_array($xml->type,array('Connect.Key','Connect.Ping'))){
-		$key=MOD('user.online')->get_by_client($sockfd,'sendKey');
+		$key=MOD('user.online')->get_by_client($index,'sendKey');
 		$response=new XML_Element('response');
 		$response->type='Connect.Data';
 		$response->setText(str_encode($data,$key));
@@ -138,9 +142,9 @@ function ssp_send_handler($ClientId,$data){
 function ssp_close_handler($ClientId){
 	$info=ssp_info($ClientId);
 	extract($info);$info=null;
-	server_log( 'Close connection ( '.$sockfd.' ) from '.$host.' on port '.$port.'. Time at '.date('m-d H:i:s',MOD('user.online')->get_by_client($sockfd,'time')));
+	server_log( 'Close connection ( '.$index.' ) from '.$host.' on port '.$port.'. Time at '.date('m-d H:i:s',MOD('user.online')->get_by_client($index,'time')));
 	CTL('user')->logout($ClientId);
-	MOD('user.online')->drop($sockfd);
+	MOD('user.online')->drop($index);
 }
 
 function ssp_stop_handler(){

@@ -7,7 +7,7 @@ import('lib.xml');
 
 Class CtlConsoleCount extends CtlBase{
 	function onState($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		$response=new XML_Element('response');
 		if(MUK($uid,'count')){
 			$response->type='Console.Count.State.Succeed';
@@ -18,7 +18,7 @@ Class CtlConsoleCount extends CtlBase{
 		return $response;
 	}
 	function onInfo($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 
 		$xml=new XML_Element('response');
 		if(!MUK($uid,'count')){

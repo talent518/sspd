@@ -7,7 +7,7 @@ import('lib.xml');
 
 Class CtlConsoleServGroup extends CtlBase{
 	function onState($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		$response=new XML_Element('response');
 		if(MUK($uid,'user_serv_group')){
 			$response->type='Console.ServGroup.State.Succeed';
@@ -18,7 +18,7 @@ Class CtlConsoleServGroup extends CtlBase{
 		return $response;
 	}
 	function onList($request){
-		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'sockfd'),'uid');
+		$uid=MOD('user.online')->get_by_client(ssp_info($request->ClientId,'index'),'uid');
 		$page=(string)($request->params->page)+0;
 		$size=(string)($request->params->size)+0;
 
@@ -37,8 +37,8 @@ Class CtlConsoleServGroup extends CtlBase{
 		return $xml;
 	}
 	function onAdd($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!MUK($uid,'user_serv_group')){
 			$response=new XML_Element('response');
 			$response->type='Console.ServGroup.Add.Failed';
@@ -62,8 +62,8 @@ Class CtlConsoleServGroup extends CtlBase{
 		return $response;
 	}
 	function onEdit($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!MUK($uid,'user_serv_group')){
 			$response=new XML_Element('response');
 			$response->type='Console.ServGroup.Edit.Failed';
@@ -81,8 +81,8 @@ Class CtlConsoleServGroup extends CtlBase{
 		return $response;
 	}
 	function onEditSave($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		if(!MUK($uid,'user_serv_group')){
 			$response=new XML_Element('response');
 			$response->type='Console.ServGroup.EditSave.Failed';
@@ -112,8 +112,8 @@ Class CtlConsoleServGroup extends CtlBase{
 		return $response;
 	}
 	function onDrop($request){
-		$sockfd=ssp_info($request->ClientId,'sockfd');
-		$uid=MOD('user.online')->get_by_client($sockfd,'uid');
+		$index=ssp_info($request->ClientId,'index');
+		$uid=MOD('user.online')->get_by_client($index,'uid');
 		$response=new XML_Element('response');
 		if(!MUK($uid,'user_serv_group')){
 			$response->type='Console.ServGroup.Drop.Failed';

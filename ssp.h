@@ -5,13 +5,13 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#include <event.h>
-
-#if 1
+#if 0
 	#define dprintf(...) printf(__VA_ARGS__)
 #else
 	#define dprintf(...)
 #endif
+
+extern unsigned int ssp_backlog;
 
 extern char *ssp_host;
 extern short int ssp_port;

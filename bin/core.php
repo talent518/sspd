@@ -1,6 +1,6 @@
 <?PHP
 define('IN_SERVER',TRUE);
-defined('IS_DEBUG') or define('IS_DEBUG',1);
+defined('IS_DEBUG') or define('IS_DEBUG',0);
 
 IS_DEBUG?error_reporting(E_ALL & ~E_WARNING & ~E_NOTICE):error_reporting(0);
 
@@ -23,7 +23,6 @@ define('RES_THUMB_DIR',RES_DIR.'thumb'.DIR_SEP);//缩略图目录
 define('IS_AVATAR_REAL',false);
 
 CFG();
-define('SSP_KEY',md5_file(__FILE__));
 defined('UC_DIR') or define('UC_DIR','');
 
 function CFG(){
@@ -227,7 +226,7 @@ function udate($format,$time,$uid){
 }
 
 function cdate($format,$time,$cid){
-	return gmdate($format,$time+MOD('user.online')->get_by_client(ssp_info($cid,'sockfd'),'timezone'));
+	return gmdate($format,$time+MOD('user.online')->get_by_client(ssp_info($cid,'index'),'timezone'));
 }
 
 function CGK($gid,$key=false){
