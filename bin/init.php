@@ -4,14 +4,6 @@ require SRC_DIR.'function_server.php';
 
 import('lib.xml');
 
-ssp_bind(SSP_START,'ssp_start_handler');
-ssp_bind(SSP_RECEIVE,'ssp_receive_handler');
-ssp_bind(SSP_SEND,'ssp_send_handler');
-ssp_bind(SSP_CONNECT,'ssp_connect_handler');
-ssp_bind(SSP_CONNECT_DENIED,'ssp_connect_denied_handler');
-ssp_bind(SSP_CLOSE,'ssp_close_handler');
-ssp_bind(SSP_STOP,'ssp_stop_handler');
-
 function ssp_start_handler(){
 	server_log('Server started at '.date('m-d H:i:s',time()).PHP_EOL.'Listening on port '.SSP_PORT);
 	MOD('user.online')->clean();
@@ -150,7 +142,5 @@ function ssp_close_handler($ClientId){
 function ssp_stop_handler(){
 	server_log('Server Stoped at '.date('H:i:s',time()));
 	MOD('user.online')->clean();
-	MOD('user.group')->clean();
-	MOD('user.setting')->clean();
 	DB()->close();
 }

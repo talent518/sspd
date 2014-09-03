@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <signal.h>
 
+#include "config.h"
 #include "php_ext.h"
 #include "php_func.h"
 #include "ssp.h"

@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <event.h>
+#include "queue.h"
 
 typedef struct _thread_queue_t
 {
@@ -18,7 +19,10 @@ typedef struct
 	struct event_base *base;
 	struct event event;
 	pthread_mutex_t queue_lock;
-	thread_queue_t *queue;
+	
+	queue_t *accept_queue;
+	queue_t *close_queue;
+
 	short id;
 	int read_fd;
 	int write_fd;

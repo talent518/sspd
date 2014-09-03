@@ -34,7 +34,7 @@ Class CtlConsoleService extends CtlBase{
 		$xml->sspVersion='SSP '.SSP_VERSION;
 		$xml->phpVersion='PHP '.PHP_VERSION;
 
-		$stime=filemtime(ROOT.'log'.DIR_SEP.'ssp.pid');
+		$stime=filemtime(SSP_PIDFILE);
 
 		$xml->sspTime=udate('Y-m-d H:i:s',$stime,$uid);
 		$xml->sspRunTimed=formatsecond(time()-$stime);

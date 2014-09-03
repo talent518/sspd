@@ -2,8 +2,6 @@
 if(!defined('IN_SERVER'))
 	exit('Access Denied');
 
-import('mod.base');
-
 class ModUserGroup extends ModBase{
 	protected $table='user_group';
 	protected $priKey='gid';
@@ -33,40 +31,24 @@ class ModUserGroup extends ModBase{
 		),
 	);
 
-	protected $shmid;
-	function ModUserGroup(){
-		$this->shmid=ssp_attach(ftok(__FILE__,'g'),SSP_MAX_CLIENTS*1000);
-	}
-
+	protected $groups=array();
 	function get($id,$key=false){
-		if(!ssp_has_var($this->shmid,$id)){
-			if(!ssp_set_var($this->shmid,$id,parent::get($id))){
-				echo '$this->shmid mod.user.group:get id "',$id,'" error!',PHP_EOL;
-			}
+		if(!isset($this->groups[$id])){
+			$this->groups[$id]=parent::get($id);
 		}
-		$group=ssp_get_var($this->shmid,$id);
-		return $key?$group[$key]:$group;
+		return $key?$this->groups[$id][$key]:$this->groups[$id];
 	}
 	function edit($id,$data,$isCheck=true,$isString=true){
-		$group=array_replace($this->get($id),$data);
-		if(!ssp_set_var($this->shmid,$id,$group)){
-			echo '$this->shmid mod.user.group:edit id "',$id,'" error!',PHP_EOL;
-		}
+		$this->groups[$id]=array_replace($this->groups[$id],$data);
 		$this->rules['gname']['query']=array('user_group',sprintf('gname=\'%s\' AND gid!=%d',$data['gname'],$id));
 		$this->rules['title']['query']=array('user_group',sprintf('title=\'%s\' AND gid!=%d',$data['title'],$id));
 		return parent::edit($id,$data,$isCheck,$isString);
 	}
 	function drop($id){
-		ssp_remove_var($this->shmid,$id);
+		$this->groups[$id]=null;
 		if($ret=parent::drop($id)){
-			MOD('user')->drops(DB()->select(array('table'=>'user','field'=>'uid','where'=>'gid='.$gid),SQL_SELECT_LIST,null,'uid'));
+			MOD('user')->drops(DB()->select(array('table'=>'user','field'=>'uid','where'=>'gid='.$id),SQL_SELECT_LIST,null,'uid'));
 		}
 		return $ret;
-	}
-	function clean(){
-		ssp_remove($this->shmid);
-	}
-	function __destruct(){
-		ssp_detach($this->shmid);
 	}
 }

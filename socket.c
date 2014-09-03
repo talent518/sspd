@@ -94,33 +94,11 @@ int socket_send(conn_t *ptr,const char *data,int data_len){
 }
 
 void socket_close(conn_t *ptr) {
-	dprintf("socket_close start\n");
-
 	dprintf("socket_close: index(%d), sockfd(%d), host(%s), port(%d)!\n", ptr->index, ptr->sockfd, ptr->host, ptr->port);
 
-	event_thread_t *thread=ptr->thread;
-assert(thread);
-	pthread_mutex_lock(&thread->queue_lock);
-	{
-		thread_queue_t *queue=thread->queue;
-dprintf("socket_close:%d\n", __LINE__);
-		thread_queue_t *n=queue->next;
-		thread_queue_t *c=(thread_queue_t *)malloc(sizeof(thread_queue_t *));
-dprintf("socket_close:%d\n", __LINE__);
-		c->value = ptr;
-
-		c->next=n;
-		n->prev=c;
-dprintf("socket_close:%d\n", __LINE__);
-		queue->next=c;
-		c->prev=queue;
-dprintf("socket_close:%d\n", __LINE__);
-	}
-	pthread_mutex_unlock(&thread->queue_lock);
-
-	dprintf("socket_close end\n");
+	queue_push(ptr->thread->close_queue, ptr);
 
 	char buf[1];
 	buf[0] = 'x';
-	write(thread->write_fd, buf, 1);
+	write(ptr->thread->write_fd, buf, 1);
 }

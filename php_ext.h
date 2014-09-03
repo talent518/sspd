@@ -8,8 +8,7 @@
 
 #include <TSRM.h>
 
-//#define PHP_SSP_DEBUG
-//#define PHP_SSP_DEBUG_TRIGGER
+#include "config.h"
 
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp user conn_t"
 #define PHP_SSP_VERSION "v2.1.0"
@@ -36,9 +35,6 @@ extern zend_module_entry ssp_module_entry;
 #define phpext_ssp_ptr &ssp_module_entry
 
 ZEND_BEGIN_MODULE_GLOBALS(ssp)
-#ifdef PHP_SSP_DEBUG
-	unsigned long recv_bytes,send_bytes;
-#endif
 	int requestes;
 	char **bind;
 ZEND_END_MODULE_GLOBALS(ssp)
@@ -64,7 +60,6 @@ static PHP_MINFO_FUNCTION(ssp);
 bool trigger(unsigned short type,...);
 
 static PHP_FUNCTION(ssp_mallinfo);
-static PHP_FUNCTION(ssp_bind);
 static PHP_FUNCTION(ssp_resource);
 static PHP_FUNCTION(ssp_info);
 static PHP_FUNCTION(ssp_send);

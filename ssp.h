@@ -5,7 +5,9 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#if 0
+#include "config.h"
+
+#ifdef SSP_DEBUG_PRINTF
 	#define dprintf(...) printf(__VA_ARGS__)
 #else
 	#define dprintf(...)
