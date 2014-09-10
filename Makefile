@@ -36,18 +36,14 @@ test: kill clean $(BUILD_DIR) $(BIN_DIR)/ssp
 	@tput sgr0
 	@rm -rf /tmp/ssp
 	@cp -R $(PWD)/bin /tmp/ssp
-	@ipcs -m | awk '$2 ~/[0-9]+/ {print $2}' | while read s; do ipcrm -m $s; done
-	@ipcs -s | awk '$2 ~/[0-9]+/ {print $2}' | while read s; do ipcrm -s $s; done
 	@$(BIN_DIR)/ssp --port 8086 --nthreads 10 -f /tmp/ssp/init.php -s start
 
-retest:
+retest: kill
 	@echo -e "\E[32m"$@
 	@tput sgr0
 	@rm -rf /tmp/ssp
 	@cp -R $(PWD)/bin /tmp/ssp
-	@ipcs -m | awk '$2 ~/[0-9]+/ {print $2}' | while read s; do ipcrm -m $s; done
-	@ipcs -s | awk '$2 ~/[0-9]+/ {print $2}' | while read s; do ipcrm -s $s; done
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 10 -f /tmp/ssp/init.php -s restart
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 20 -f /tmp/ssp/init.php -s start
 
 kill:
 	@echo -e "\E[31m"$@
@@ -57,7 +53,7 @@ kill:
 bench:
 	@echo -e "\E[31m"$@
 	@tput sgr0
-	@$(PWD)/bin/bench 127.0.0.1 8086 50 1000
+	@$(PWD)/bin/bench 127.0.0.1 8086 100 1000
 
 clean:
 	@echo -e "\E[33m"$@
