@@ -264,21 +264,25 @@ Class CtlConsult extends CtlBase{
 					$sendXML->message->message=xml_to_object($message);
 					$sendXML->message->message->setTag('message');
 					$sendXML->message->dateline=udate('H:i:s',$data['dateline'],$tuid);
-					if($this->send($online['id'],(string)$sendXML)){
+					$res=ssp_resource($online['id'],SSP_RES_INDEX);
+					if(ssp_send($res,(string)$sendXML)){
 						$isRecv=true;
 						$msg='对方收到已消息！';
 						MOD('user.consult')->update(array('isread'=>1),$ucid+0);
 					}else{
 						$msg='发送消息到对方失败！';
 					}
+					ssp_destroy($res);
 				}else{
 					$remind=new XML_Element('response');
 					$remind->type='Remind.Consult';
-					if($this->send($online['id'],(string)$remind)){
+					$res=ssp_resource($online['id'],SSP_RES_INDEX);
+					if(ssp_send($res,(string)$remind)){
 						$msg='对方收到提醒！';
 					}else{
 						$msg='发送提醒失败！';
 					}
+					ssp_destroy($res);
 				}
 			}
 			if(!$isRecv && $isAsk){

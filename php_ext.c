@@ -7,6 +7,8 @@
 #include <malloc.h>
 #include <signal.h>
 
+static pthread_mutex_t unique_lock;
+
 static char trigger_handlers[7][30]={
 	"ssp_start_handler",
 	"ssp_receive_handler",
@@ -17,7 +19,7 @@ static char trigger_handlers[7][30]={
 	"ssp_stop_handler",
 };
 
-int le_ssp_descriptor;
+int le_ssp_descriptor,le_ssp_descriptor_ref;
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mallinfo, 0, 0, 0)
@@ -41,6 +43,16 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_close, 0, 0, 1)
 	ZEND_ARG_INFO(0, socket)
 ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_destroy, 0, 0, 1)
+	ZEND_ARG_INFO(0, socket)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_lock, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_unlock, 0, 0, 0)
+ZEND_END_ARG_INFO()
 /* }}} */
 
 /* {{{ ssp_functions[] */
@@ -51,6 +63,9 @@ function_entry ssp_functions[] = {
 	PHP_FE(ssp_info, arginfo_ssp_info)
 	PHP_FE(ssp_send, arginfo_ssp_send)
 	PHP_FE(ssp_close, arginfo_ssp_close)
+	PHP_FE(ssp_destroy, arginfo_ssp_destroy)
+	PHP_FE(ssp_lock, arginfo_ssp_lock)
+	PHP_FE(ssp_unlock, arginfo_ssp_unlock)
 	{NULL, NULL, NULL}
 };
 /* }}} */
@@ -79,9 +94,14 @@ static void php_destroy_ssp(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
 {
 	conn_t *ptr = (conn_t *) rsrc->ptr;
 
-#ifdef SSP_DEBUG_EXT
-	php_printf("\nDestroy SSP Resource (%d: %d) for the host %s, port %d.\n",ptr->index,ptr->sockfd,ptr->host,ptr->port);
-#endif
+	conn_info(ptr);
+}
+
+static void php_destroy_ssp_ref(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
+{
+	conn_t *ptr = (conn_t *) rsrc->ptr;
+
+	unref_conn(ptr);
 }
 
 /* {{{ MINIT */
@@ -102,6 +122,9 @@ static PHP_MINIT_FUNCTION(ssp)
 	REGISTER_LONG_CONSTANT("SSP_RES_PORT",  PHP_SSP_RES_PORT,  CONST_CS | CONST_PERSISTENT);
 
 	le_ssp_descriptor = zend_register_list_destructors_ex(php_destroy_ssp, NULL, PHP_SSP_DESCRIPTOR_RES_NAME,module_number);
+	le_ssp_descriptor_ref = zend_register_list_destructors_ex(php_destroy_ssp_ref, NULL, PHP_SSP_DESCRIPTOR_REF_RES_NAME,module_number);
+
+	pthread_mutex_init(&unique_lock, NULL);
 
 #ifdef SSP_DEBUG_EXT
 	printf("ssp module init\n");
@@ -116,6 +139,8 @@ static PHP_MINIT_FUNCTION(ssp)
 static PHP_MSHUTDOWN_FUNCTION(ssp)
 {
 	ts_free_id(ssp_globals_id);
+
+	pthread_mutex_destroy(&unique_lock);
 #ifdef SSP_DEBUG_EXT
 	printf("ssp module shutdown\n");
 #endif
@@ -297,7 +322,7 @@ static PHP_FUNCTION(ssp_resource){
 			break;
 	}
 	if(ptr!=NULL){
-		ZEND_REGISTER_RESOURCE(return_value,ptr,le_ssp_descriptor);
+		ZEND_REGISTER_RESOURCE(return_value,ptr,le_ssp_descriptor_ref);
 	}else{
 		RETURN_FALSE;
 	}
@@ -305,19 +330,23 @@ static PHP_FUNCTION(ssp_resource){
 
 static PHP_FUNCTION(ssp_info){
 	zval *res;
-	conn_t *ptr;
+	conn_t *ptr=NULL;
 	char *key;
 	int key_len=0;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r|s", &res,&key,&key_len) == FAILURE) {
 		RETURN_FALSE;
 	}
 	ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
+	if(!ptr) {
+		ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
+	}
 	if(key_len==0){
 		array_init_size(return_value,3);
 		add_assoc_long(return_value,"index",ptr->index);
 		add_assoc_long(return_value,"sockfd",ptr->sockfd);
 		add_assoc_string(return_value,"host",ptr->host,1); /* cast to avoid gcc-warning */
 		add_assoc_long(return_value,"port",ptr->port);
+		add_assoc_long(return_value,"tid",ptr->thread->id);
 	}else{
 		if(!strcasecmp(key,"index")){
 			RETURN_LONG(ptr->index);
@@ -327,6 +356,8 @@ static PHP_FUNCTION(ssp_info){
 			RETURN_STRING(strdup(ptr->host),strlen(ptr->host));
 		}else if(!strcasecmp(key,"port")){
 			RETURN_LONG(ptr->port);
+		}else if(!strcasecmp(key,"tid")){
+			RETURN_LONG(ptr->thread->id);
 		}else{
 			RETURN_NULL();
 		}
@@ -338,27 +369,65 @@ static PHP_FUNCTION(ssp_send)
 	char *data;
 	long data_len;
 	zval *res;
-	conn_t *ptr;
+	conn_t *ptr=NULL;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs", &res, &data, &data_len) == FAILURE) {
 		RETURN_FALSE;
 	}
-	ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
-	int ret=0;
-	char *_data=strndup(data,data_len+1);
-	trigger(PHP_SSP_SEND,ptr,&_data,&data_len);
-	ret=socket_send(ptr,_data,data_len);
-	free(_data);
-	RETURN_LONG(ret);
+	ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
+	if(ptr) {
+		int ret=0;
+		char *_data=strndup(data,data_len+1);
+		trigger(PHP_SSP_SEND,ptr,&_data,&data_len);
+		ret=socket_send(ptr,_data,data_len);
+		free(_data);
+		RETURN_LONG(ret);
+	} else {
+		RETURN_FALSE;
+	}
+}
+
+static PHP_FUNCTION(ssp_destroy)
+{
+	zval *res;
+	conn_t *ptr=NULL;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &res) == FAILURE) {
+		RETURN_FALSE;
+	}
+	ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
+
+	if(ptr) {
+		zend_list_delete(Z_LVAL_P(res));
+		RETURN_TRUE;
+	} else {
+		RETURN_FALSE;
+	}
 }
 
 static PHP_FUNCTION(ssp_close)
 {
 	zval *res;
-	conn_t *ptr;
+	conn_t *ptr=NULL;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &res) == FAILURE) {
 		RETURN_FALSE;
 	}
-	ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
+	ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
 
-	socket_close(ptr);
+	if(ptr) {
+		socket_close(ptr);
+
+		zend_list_delete(Z_LVAL_P(res));
+
+		RETURN_TRUE;
+	} else {
+		RETURN_FALSE;
+	}
+}
+
+static PHP_FUNCTION(ssp_lock)
+{
+	pthread_mutex_lock(&unique_lock);
+}
+static PHP_FUNCTION(ssp_unlock)
+{
+	pthread_mutex_unlock(&unique_lock);
 }

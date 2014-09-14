@@ -102,7 +102,9 @@ Class CtlStock extends CtlBase{
 			$remind->type='Remind.OS';
 			foreach(MOD('user.online')->get_list_by_where('uid>0') as $sf=>$r){
 				if(UGK($r['uid'],'stock_eval')){
-					$this->send($sf,(string)$remind);
+					$res=ssp_resource($sf,SSP_RES_INDEX);
+					ssp_send($res,(string)$remind);
+					ssp_destroy($res);
 				}
 			}
 		}elseif($error=MOD('user.stock')->error){
@@ -152,7 +154,9 @@ Class CtlStock extends CtlBase{
 			$remind->type='Remind.OS';
 			foreach(MOD('user.online')->get_list_by_where('uid>0') as $sf=>$r){
 				if(UGK($r['uid'],'stock_eval')){
-					$this->send($sf,(string)$remind);
+					$res=ssp_resource($sf,SSP_RES_INDEX);
+					ssp_send($res,(string)$remind);
+					ssp_destroy($res);
 				}
 			}
 		}elseif($error=MOD('user.stock')->error){
@@ -243,7 +247,9 @@ Class CtlStock extends CtlBase{
 				$remind=new XML_Element('response');
 				$remind->type='Remind.OS';
 				if(UGK($stock['uid'],'stock_add')){
-					$this->send($sf,(string)$remind);
+					$res=ssp_resource($sf,SSP_RES_INDEX);
+					ssp_send($res,(string)$remind);
+					ssp_destroy($res);
 				}
 			}
 		}elseif($error=MOD('user.stock')->error){

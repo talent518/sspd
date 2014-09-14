@@ -78,15 +78,17 @@ static void php_ssp_usage(char *argv0)
 	} else {
 		prog = "php";
 	}
+
+	char *maxrecvs;
+
+	maxrecvs=(char*)fsize(ssp_maxrecvs);
 	
 	php_printf( "Usage: %s [options] [args]\n"
-	            "       %s [options] [args]\n"
 	            "\n"
 				"  options:\n"
 				"  -c <path>|<file>        Look for php.ini file in this directory\n"
 				"  -n                      No php.ini file will be used\n"
 				"  -d foo[=bar]            Define INI entry foo with value 'bar'\n"
-				"  -f <file>               Parse and execute <file>.\n"
 				"  -h,-?                   This help\n"
 				"  -i                      PHP information\n"
 				"  -m                      Show compiled in modules\n"
@@ -94,15 +96,16 @@ static void php_ssp_usage(char *argv0)
 				"  -v                      Version number\n"
 				"  -z <file>               Load Zend extension <file>.\n"
 				"\n"
-				"  --host <IP>             Listen host\n"
-				"  --port <port>           Listen port\n"
-				"  --pidfile <file>        Service pidfile\n"
-				"  --user <username>       Run for user\n"
-				"  --nthreads <number>     LibEvent thread number\n"
-				"  --max-clients <number>  Max client connect number\n"
-				"  --max-recvs <size>      Max recv data size\n"
+				"  -f <file>               Parse and execute <file>.\n"
+				"  --host <IP>             Listen host (default: %s)\n"
+				"  --port <port>           Listen port (default: %d)\n"
+				"  --pidfile <file>        Service pidfile (default: %s)\n"
+				"  --user <username>       Run for user (default: %s)\n"
+				"  --nthreads <number>     LibEvent thread number (default: %d)\n"
+				"  --max-clients <number>  Max client connect number (default: %d)\n"
+				"  --max-recvs <size>      Max recv data size (default: %s)\n"
+				"  -b <backlog>            Set the backlog queue limit (default: %d)\n"
 				"\n"
-				"  -b                      Set the backlog queue limit (default: 1024)\n"
 				"  -s <option>             socket service option\n"
 				"  option:\n"
 				"       start              start ssp service\n"
@@ -110,7 +113,9 @@ static void php_ssp_usage(char *argv0)
 				"       restart            restart ssp service\n"
 				"       status             ssp service status\n"
 				"\n"
-				, prog, prog, prog, prog, prog, prog);
+				, prog, ssp_host, ssp_port, ssp_pidfile, ssp_user, ssp_nthreads, ssp_maxclients, maxrecvs, ssp_backlog);
+
+	free(maxrecvs);
 }
 /* }}} */
 
@@ -251,7 +256,7 @@ int main(int argc, char *argv[])
 				ssp_maxclients=atoi(php_optarg);
 				break;
 			case OPT_MAX_RECVS:
-				ssp_maxrecvs=atoi(php_optarg);
+				ssp_maxrecvs=zend_atoi(php_optarg, strlen(php_optarg));
 				break;
 			case OPT_NTHREADS:
 				ssp_nthreads=atoi(php_optarg);

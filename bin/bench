@@ -5,9 +5,7 @@ define('STD_CHARSET','utf-8');
 
 require 'core.php';
 
-$socket=LIB('socket.client');
-
-@list(,$host,$port,$nthreads,$ntimes) = $_SERVER['argv'];
+@list(,$host,$port,$nthreads,$nconns,$ntimes) = $_SERVER['argv'];
 
 if(!$host) {
 	$host = '127.0.0.1';
@@ -47,33 +45,67 @@ if($pid) {
 $pid = posix_getpid();
 $beginTime=microtime(true);
 
-$socket->connect($host, $port);
-
-if($socket->is_connect()){
-	echo correct_charset('连接成功！'),PHP_EOL;
-}else{
-	echo correct_charset('连接失败！'),PHP_EOL;
-	exit;
-}
+import('lib.xml');
 
 $request=new XML_Element('request');
 $request->type='User.Login';
 $request->is_simple=true;
-$request->params=array_to_xml(array('username'=>'admin','password'=>'errorPasswd'),'params');
+$request->params=array_to_xml(array('username'=>'abao','password'=>'Tz555888'),'params');
+
+$sockets=array();
+for($i=0; $i<$nconns; $i++) {
+	$socket=clone LIB('socket.client');
+	$socket->connect($host, $port);
+
+	if($socket->is_connect()){
+		echo correct_charset('连接成功！'),PHP_EOL;
+
+		$request->pid=$pid;
+		$request->i=$i;
+
+		if($socket->write($request) === false) {
+			continue;
+		}
+		if($socket->read() === false) {
+			continue;
+		}
+
+		$sockets[$i]=$socket;
+	}else{
+		echo correct_charset('连接失败！'),PHP_EOL;
+	}
+}
+
+$request=new XML_Element('request');
+$request->type='Gold.List';
+$request->is_simple=true;
+$request->params=array_to_xml(array('page'=>1,'size'=>10,'isToday'=>0),'params');
 
 for($i=0; $i<$ntimes; $i++) {
 	$request->pid=$pid;
 	$request->i=$i;
-	//echo 'pid: ',$pid,', request: ',$i,PHP_EOL;
-	//echo 'Send: ',$request,PHP_EOL;
-	$socket->write($request);
-	$response=$socket->read();
-	//echo 'Recv: ',$response,PHP_EOL;
-	if(!$response) {
-		continue;
+	foreach($sockets as $j=>$socket) {
+		//echo 'pid: ',$pid,', request: ',$i,PHP_EOL;
+		//echo 'Send: ',$request,PHP_EOL;
+		//$microtime = microtime(true);
+		if($socket->write($request) === false) {
+			unset($sockets[$j]);
+			continue;
+		}
+		$response=$socket->read();
+		if($response === false) {
+			unset($sockets[$j]);
+			continue;
+		}
+		//echo 'Response time: ', microtime(true)-$microtime,PHP_EOL;
+		//flush();
+		//echo 'Recv: ',$response,PHP_EOL;
 	}
 }
-$socket->close();
+
+foreach($sockets as $socket) {
+	$socket->close();
+}
 
 echo 'pid: ',$pid,', requests: ',$i,',run time: ',microtime(true)-$beginTime,PHP_EOL;
 ?>

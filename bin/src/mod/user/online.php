@@ -13,6 +13,16 @@ class ModUserOnline extends ModBase{
 	protected $onlines=array();
 	protected $relations=array();
 
+	function get_list_by_uid_not_id($uid,$id){
+		return DB()->select(array(
+				'table'=>$this->table,
+				'field'=>'*',
+				'where'=>'uid='.$uid.' AND '.$this->priKey.'<>'.$id,
+				'order'=>$order?$order:$this->order,
+				'limit'=>$limit
+			),SQL_SELECT_LIST,'',$this->priKey);
+	}
+
 	function get_by_user($id,$key=''){
 		if(!array_key_exists($this->relations,$id)) {
 			$data=$this->get_by_where('uid='.$id);

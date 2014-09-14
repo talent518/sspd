@@ -58,18 +58,28 @@ conn_t *index_conn(int index){
 
 	BEGIN_READ_LOCK {
 		ptr=g_hash_table_lookup(iconns, &index);
-	} END_READ_LOCK;
 
-	dprintf("%s: index(%d), sockfd(%d), host(%s), port(%d)\n\n", __func__, ptr->index, ptr->sockfd, ptr->host, ptr->port);
+		if(ptr && ptr->refable) {
+			ref_conn(ptr);
+		} else {
+			ptr=NULL;
+		}
+	} END_READ_LOCK;
 
 	return ptr;
 }
 
 conn_t *sockfd_conn(int sockfd){
-	conn_t *ptr;
+	conn_t *ptr=NULL;
 
 	BEGIN_READ_LOCK {
 		ptr=g_hash_table_lookup(fconns, &sockfd);
+
+		if(ptr && ptr->refable) {
+			ref_conn(ptr);
+		} else {
+			ptr=NULL;
+		}
 	} END_READ_LOCK;
 
 	return ptr;
@@ -80,9 +90,38 @@ conn_t *port_conn(int port){
 
 	BEGIN_READ_LOCK {
 		ptr=g_hash_table_lookup(pconns, &port);
+
+		if(ptr && ptr->refable) {
+			ref_conn(ptr);
+		} else {
+			ptr=NULL;
+		}
 	} END_READ_LOCK;
 
 	return ptr;
+}
+
+void ref_conn(conn_t *ptr) {
+    pthread_mutex_lock(&ptr->lock);
+    ptr->ref_count++;
+    pthread_cond_signal(&ptr->cond);
+    pthread_mutex_unlock(&ptr->lock);
+}
+
+void unref_conn(conn_t *ptr) {
+	pthread_mutex_lock(&ptr->lock);
+	ptr->ref_count--;
+	pthread_cond_signal(&ptr->cond);
+	pthread_mutex_unlock(&ptr->lock);
+}
+
+void clean_conn(conn_t *ptr){
+	if(ptr->event.ev_base) {
+		event_del(&ptr->event);
+	}
+
+	shutdown(ptr->sockfd,SHUT_RDWR);
+	close(ptr->sockfd);
 }
 
 unsigned int _conn_num(){
@@ -116,6 +155,11 @@ void insert_conn(conn_t *ptr){
 		g_hash_table_insert(fconns, &ptr->sockfd, ptr);
 		g_hash_table_insert(pconns, &ptr->port, ptr);
 
+		pthread_mutex_init(&ptr->lock, NULL);
+		pthread_cond_init(&ptr->cond, NULL);
+
+		ptr->refable=true;
+
 	} END_WRITE_LOCK;
 }
 
@@ -140,16 +184,18 @@ void remove_conn(conn_t *ptr){
 		indexQueueHead->next=iqueue;
 		iqueue->prev=indexQueueHead;
 
+		ptr->refable=false;
+		pthread_mutex_lock(&ptr->lock);
+		while (ptr->ref_count > 0) {
+			pthread_cond_wait(&ptr->cond, &ptr->lock);
+		}
+		pthread_mutex_unlock(&ptr->lock);
+
+		pthread_mutex_destroy(&ptr->lock);
+		pthread_cond_destroy(&ptr->cond);
+
 		free(ptr);
 	} END_WRITE_LOCK;
-}
-
-void clean_conn(conn_t *ptr){
-	shutdown(ptr->sockfd,2);
-	close(ptr->sockfd);
-	if(ptr->event.ev_base) {
-		event_del(&ptr->event);
-	}
 }
 
 void detach_conn(){

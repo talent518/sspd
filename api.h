@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 
+char *fsize(int size);
+
 char *gad(const char *argv0);
 
 int execi(const char *cmd);

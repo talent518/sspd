@@ -130,6 +130,8 @@ int server_start(){
 
 	attach_conn();
 
+	THREAD_STARTUP();
+
 	trigger(PHP_SSP_START);
 
 	loop_event(listen_fd);
@@ -138,6 +140,8 @@ int server_start(){
 	close(listen_fd);
 
 	trigger(PHP_SSP_STOP);
+
+	THREAD_SHUTDOWN();
 
 	detach_conn();
 

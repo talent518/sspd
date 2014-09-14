@@ -4,8 +4,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <math.h>
 
-char *gad(const char *argv0){
+char *fsize(int size) {
+	char units[5][3]={"B","KB","MB","GB","TB"};
+	char buf[10];
+	int unit=(int)(log(size)/log(1024));
+
+	if(unit>4) {
+		unit=4;
+	}
+
+	sprintf(buf, "%f%s", size/pow(1024,unit), units[unit]);
+
+	return strdup(buf);
+}
+
+char *gad(const char *argv0) {
 	char *bpath;
 	bpath=(char *)malloc(255);
 	strncpy(bpath,argv0,strrchr(argv0,'/')-argv0);

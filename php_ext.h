@@ -10,7 +10,8 @@
 
 #include "config.h"
 
-#define PHP_SSP_DESCRIPTOR_RES_NAME "ssp user conn_t"
+#define PHP_SSP_DESCRIPTOR_RES_NAME "ssp conn_t"
+#define PHP_SSP_DESCRIPTOR_REF_RES_NAME "ssp ref conn_t"
 #define PHP_SSP_VERSION "v2.1.0"
 
 #define PHP_SSP_BIND_LEN 7
@@ -51,6 +52,9 @@ ZEND_END_MODULE_GLOBALS(ssp)
 		ssp_request_shutdown();\
 	}
 
+#define THREAD_STARTUP()
+#define THREAD_SHUTDOWN()
+
 static PHP_MINIT_FUNCTION(ssp);
 static PHP_MSHUTDOWN_FUNCTION(ssp);
 static PHP_GINIT_FUNCTION(ssp);
@@ -64,6 +68,9 @@ static PHP_FUNCTION(ssp_resource);
 static PHP_FUNCTION(ssp_info);
 static PHP_FUNCTION(ssp_send);
 static PHP_FUNCTION(ssp_close);
+static PHP_FUNCTION(ssp_destroy);
+static PHP_FUNCTION(ssp_lock);
+static PHP_FUNCTION(ssp_unlock);
 
 ZEND_DECLARE_MODULE_GLOBALS(ssp)
 

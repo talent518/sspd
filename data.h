@@ -17,7 +17,13 @@ typedef struct _conn_t{
 	char host[15];
 	int port;
 
+	bool refable;
+	int ref_count;
+
 	event_thread_t *thread;
+
+	pthread_mutex_t lock;
+	pthread_cond_t cond;
 
 	struct event event;
 } conn_t;
@@ -56,6 +62,9 @@ unsigned int _conn_num();
 conn_t* index_conn(int index);
 conn_t* sockfd_conn(int sockfd);
 conn_t* port_conn(int port);
+
+void ref_conn(conn_t *ptr);
+void unref_conn(conn_t *ptr);
 
 //Ω”µ„–¥
 void attach_conn();

@@ -36,14 +36,14 @@ test: kill clean $(BUILD_DIR) $(BIN_DIR)/ssp
 	@tput sgr0
 	@rm -rf /tmp/ssp
 	@cp -R $(PWD)/bin /tmp/ssp
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 10 -f /tmp/ssp/init.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 10 --max-clients 10000 -f /tmp/ssp/init.php -s start
 
 retest: kill
 	@echo -e "\E[32m"$@
 	@tput sgr0
 	@rm -rf /tmp/ssp
 	@cp -R $(PWD)/bin /tmp/ssp
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 20 -f /tmp/ssp/init.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 20 --max-clients 10000 -f /tmp/ssp/init.php -s start
 
 kill:
 	@echo -e "\E[31m"$@
@@ -53,7 +53,7 @@ kill:
 bench:
 	@echo -e "\E[31m"$@
 	@tput sgr0
-	@$(PWD)/bin/bench 127.0.0.1 8086 100 1000
+	@$(PWD)/bin/bench 127.0.0.1 8086 20 100 1000
 
 clean:
 	@echo -e "\E[33m"$@

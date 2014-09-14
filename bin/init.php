@@ -38,6 +38,7 @@ function ssp_receive_handler($ClientId,$data){
 					'sockfd'=>$sockfd,
 					'host'=>$host,
 					'port'=>$port,
+					'tid'=>$tid,
 					'time'=>time(),
 					'sendKey'=>$sendKey,
 					'receiveKey'=>$request->getText(),

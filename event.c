@@ -14,13 +14,12 @@
 
 static int init_count = 0;
 static pthread_mutex_t init_lock, conn_lock;
-static pthread_cond_t init_cond, conn_cond;
+static pthread_cond_t init_cond;
 
 int ssp_nthreads = 10;
 
 event_thread_t *threads;
 dispatcher_thread_t dispatcher_thread;
-int last_thread_id = 0;
 
 static void listen_handler(const int fd, const short which, void *arg);
 static void update_accept_event(const int new_flags) {
@@ -70,7 +69,11 @@ static void *worker_thread(void *arg)
     pthread_cond_signal(&init_cond);
     pthread_mutex_unlock(&init_lock);
 
+	THREAD_STARTUP();
+
 	event_base_loop(me->base, 0);
+
+	THREAD_SHUTDOWN();
 
 	dprintf("thread %d exited\n", me->id);
     pthread_mutex_lock(&init_lock);
@@ -103,7 +106,7 @@ static void read_handler(int sock, short event,	void* arg)
 {
 	conn_t *ptr = (conn_t *) arg;
 
-	dprintf("%s: index(%d), sockfd(%d), host(%s), port(%d)!\n", __func__, ptr->index, ptr->sockfd, ptr->host, ptr->port);
+	conn_info(ptr);
 
 	int data_len=0,ret;
 	char *data=NULL;
@@ -152,7 +155,7 @@ static void notify_handler(int fd, short which, void *arg)
 
 			assert(ptr);
 
-			dprintf("notify_handler(socket_close): sockfd(%d), host(%s), port(%d)!\n", ptr->sockfd, ptr->host, ptr->port);
+			conn_info(ptr);
 			trigger(PHP_SSP_CLOSE,ptr);
 			clean_conn(ptr);
 			remove_conn(ptr);
@@ -168,7 +171,7 @@ static void notify_handler(int fd, short which, void *arg)
 			assert(ptr);
 			assert(ptr->thread == me);
 
-			dprintf("%s: index(%d), sockfd(%d), host(%s), port(%d)!\n", __func__, ptr->index, ptr->sockfd, ptr->host, ptr->port);
+			conn_info(ptr);
 
 			event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_handler, ptr);
 			event_base_set(me->base, &ptr->event);
@@ -184,7 +187,6 @@ void thread_init(int nthreads) {
     pthread_cond_init(&init_cond, NULL);
 
 	pthread_mutex_init(&conn_lock, NULL);
-    pthread_cond_init(&conn_cond, NULL);
 
 	threads = calloc(nthreads, sizeof(event_thread_t));
 	if (threads == NULL)
@@ -241,11 +243,6 @@ void thread_init(int nthreads) {
 
 static void listen_handler(const int fd, const short which, void *arg)
 {
-	char buf[1];
-	event_thread_t *thread = threads + last_thread_id;
-
-	dprintf("listen_handler: threadId(%d)\n", thread->id);
-
 	int conn_fd,ret;
 	struct sockaddr_in pin;
 	socklen_t len=sizeof(pin);
@@ -266,28 +263,34 @@ static void listen_handler(const int fd, const short which, void *arg)
 	if(CONN_NUM >= ssp_maxclients){
 		is_accept_conn(false);
 
-		dprintf("%s: index(%d), sockfd(%d), host(%s), port(%d)!\n", __func__, ptr->index, ptr->sockfd, ptr->host, ptr->port);
+		conn_info(ptr);
 
 		trigger(PHP_SSP_CONNECT_DENIED,ptr);
-
 		clean_conn(ptr);
+
 		free(ptr);
 	} else {
-		ptr->thread=thread;
 		insert_conn(ptr);
+
+		event_thread_t *thread = threads + (ptr->index-1) % ssp_nthreads;
+
+		ptr->thread=thread;
 
 		ret=trigger(PHP_SSP_CONNECT,ptr);
 		if(ret) {
+
+			dprintf("notify thread %d\n", thread->id);
+
+
 			queue_push(thread->accept_queue, ptr);
 
-			dprintf("%s: index(%d), sockfd(%d), host(%s), port(%d)!\n", __func__, ptr->index, ptr->sockfd, ptr->host, ptr->port);
+			conn_info(ptr);
 
-			last_thread_id = (last_thread_id + 1) % ssp_nthreads;        //memcached中线程负载均衡算法
-
-			buf[0] = 'l';
+			char buf[1];
+			buf[0]='l';
 			write(thread->write_fd, buf, 1);
 		} else {
-			dprintf("not allow connect: sockfd(%d), host(%s), port(%d)!\n", ptr->sockfd, ptr->host, ptr->port);
+			conn_info(ptr);
 			clean_conn(ptr);
 			remove_conn(ptr);
 		}
@@ -298,10 +301,9 @@ static void foreach_conn(gpointer key, gpointer value, gpointer user_data)
 {
 	conn_t *ptr = (conn_t *) value;
 
-	dprintf("%s: index(%d), sockfd(%d), host(%s), port(%d)!\n", __func__, ptr->index, ptr->sockfd, ptr->host, ptr->port);
+	conn_info(ptr);
 	
 	trigger(PHP_SSP_CLOSE, ptr);
-	clean_conn(ptr);
 }
 
 static void signal_handler(evutil_socket_t fd, short event, void *arg)

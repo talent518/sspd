@@ -9,9 +9,14 @@
 
 #ifdef SSP_DEBUG_PRINTF
 	#define dprintf(...) printf(__VA_ARGS__)
+	#define conn_info(ptr) _conn_info_ex(stdout,ptr,"[ conn_info ] ")
 #else
 	#define dprintf(...)
+	#define conn_info(ptr)
 #endif
+
+#define _conn_info_ex(fd,ptr,append) fprintf(fd,append" in %s on line %d: index(%d), sockfd(%d), host(%s), port(%d)!\n", __func__, __LINE__, ptr->index, ptr->sockfd, ptr->host, ptr->port)
+#define conn_info_ex(ptr,append) _conn_info_ex(stderr,ptr,append)
 
 extern unsigned int ssp_backlog;
 

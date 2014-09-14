@@ -146,21 +146,23 @@ static void sapi_ssp_register_variables(zval *track_vars_array TSRMLS_DC) /* {{{
 	 */
 	php_import_environment_variables(track_vars_array TSRMLS_CC);
 
-	/* Build the special-case PHP_SELF variable for the CLI version */
-	len = strlen(request_init_file);
-	if (sapi_module.input_filter(PARSE_SERVER, "PHP_SELF", &request_init_file, len, &len TSRMLS_CC)) {
-		php_register_variable("PHP_SELF", request_init_file, track_vars_array TSRMLS_CC);
-	}
-	if (sapi_module.input_filter(PARSE_SERVER, "SCRIPT_NAME", &request_init_file, len, &len TSRMLS_CC)) {
-		php_register_variable("SCRIPT_NAME", request_init_file, track_vars_array TSRMLS_CC);
-	}
-	/* filenames are empty for stdin */
-	len = strlen(request_init_file);
-	if (sapi_module.input_filter(PARSE_SERVER, "SCRIPT_FILENAME", &request_init_file, len, &len TSRMLS_CC)) {
-		php_register_variable("SCRIPT_FILENAME", request_init_file, track_vars_array TSRMLS_CC);
-	}
-	if (sapi_module.input_filter(PARSE_SERVER, "PATH_TRANSLATED", &request_init_file, len, &len TSRMLS_CC)) {
-		php_register_variable("PATH_TRANSLATED", request_init_file, track_vars_array TSRMLS_CC);
+	if(request_init_file) {
+		/* Build the special-case PHP_SELF variable for the CLI version */
+		len = strlen(request_init_file);
+		if (sapi_module.input_filter(PARSE_SERVER, "PHP_SELF", &request_init_file, len, &len TSRMLS_CC)) {
+			php_register_variable("PHP_SELF", request_init_file, track_vars_array TSRMLS_CC);
+		}
+		if (sapi_module.input_filter(PARSE_SERVER, "SCRIPT_NAME", &request_init_file, len, &len TSRMLS_CC)) {
+			php_register_variable("SCRIPT_NAME", request_init_file, track_vars_array TSRMLS_CC);
+		}
+		/* filenames are empty for stdin */
+		len = strlen(request_init_file);
+		if (sapi_module.input_filter(PARSE_SERVER, "SCRIPT_FILENAME", &request_init_file, len, &len TSRMLS_CC)) {
+			php_register_variable("SCRIPT_FILENAME", request_init_file, track_vars_array TSRMLS_CC);
+		}
+		if (sapi_module.input_filter(PARSE_SERVER, "PATH_TRANSLATED", &request_init_file, len, &len TSRMLS_CC)) {
+			php_register_variable("PATH_TRANSLATED", request_init_file, track_vars_array TSRMLS_CC);
+		}
 	}
 	/* just make it available */
 	len = 0U;
@@ -379,10 +381,7 @@ void ssp_destroy(){
 		free(CSM(ini_entries));
 	}
 
-	//printf("%s:0\n",__func__);
 	sapi_shutdown();
-	//printf("%s:1\n",__func__);
 	tsrm_shutdown();
-	//printf("%s:2\n",__func__);
 }
 /* }}} */

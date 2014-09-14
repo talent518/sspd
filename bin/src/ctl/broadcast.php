@@ -118,8 +118,11 @@ Class CtlBroadcast extends CtlBase{
 			$list=MOD('user.online')->get_list_by_where('uid>0 && broadcast>0');
 			foreach($list as $id=>$r){
 				$sendXML->message->dateline=udate('H:i:s',$data['dateline'],$r['uid']);
-				if($id!=$index && $this->send($id,(string)$sendXML)){
-					$count++;
+				if($id!=$index && ($res=ssp_resource($id,SSP_RES_INDEX))){
+					if(ssp_send($res,(string)$sendXML)) {
+						$count++;
+					}
+					ssp_destroy($res);
 				}
 			}
 			$response->type='Broadcast.Send.Succeed';

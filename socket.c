@@ -22,11 +22,12 @@ int recv_data_len(conn_t *ptr){
 	ret=recv(ptr->sockfd,buf,sizeof(buf), MSG_WAITALL);
 
 	if(ret!=sizeof(buf)){
+		conn_info_ex(ptr, "[ Data packet is legitimate or has closed the connection ] ");
 		return ret>0?-1:0;
 	}
 
 	if(buf[0]){
-		dprintf("Recieve From Client (sockfd:%d,host:\"%s\",port:%d) Data Package Header Error!\n",ptr->sockfd,ptr->host,ptr->port);
+		conn_info_ex(ptr, "[ Data packet is legitimate or has closed the connection ] ");
 		return 0;
 	}
 
@@ -43,7 +44,7 @@ int socket_recv(conn_t *ptr,char **data,int *data_len){
 	if(ret>0){
 		*data_len=ret;
 		if(*data_len>ssp_maxrecvs){
-			dprintf("Recieve From Client (sockfd:%d,host:\"%s\",port:%d) Data Package Length (%d) Larger Than maxrecvs(%d)!\n",ptr->sockfd,ptr->host,ptr->port,*data_len,ssp_maxrecvs);
+			conn_info_ex(ptr, "[ The received data beyond the limit ] ");
 			return 0;
 		}
 		if(*data!=NULL){
@@ -59,9 +60,10 @@ int socket_recv(conn_t *ptr,char **data,int *data_len){
 		free(*data);
 		*data=NULL;
 		if(ret>0){
-			dprintf("Recieve From Client (sockfd:%d,host:\"%s\",port:%d) Package Length (%d),Recved Length(%d)!\n",ptr->sockfd,ptr->host,ptr->port,*data_len,ret);
+			conn_info_ex(ptr,"[ Data packets are not complete ] ");
 			return -1;
 		}else{
+			conn_info_ex(ptr,"[ Has closed the connection ] ");
 			return 0;
 		}
 	}else{
@@ -88,17 +90,25 @@ int socket_send(conn_t *ptr,const char *data,int data_len){
 	int ret=send(ptr->sockfd,package,plen,0);
 	free(package);
 	if(ret>0 && ret!=plen){
-		dprintf("Send Data Error! Package Length (%d),Sent Length(%d)!\n",plen,ret);
+		conn_info_ex(ptr, "[ Failed sending data ] ");
 	}
 	return ret;
 }
 
 void socket_close(conn_t *ptr) {
-	dprintf("socket_close: index(%d), sockfd(%d), host(%s), port(%d)!\n", ptr->index, ptr->sockfd, ptr->host, ptr->port);
+	BEGIN_READ_LOCK {
+		if(ptr->refable) {
+			ptr->refable=false;
 
-	queue_push(ptr->thread->close_queue, ptr);
+			//shutdown(ptr->sockfd,SHUT_RD);
 
-	char buf[1];
-	buf[0] = 'x';
-	write(ptr->thread->write_fd, buf, 1);
+			conn_info(ptr);
+
+			queue_push(ptr->thread->close_queue, ptr);
+
+			char buf[1];
+			buf[0] = 'x';
+			write(ptr->thread->write_fd, buf, 1);
+		}
+	} END_READ_LOCK;
 }

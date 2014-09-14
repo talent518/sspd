@@ -53,15 +53,6 @@ Class CtlUser extends CtlBase{
 			$response->type='User.Login.Failed';
 			$response->setText('安全问题回答不正确！');
 		}else{
-			if($exitId=MOD('user.online')->get_by_user($uid,'id')){
-				$exitLogin=new XML_Element('response');
-				$exitLogin->type='User.Login.Failed';
-				$exitLogin->setText('此用户在另一地点登录，你被迫退出！');
-
-				$this->send($exitId,(string)$exitLogin);
-				$this->close($exitId);
-				$exitLogin=null;
-			}
 			if($user=MOD('user')->get($uid)){
 				$profile=MOD('user.profile')->get($uid);
 				$data=array(
@@ -93,6 +84,22 @@ Class CtlUser extends CtlBase{
 					return $response;
 				}
 			}
+
+			$exitLogin=new XML_Element('response');
+			$exitLogin->type='User.Login.Failed';
+			$exitLogin->setText('此用户在另一地点登录，你被迫退出！');
+			$exitStrng = (string)$exitLogin;
+
+			$exitData=array(
+				'uid'=>0,
+				'gid'=>0,
+				'logintimes'=>0,
+				'logintime'=>time(),
+				'timezone'=>0,
+				'broadcast'=>0,
+				'consult'=>0,
+			);
+
 			$data=array(
 				'uid'=>$uid,
 				'gid'=>$user['gid'],
@@ -102,7 +109,23 @@ Class CtlUser extends CtlBase{
 				'broadcast'=>(string)$params->broadcast+0,
 				'consult'=>(string)$params->consult+0,
 			);
-			MOD('user.online')->edit($index,$data);
+
+			ssp_lock();
+				$list=MOD('user.online')->get_list_by_uid_not_id($uid,$index);
+				foreach($list as $exitId){
+					MOD('user.online')->edit($exitId,$exitData);
+				}
+				MOD('user.online')->edit($index,$data);
+			ssp_unlock();
+
+			foreach($list as $exitId){
+				$exitRes=ssp_resource($exitId,SSP_RES_INDEX);
+				if($exitRes) {
+					ssp_send($exitRes,$exitStrng);
+					ssp_close($exitRes);
+				}
+			}
+			
 			if(UGK($uid,'consult_reply')){
 				if($consults=(string)$params->consults){
 					MOD('user.serv')->update(array('isopen'=>0),'uid='.$uid.' AND cuid NOT IN('.iimplode(explode(',',$consults)).')');

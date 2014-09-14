@@ -168,6 +168,9 @@ class LibSocketClient{
 				}
 			}
 		}
+		if(!$len) {
+			return false;
+		}
 		if(IS_DEBUG){
 			echo 'recv_len:',$recv_len,',read:',$data,PHP_EOL;
 		}
@@ -179,7 +182,6 @@ class LibSocketClient{
 			}
 			return $response;
 		}
-		return false;
 	}
 
 	/*
