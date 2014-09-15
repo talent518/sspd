@@ -6,7 +6,7 @@
 #include "data.h"
 #include "ssp.h"
 
-index_queue_t *indexQueueHead=NULL;
+queue_t *iqueue=NULL;
 
 GHashTable *fconns; // sockfd table
 GHashTable *iconns; // index table
@@ -39,11 +39,9 @@ void end_write_lock(){
 }
 
 void attach_conn(){
-	assert(indexQueueHead==NULL);
+	assert(iqueue==NULL);
 
-	indexQueueHead=(index_queue_t *)malloc(sizeof(index_queue_t));
-	indexQueueHead->index=0;
-	indexQueueHead->prev=indexQueueHead->next=indexQueueHead;
+	iqueue=queue_init();
 
 	pthread_mutex_init(&mx_reader, NULL);
 	pthread_mutex_init(&mx_writer, NULL);
@@ -133,22 +131,13 @@ unsigned int _conn_num(){
 }
 
 void insert_conn(conn_t *ptr){
-	assert(indexQueueHead);
+	assert(iqueue);
 	BEGIN_WRITE_LOCK {
 		conn_num++;
 
-		if(indexQueueHead->next!=indexQueueHead) {
-			index_queue_t *iqueue=indexQueueHead->prev;
-			index_queue_t *p=iqueue->prev,*n=iqueue->next;
-
-			p->next=n;
-			n->prev=p;
-
-			ptr->index=iqueue->index;
-
-			free(iqueue);
-		} else {
-			ptr->index=conn_num;
+		ptr->index=(int)queue_pop(iqueue);
+		if(!ptr->index){
+			ptr->index = conn_num;
 		}
 
 		g_hash_table_insert(iconns, &ptr->index, ptr);
@@ -164,7 +153,7 @@ void insert_conn(conn_t *ptr){
 }
 
 void remove_conn(conn_t *ptr){
-	assert(indexQueueHead);
+	assert(iqueue);
 
 	BEGIN_WRITE_LOCK {
 		conn_num--;
@@ -173,16 +162,7 @@ void remove_conn(conn_t *ptr){
 		g_hash_table_remove(fconns, &ptr->sockfd);
 		g_hash_table_remove(pconns, &ptr->port);
 
-		index_queue_t *hnext=indexQueueHead->next;
-		index_queue_t *iqueue=(index_queue_t *)malloc(sizeof(index_queue_t *));
-
-		iqueue->index = ptr->index;
-
-		iqueue->next=hnext;
-		hnext->prev=iqueue;
-
-		indexQueueHead->next=iqueue;
-		iqueue->prev=indexQueueHead;
+		queue_push(iqueue,(void *)ptr->index);
 
 		ptr->refable=false;
 		pthread_mutex_lock(&ptr->lock);
@@ -199,16 +179,10 @@ void remove_conn(conn_t *ptr){
 }
 
 void detach_conn(){
-	assert(indexQueueHead);
+	assert(iqueue);
 	BEGIN_WRITE_LOCK {
-		index_queue_t *p=indexQueueHead;
-		indexQueueHead->prev->next=NULL;
-		while(p->next!=NULL){
-			p=p->next;
-			free(p->prev);
-		}
-		free(p);
-		indexQueueHead=NULL;
+		queue_free(iqueue);
+		iqueue=NULL;
 
 		g_hash_table_destroy(iconns);
 		g_hash_table_destroy(fconns);

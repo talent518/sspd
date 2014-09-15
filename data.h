@@ -9,6 +9,7 @@
 #include <event.h>
 
 #include "event.h"
+#include "queue.h"
 
 typedef struct _conn_t{
 	int index;
@@ -20,7 +21,7 @@ typedef struct _conn_t{
 	bool refable;
 	int ref_count;
 
-	event_thread_t *thread;
+	worker_thread_t *thread;
 
 	pthread_mutex_t lock;
 	pthread_cond_t cond;
@@ -28,15 +29,7 @@ typedef struct _conn_t{
 	struct event event;
 } conn_t;
 
-typedef struct _index_queue_t
-{
-	unsigned int index;
-
-	struct _index_queue_t *prev;
-	struct _index_queue_t *next;
-} index_queue_t;
-
-extern index_queue_t *indexQueueHead;
+extern queue_t *iqueue;
 
 extern GHashTable *fconns;
 extern GHashTable *iconns;

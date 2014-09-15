@@ -44,15 +44,21 @@ ZEND_END_MODULE_GLOBALS(ssp)
 
 #define TRIGGER_STARTUP() \
 	if((SSP_G(requestes)++) == 0) {\
+		dprintf("\n======================================================================================================================\n");\
+		dprintf("TRIGGER_STARTUP: %s\n", trigger_handlers[type]);\
 		ssp_request_startup();\
-	}
+	}\
+	dprintf("----------------------------------------------------------------------------------------------------------------------\n");
 
 #define TRIGGER_SHUTDOWN() \
+	dprintf("----------------------------------------------------------------------------------------------------------------------\n");\
 	if((--SSP_G(requestes)) == 0) {\
 		ssp_request_shutdown();\
+		dprintf("TRIGGER_SHUTDOWN: %s\n", trigger_handlers[type]);\
+		dprintf("======================================================================================================================\n\n");\
 	}
 
-#define THREAD_STARTUP()
+#define THREAD_STARTUP() TSRMLS_FETCH();
 #define THREAD_SHUTDOWN()
 
 static PHP_MINIT_FUNCTION(ssp);

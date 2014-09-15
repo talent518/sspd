@@ -6,12 +6,14 @@
 #include <unistd.h>
 #include <math.h>
 
-char *fsize(int size) {
+char *fsize(int size)
+{
 	char units[5][3]={"B","KB","MB","GB","TB"};
 	char buf[10];
 	int unit=(int)(log(size)/log(1024));
 
-	if(unit>4) {
+	if (unit>4)
+	{
 		unit=4;
 	}
 
@@ -20,73 +22,93 @@ char *fsize(int size) {
 	return strdup(buf);
 }
 
-char *gad(const char *argv0) {
+char *gad(const char *argv0)
+{
 	char *bpath;
 	bpath=(char *)malloc(255);
 	strncpy(bpath,argv0,strrchr(argv0,'/')-argv0);
-	if(*bpath=='.'){
+	if (*bpath=='.')
+	{
 		char *path,*q,*p,c;
 
 		path=(char *)malloc(255);
 		getcwd(path,255);
 
-		if(*(bpath+1)=='.'){
+		if (*(bpath+1)=='.')
+		{
 			strcat(path,"/");
 			strcat(path,bpath);
 			strcat(path,"\0");
-		}else{
+		}
+		else
+		{
 			strcat(path,bpath+1);
 		}
 
-		while(p=strstr(path,"..")){
+		while (p=strstr(path,".."))
+		{
 			q=p-1;
-			do{
+			do
+			{
 				q--;
-			}while(q>path && *q!='/');
+			}
+			while (q>path && *q!='/');
 			q++;
 			p+=3;
-			while(q>path && q<path+255){
-				if(*p!=0){
-					if(p==path+254){
+			while (q>path && q<path+255)
+			{
+				if (*p!=0)
+				{
+					if (p==path+254)
+					{
 						*p=0;
 					}
 				}
 				*q=*p;
 				q++;
-				if(*p!=0){
+				if (*p!=0)
+				{
 					p++;
 				}
 			}
 		}
 		return path;
-	}else{
+	}
+	else
+	{
 		return bpath;
 	}
 }
 
-int execi(const char *cmd){
+int execi(const char *cmd)
+{
 	FILE *fp;
 	int ret=0;
 	fp=popen(cmd,"r");
-	if(fp!=NULL){
+	if (fp!=NULL)
+	{
 		fscanf(fp,"%d",&ret);
 		fclose(fp);
 	}
 	return ret;
 }
 
-char *str_repeat(const char *str,size_t str_len,size_t repeat){
+char *str_repeat(const char *str,size_t str_len,size_t repeat)
+{
 	char *ret=(char *)malloc(str_len*repeat);
 	size_t i;
-	for(i=0;i<repeat;i++){
+	for (i=0;i<repeat;i++)
+	{
 		strncpy(ret+i*str_len,str,str_len);
 	}
 	return ret;
 }
 
-void strnprint(const char *str,size_t repeat){
+void strnprint(const char *str,size_t repeat)
+{
 	size_t i;
-	for(i=0;i<repeat;i++){
+	for (i=0;i<repeat;i++)
+	{
 		printf(str);
 	}
 }

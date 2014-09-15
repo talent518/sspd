@@ -33,7 +33,8 @@ char *ssp_user="daemon";
 int ssp_maxclients=1000;
 int ssp_maxrecvs=2*1024*1024;
 
-int server_start(){
+int server_start()
+{
 	struct sockaddr_in sin;
 	int listen_fd;
 	int ret;
@@ -45,7 +46,8 @@ int server_start(){
 	flush();
 
 	listen_fd=socket(AF_INET,SOCK_STREAM,0);
-	if(listen_fd<0){
+	if (listen_fd<0)
+	{
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
 		printf("Not on the host %s bind port %d\n",ssp_host,ssp_port);
@@ -58,7 +60,8 @@ int server_start(){
 	setsockopt(listen_fd,SOL_SOCKET,SO_SNDTIMEO,&send_timeout,sizeof(int));//发送超时
 	setsockopt(listen_fd,SOL_SOCKET,SO_RCVTIMEO,&recv_timeout,sizeof(int));//接收超时
 
-	typedef struct {
+	typedef struct
+	{
 		u_short l_onoff;
 		u_short l_linger;
 	} linger;
@@ -78,7 +81,8 @@ int server_start(){
 	sin.sin_port=htons(ssp_port);
 
 	ret=bind(listen_fd,(struct sockaddr *)&sin,sizeof(sin));
-	if(ret<0){
+	if (ret<0)
+	{
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
 		printf("Not on the host %s bind port %d\n",ssp_host,ssp_port);
@@ -86,29 +90,32 @@ int server_start(){
 	}
 
 	ret=listen(listen_fd, ssp_backlog);
-	if(ret<0){
+	if (ret<0)
+	{
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
 		return 0;
 	}
 
-	struct passwd *pwnam;
-	pwnam = getpwnam(ssp_user);
-
 	pid=fork();
 
-	if(pid==-1){
+	if (pid==-1)
+	{
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
 		printf("fork failure!\n");
 		return 0;
 	}
-	if(pid>0){
+	if (pid>0)
+	{
 		FILE *fp;
 		fp=fopen(ssp_pidfile,"w+");
-		if(fp==NULL){
+		if (fp==NULL)
+		{
 			printf("file '%s' open fail.\n",ssp_pidfile);
-		}else{
+		}
+		else
+		{
 			fprintf(fp,"%d",pid);
 			fclose(fp);
 		}
@@ -116,17 +123,27 @@ int server_start(){
 		return 1;
 	}
 
+	struct passwd *pwnam;
+	pwnam = getpwnam(ssp_user);
+
 	setuid(pwnam->pw_uid);
 	setgid(pwnam->pw_gid);
 
 	ret=setsid();
-	if(ret<1){
+	if (ret<1)
+	{
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
-	}else{
+	}
+	else
+	{
 		system("echo -e \"\\E[32m\"[Succeed]");
 		system("tput sgr0");
 	}
+
+	char tmp[100];
+	sprintf(tmp, "ulimit -n %d", (ssp_nthreads + 1) * 64 + ssp_maxclients);
+	system(tmp);
 
 	attach_conn();
 
@@ -148,7 +165,8 @@ int server_start(){
 	exit(0);
 }
 
-int server_stop(){
+int server_stop()
+{
 	FILE *fp;
 	int pid,i=19,cols=tput_cols();
 
@@ -156,19 +174,24 @@ int server_stop(){
 	flush();
 
 	fp=fopen(ssp_pidfile,"r+");
-	if(fp!=NULL){
+	if (fp!=NULL)
+	{
 		fscanf(fp,"%d",&pid);
 		fclose(fp);
 		unlink(ssp_pidfile);
-		if(pid==getsid(pid)){
+		if (pid==getsid(pid))
+		{
 			kill(pid,SIGINT);
-			while(pid==getsid(pid)){
+			while (pid==getsid(pid))
+			{
 				printf(".");
 				flush();
 				i++;
 				sleep(1);
-				if(cols-i-9==0){
-					kill(pid,SIGKILL);break;
+				if (cols-i-9==0)
+				{
+					kill(pid,SIGKILL);
+					break;
 				}
 			}
 			strnprint(".",cols-i-9);
@@ -185,7 +208,8 @@ int server_stop(){
 	return 0;
 }
 
-int server_status(){
+int server_status()
+{
 	FILE *fp;
 	int pid,i=17,cols=tput_cols();
 
@@ -194,10 +218,12 @@ int server_status(){
 	flush();
 
 	fp=fopen(ssp_pidfile,"r+");
-	if(fp!=NULL){
+	if (fp!=NULL)
+	{
 		fscanf(fp,"%d",&pid);
 		fclose(fp);
-		if(pid==getsid(pid)){
+		if (pid==getsid(pid))
+		{
 			system("echo -e \"\\E[32m\"[Running]");
 			system("tput sgr0");
 			return 1;

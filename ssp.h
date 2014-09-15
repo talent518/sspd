@@ -8,14 +8,14 @@
 #include "config.h"
 
 #ifdef SSP_DEBUG_PRINTF
-	#define dprintf(...) printf(__VA_ARGS__)
-	#define conn_info(ptr) _conn_info_ex(stdout,ptr,"[ conn_info ] ")
+#define dprintf(...) printf(__VA_ARGS__)
+#define conn_info(ptr) _conn_info_ex(stdout,ptr,"[ conn_info ] ")
 #else
-	#define dprintf(...)
-	#define conn_info(ptr)
+#define dprintf(...)
+#define conn_info(ptr)
 #endif
 
-#define _conn_info_ex(fd,ptr,append) fprintf(fd,append" in %s on line %d: index(%d), sockfd(%d), host(%s), port(%d)!\n", __func__, __LINE__, ptr->index, ptr->sockfd, ptr->host, ptr->port)
+#define _conn_info_ex(fd,ptr,append) fprintf(fd,append" in %20s on line (%3d): index(%5d), sockfd(%5d), host(%15s), port(%5d)!\n", __func__, __LINE__, ptr->index, ptr->sockfd, ptr->host, ptr->port)
 #define conn_info_ex(ptr,append) _conn_info_ex(stderr,ptr,append)
 
 extern unsigned int ssp_backlog;

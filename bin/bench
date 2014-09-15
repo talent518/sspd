@@ -50,7 +50,7 @@ import('lib.xml');
 $request=new XML_Element('request');
 $request->type='User.Login';
 $request->is_simple=true;
-$request->params=array_to_xml(array('username'=>'abao','password'=>'Tz555888'),'params');
+$request->params=array_to_xml(array('username'=>'abao','password'=>'Tz555888a'),'params');
 
 $sockets=array();
 for($i=0; $i<$nconns; $i++) {
