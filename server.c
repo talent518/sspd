@@ -141,24 +141,12 @@ int server_start()
 		system("tput sgr0");
 	}
 
-	char tmp[100];
-	sprintf(tmp, "ulimit -n %d", (ssp_nthreads + 1) * 64 + ssp_maxclients);
-	system(tmp);
-
 	attach_conn();
-
-	THREAD_STARTUP();
-
-	trigger(PHP_SSP_START);
 
 	loop_event(listen_fd);
 
 	shutdown(listen_fd, 2);
 	close(listen_fd);
-
-	trigger(PHP_SSP_STOP);
-
-	THREAD_SHUTDOWN();
 
 	detach_conn();
 

@@ -124,11 +124,13 @@ static void read_handler(int sock, short event,	void* arg)
 
 		is_accept_conn(true);
 	}else{//接收数据成功
-		trigger(PHP_SSP_RECEIVE,ptr,&data,&data_len);
-		if(data_len>0){
-			trigger(PHP_SSP_SEND,ptr,&data,&data_len);
-			socket_send(ptr,data,data_len);
-		}
+		TRIGGER_STARTUP_EX() {
+			trigger(PHP_SSP_RECEIVE,ptr,&data,&data_len);
+			if(data_len>0){
+				trigger(PHP_SSP_SEND,ptr,&data,&data_len);
+				socket_send(ptr,data,data_len);
+			}
+		} TRIGGER_SHUTDOWN_EX();
 	}
 	free(data);
 }
@@ -414,6 +416,15 @@ void loop_event (int sockfd)
 		perror("int signal event");
 		exit(1);
 	}
-	
+
+
+	THREAD_STARTUP();
+
+	trigger(PHP_SSP_START);
+
 	event_base_loop(listen_thread.base, 0);
+
+	trigger(PHP_SSP_STOP);
+
+	THREAD_SHUTDOWN();
 }

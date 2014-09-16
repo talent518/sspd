@@ -9,10 +9,9 @@ class ModUcApps extends ModUcBase{
 	protected $priKey='appid';
 	protected $order;
 	function gets(){
-		static $apps;
-		if(!$apps){
-			$apps=$this->get_list_by_where();
+		if(!$_SSP['UC_API']){
+			$_SSP['UC_API']=$this->get_list_by_where();
 		}
-		return $apps;
+		return $_SSP['UC_API'];
 	}
 }

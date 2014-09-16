@@ -11,17 +11,17 @@ class ModUserSetting extends ModBase{
 	protected $order;
 	protected $users=array();
 	function get($uid,$key=''){
-		if(!isset($this->users[$uid])){
-			$this->users[$uid]=parent::get($uid);
+		if(!isset($_SSP['US'][$uid])){
+			$_SSP['US'][$uid]=parent::get($uid);
 		}
-		return $key?$this->users[$uid][$key]:$this->users[$uid];
+		return $key?$_SSP['US'][$uid][$key]:$_SSP['US'][$uid];
 	}
 	function set($uid,$key,$value=0){
 		$data=array();
 		$data[$key]=$value;
 		$data[$key.'_dateline']=time();
 
-		$this->users[$uid]=array_replace($this->get($uid),$data);
+		$_SSP['US'][$uid]=array_replace($this->get($uid),$data);
 	
 		if(!$this->exists($uid)){
 			$data['uid']=$uid;

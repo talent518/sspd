@@ -26,7 +26,7 @@ function ssp_connect_denied_handler($ClientId){
 	ssp_send($ClientId,(string)$response);
 }
 
-function ssp_receive_handler($ClientId,$data){
+function ssp_receive_handler($ClientId,$data){var_dump($_SSP);
 	$info=ssp_info($ClientId);
 	extract($info);$info=null;
 	if($request=xml_to_object($data,false,$error)){

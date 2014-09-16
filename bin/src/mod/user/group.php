@@ -33,19 +33,19 @@ class ModUserGroup extends ModBase{
 
 	protected $groups=array();
 	function get($id,$key=false){
-		if(!isset($this->groups[$id])){
-			$this->groups[$id]=parent::get($id);
+		if(!isset($_SSP['UG'][$id])){
+			$_SSP['UG'][$id]=parent::get($id);
 		}
-		return $key?$this->groups[$id][$key]:$this->groups[$id];
+		return $key?$_SSP['UG'][$id][$key]:$_SSP['UG'][$id];
 	}
 	function edit($id,$data,$isCheck=true,$isString=true){
-		$this->groups[$id]=array_replace($this->groups[$id],$data);
+		$_SSP['UG'][$id]=array_replace($_SSP['UG'][$id],$data);
 		$this->rules['gname']['query']=array('user_group',sprintf('gname=\'%s\' AND gid!=%d',$data['gname'],$id));
 		$this->rules['title']['query']=array('user_group',sprintf('title=\'%s\' AND gid!=%d',$data['title'],$id));
 		return parent::edit($id,$data,$isCheck,$isString);
 	}
 	function drop($id){
-		$this->groups[$id]=null;
+		$_SSP['UG'][$id]=null;
 		if($ret=parent::drop($id)){
 			MOD('user')->drops(DB()->select(array('table'=>'user','field'=>'uid','where'=>'gid='.$id),SQL_SELECT_LIST,null,'uid'));
 		}

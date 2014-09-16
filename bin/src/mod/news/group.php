@@ -13,11 +13,10 @@ class ModNewsGroup extends ModBase{
 	);
 	protected $messages=array(
 	);
-	private $groups=array();
 	function &get($id){
-		if(!isset($groups[$id])){
-			$groups[$id]=parent::get($id);
+		if(!isset($_SSP['NG'][$id])){
+			$_SSP['NG'][$id]=parent::get($id);
 		}
-		return $groups[$id];
+		return $_SSP['NG'][$id];
 	}
 }
