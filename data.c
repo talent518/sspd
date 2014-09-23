@@ -135,8 +135,12 @@ void insert_conn(conn_t *ptr){
 	BEGIN_WRITE_LOCK {
 		conn_num++;
 
-		ptr->index=(int)queue_pop(iqueue);
-		if(!ptr->index){
+		int *index=(int*)queue_pop(iqueue);
+
+		if(index){
+			ptr->index=*index;
+			free(index);
+		} else {
 			ptr->index = conn_num;
 		}
 
@@ -162,9 +166,11 @@ void remove_conn(conn_t *ptr){
 		g_hash_table_remove(fconns, &ptr->sockfd);
 		g_hash_table_remove(pconns, &ptr->port);
 
-		queue_push(iqueue,(void *)ptr->index);
+		int *index=(int *)malloc(sizeof(int));
+		*index=ptr->index;
 
-		ptr->refable=false;
+		queue_push(iqueue,(void *)index);
+
 		pthread_mutex_lock(&ptr->lock);
 		while (ptr->ref_count > 0) {
 			pthread_cond_wait(&ptr->cond, &ptr->lock);
@@ -173,6 +179,10 @@ void remove_conn(conn_t *ptr){
 
 		pthread_mutex_destroy(&ptr->lock);
 		pthread_cond_destroy(&ptr->cond);
+
+		if(ptr->rbuf) {
+			free(ptr->rbuf);
+		}
 
 		free(ptr);
 	} END_WRITE_LOCK;

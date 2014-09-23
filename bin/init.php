@@ -29,6 +29,9 @@ function ssp_connect_denied_handler($ClientId){
 function ssp_receive_handler($ClientId,$data){
 	$info=ssp_info($ClientId);
 	extract($info);$info=null;
+
+	MOD('user.online')->edit($index, array('microtime'=>microtime(true)));
+
 	if($request=xml_to_object($data,false,$error)){
 		switch($request->type){
 			case 'Connect.Key':

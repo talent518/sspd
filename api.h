@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 
+double microtime();
+
 char *fsize(int size);
 
 char *gad(const char *argv0);

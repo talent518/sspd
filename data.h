@@ -21,6 +21,10 @@ typedef struct _conn_t{
 	bool refable;
 	int ref_count;
 
+	char *rbuf;
+	int rbytes;
+	int rsize;
+
 	worker_thread_t *thread;
 
 	pthread_mutex_t lock;

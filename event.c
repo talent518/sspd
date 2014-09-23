@@ -21,7 +21,7 @@ listen_thread_t listen_thread;
 worker_thread_t *worker_threads;
 
 static void listen_handler(const int fd, const short which, void *arg);
-bool update_accept_event(const int new_flags) {
+bool update_accept_event(short new_flags) {
 	if(listen_thread.ev_flags==new_flags) {
 		return false;
 	}
@@ -70,11 +70,10 @@ static void *worker_thread_handler(void *arg)
 	dprintf("thread %d createed\n", me->id);
 
     pthread_mutex_lock(&init_lock);
+ 	THREAD_STARTUP();
     listen_thread.nthreads++;
-    pthread_cond_signal(&init_cond);
+	pthread_cond_signal(&init_cond);
     pthread_mutex_unlock(&init_lock);
-
-	THREAD_STARTUP();
 
 	event_base_loop(me->base, 0);
 
@@ -83,6 +82,7 @@ static void *worker_thread_handler(void *arg)
 	dprintf("thread %d exited\n", me->id);
     pthread_mutex_lock(&init_lock);
     listen_thread.nthreads--;
+	THREAD_SHUTDOWN();
     pthread_cond_signal(&init_cond);
     pthread_mutex_unlock(&init_lock);
 
@@ -117,9 +117,10 @@ static void read_handler(int sock, short event,	void* arg)
 	char *data=NULL;
 
 	ret=socket_recv(ptr,&data,&data_len);
-	if(ret<=0){//关闭连接
+	if(ret<0) {//已放入缓冲区
+	}else if(ret==0){//关闭连接
+		event_del(&ptr->event);
 		trigger(PHP_SSP_CLOSE,ptr);
-		clean_conn(ptr);
 		remove_conn(ptr);
 
 		is_accept_conn(true);
@@ -132,7 +133,9 @@ static void read_handler(int sock, short event,	void* arg)
 			}
 		} TRIGGER_SHUTDOWN_EX();
 	}
-	free(data);
+	if(data) {
+		free(data);
+	}
 }
 
 static void notify_handler(const int fd, const short which, void *arg)
@@ -163,8 +166,8 @@ static void notify_handler(const int fd, const short which, void *arg)
 			assert(ptr);
 
 			conn_info(ptr);
-			trigger(PHP_SSP_CLOSE,ptr);
 			clean_conn(ptr);
+			trigger(PHP_SSP_CLOSE,ptr);
 			remove_conn(ptr);
 
 			is_accept_conn(true);
@@ -281,6 +284,10 @@ static void listen_handler(const int fd, const short which, void *arg)
 		return;
 	}
 
+	int send_timeout=1000,recv_timeout=1000;
+	setsockopt(conn_fd,SOL_SOCKET,SO_SNDTIMEO,&send_timeout,sizeof(int));//发送超时
+	setsockopt(conn_fd,SOL_SOCKET,SO_RCVTIMEO,&recv_timeout,sizeof(int));//接收超时
+
 	conn_t *ptr=(conn_t *)malloc(sizeof(conn_t));
 
 	bzero(ptr,sizeof(conn_t));
@@ -332,6 +339,8 @@ static void foreach_conn(gpointer key, gpointer value, gpointer user_data)
 
 	conn_info(ptr);
 	
+	clean_conn(ptr);
+
 	trigger(PHP_SSP_CLOSE, ptr);
 }
 
@@ -400,7 +409,8 @@ void loop_event (int sockfd)
 	}
 
 	// listen event
-	event_set(&listen_thread.listen_ev, sockfd, EV_READ | EV_PERSIST, listen_handler, NULL);
+	listen_thread.ev_flags=EV_READ | EV_PERSIST;
+	event_set(&listen_thread.listen_ev, sockfd, listen_thread.ev_flags, listen_handler, NULL);
 	event_base_set(listen_thread.base, &listen_thread.listen_ev);
 	if (event_add(&listen_thread.listen_ev, NULL) == -1)
 	{

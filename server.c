@@ -55,8 +55,9 @@ int server_start()
 	}
 	int opt=1;
 	setsockopt(listen_fd,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(int));
+    setsockopt(listen_fd, SOL_SOCKET, SO_KEEPALIVE,&opt, sizeof(int));
 
-	int send_timeout=5000,recv_timeout=5000;
+	int send_timeout=1000,recv_timeout=1000;
 	setsockopt(listen_fd,SOL_SOCKET,SO_SNDTIMEO,&send_timeout,sizeof(int));//发送超时
 	setsockopt(listen_fd,SOL_SOCKET,SO_RCVTIMEO,&recv_timeout,sizeof(int));//接收超时
 
@@ -69,11 +70,11 @@ int server_start()
 	m_sLinger.l_onoff=1;//(在closesocket()调用,但是还有数据没发送完毕的时候容许逗留)
 	// 如果m_sLinger.l_onoff=0;则功能和2.)作用相同;
 	m_sLinger.l_linger=5;//(容许逗留的时间为5秒)
-	setsockopt(listen_fd,SOL_SOCKET,SO_LINGER,(const char*)&m_sLinger,sizeof(linger));
+	setsockopt(listen_fd,SOL_SOCKET,SO_LINGER,&m_sLinger,sizeof(linger));
 
 	int send_buffer=0,recv_buffer=0;
-	setsockopt(listen_fd,SOL_SOCKET,SO_SNDBUF,(char *)&send_buffer,sizeof(int));//发送缓冲区大小
-	setsockopt(listen_fd,SOL_SOCKET,SO_RCVBUF,(char *)&recv_buffer,sizeof(int));//接收缓冲区大小
+	setsockopt(listen_fd,SOL_SOCKET,SO_SNDBUF,&send_buffer,sizeof(int));//发送缓冲区大小
+	setsockopt(listen_fd,SOL_SOCKET,SO_RCVBUF,&recv_buffer,sizeof(int));//接收缓冲区大小
 
 	bzero(&sin,sizeof(sin));
 	sin.sin_family=AF_INET;

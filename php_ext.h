@@ -11,6 +11,7 @@
 #include <TSRM.h>
 
 #include "config.h"
+#include "api.h"
 
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp conn_t"
 #define PHP_SSP_DESCRIPTOR_REF_RES_NAME "ssp ref conn_t"
@@ -36,38 +37,60 @@ extern zend_module_entry ssp_module_entry;
 ZEND_BEGIN_MODULE_GLOBALS(ssp)
 	long timeout;
 	long trigger_count;
-	zval *vars;
 ZEND_END_MODULE_GLOBALS(ssp)
 
 #define SSP_G(v) TSRMG(ssp_globals_id, zend_ssp_globals *, v)
 
-#define TRIGGER_STARTUP() \
-	TSRMLS_FETCH();\
-	if((SSP_G(trigger_count)++) == 0) {\
-		long timeout=(long)time(NULL);\
-		if(SSP_G(timeout)<timeout) {\
-			SSP_G(timeout)=timeout+ssp_timeout;\
-			THREAD_SHUTDOWN()\
-			dprintf("=======================================================================================================================\n\n");\
-			dprintf("===================================================PHP_REQUEST_CLEAN===================================================\n\n");\
-			dprintf("=======================================================================================================================\n\n");\
-			THREAD_STARTUP();\
-		}\
-	}\
-	dprintf("-----------------------------------------------------------------------------------------------------------------------\n");
+#if 1
+	#define TRIGGER_STARTUP() \
+		TSRMLS_FETCH();\
+		if((SSP_G(trigger_count)++) == 0) {\
+			long timeout=(long)time(NULL);\
+			if(SSP_G(timeout)<timeout) {\
+				SSP_G(timeout)=timeout+ssp_timeout;\
+				dprintf("==================================================================================================================================\n");\
+				THREAD_SHUTDOWN()\
+				dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");\
+				THREAD_STARTUP();\
+				dprintf("==================================================================================================================================\n");\
+			}\
+			dprintf("--------------------------------------------TRIGGER_STARTUP---------------------------------------------------------------------------\n");\
+			ssp_auto_globals_recreate(TSRMLS_C);\
+		}
 
-#define TRIGGER_SHUTDOWN() \
-	dprintf("-----------------------------------------------------------------------------------------------------------------------\n");\
-	if((--SSP_G(trigger_count)) == 0) {\
-		zend_hash_clean(Z_ARRVAL_P(SSP_G(vars)));\
-	}
+	#define TRIGGER_SHUTDOWN() \
+		if((--SSP_G(trigger_count)) == 0) {\
+			dprintf("--------------------------------------------TRIGGER_SHUTDOWN---------------------------------------------------------------------------\n");\
+		}
 
-#define TRIGGER_STARTUP_EX() TRIGGER_STARTUP()
+	#define TRIGGER_STARTUP_EX() TRIGGER_STARTUP()
 
-#define TRIGGER_SHUTDOWN_EX() TRIGGER_SHUTDOWN()
+	#define TRIGGER_SHUTDOWN_EX() TRIGGER_SHUTDOWN()
 
-#define THREAD_STARTUP() ssp_request_startup();
-#define THREAD_SHUTDOWN() ssp_request_shutdown();
+	#define THREAD_STARTUP() ssp_request_startup();
+	#define THREAD_SHUTDOWN() ssp_request_shutdown();
+#else
+	#define TRIGGER_STARTUP() \
+		TSRMLS_FETCH();\
+		if((SSP_G(trigger_count)++) == 0) {\
+			ssp_request_startup();\
+			dprintf("-----------------------------------------ssp_request_startup------------------------------------------------------------------------------\n");\
+			ssp_auto_globals_recreate(TSRMLS_C);\
+		}
+
+	#define TRIGGER_SHUTDOWN() \
+		if((--SSP_G(trigger_count)) == 0) {\
+			dprintf("-----------------------------------------ssp_request_shutdown-----------------------------------------------------------------------------\n");\
+			ssp_request_shutdown();\
+		}
+
+	#define TRIGGER_STARTUP_EX() TRIGGER_STARTUP()
+
+	#define TRIGGER_SHUTDOWN_EX() TRIGGER_SHUTDOWN()
+
+	#define THREAD_STARTUP() TSRMLS_FETCH();
+	#define THREAD_SHUTDOWN()
+#endif
 
 static PHP_MINIT_FUNCTION(ssp);
 static PHP_MSHUTDOWN_FUNCTION(ssp);
@@ -75,7 +98,7 @@ static PHP_GINIT_FUNCTION(ssp);
 static PHP_GSHUTDOWN_FUNCTION(ssp);
 static PHP_MINFO_FUNCTION(ssp);
 
-zend_bool php_auto_globals_create_ssp(char *name, uint name_len TSRMLS_DC);
+void ssp_auto_globals_recreate(TSRMLS_D);
 bool trigger(unsigned short type,...);
 
 static PHP_FUNCTION(ssp_mallinfo);

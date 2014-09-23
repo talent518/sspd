@@ -22,15 +22,21 @@ int recv_data_len(conn_t *ptr)
 
 	ret=recv(ptr->sockfd,buf,sizeof(buf), MSG_WAITALL);
 
+	if(ret<0) {
+		return -1;
+	} else if(ret==0) {
+		return 0;
+	}
+
 	if (ret!=sizeof(buf))
 	{
-		conn_info_ex(ptr, "[ Data packet is legitimate or has closed the connection ] ");
-		return ret>0?-1:0;
+		conn_info_ex(ptr, "[ The data packet is not complete ] ");
+		return 0;
 	}
 
 	if (buf[0])
 	{
-		conn_info_ex(ptr, "[ Data packet is legitimate or has closed the connection ] ");
+		conn_info_ex(ptr, "[ The data packet head is not legitimate ] ");
 		return 0;
 	}
 
@@ -38,6 +44,7 @@ int recv_data_len(conn_t *ptr)
 	{
 		len+=(buf[i]&0xff)<<((3-i)*8);
 	}
+
 	return len;
 }
 
@@ -45,47 +52,53 @@ int recv_data_len(conn_t *ptr)
 //返回值:0(关闭连接),-1(接收到的数据长度与数据包长度不一致),>0(接收成功)
 int socket_recv(conn_t *ptr,char **data,int *data_len)
 {
-	int ret=recv_data_len(ptr);
-	if (ret>0)
-	{
-		*data_len=ret;
-		if (*data_len>ssp_maxrecvs)
-		{
-			conn_info_ex(ptr, "[ The received data beyond the limit ] ");
-			return 0;
-		}
-		if (*data!=NULL)
-		{
-			free(*data);
-			*data=NULL;
-		}
-		*data=(char*)malloc(*data_len+1);
-	}
-	else
-	{
-		return ret;
-	}
-	ret=recv(ptr->sockfd,*data,*data_len,MSG_WAITALL);
-	if (ret!=*data_len)
-	{
-		free(*data);
-		*data=NULL;
+	int ret;
+	if(ptr->rbuf==NULL) {
+		ret=recv_data_len(ptr);
 		if (ret>0)
 		{
-			conn_info_ex(ptr,"[ Data packets are not complete ] ");
-			return -1;
+			if (ret>ssp_maxrecvs)
+			{
+				conn_info_ex(ptr, "[ The received data beyond the limit ] ");
+				return 0;
+			}
+			if (*data!=NULL)
+			{
+				free(*data);
+			}
+			ptr->rbuf=(char*)malloc(ret+1);
+			ptr->rsize=ret;
+			ptr->rbytes=0;
 		}
 		else
 		{
-			conn_info_ex(ptr,"[ Has closed the connection ] ");
-			return 0;
+			return ret;
 		}
 	}
-	else
-	{
-		*(*data+(*data_len))=0;//把最后一个字符设置为\0
+	
+	ret=recv(ptr->sockfd,ptr->rbuf+ptr->rbytes,ptr->rsize-ptr->rbytes,0);
+	
+	if(ret<0) {
+		return -1;
+	} else if(ret==0) {
+		return 0;
 	}
-	return 1;
+
+	ptr->rbytes+=ret;
+
+	if (ptr->rbytes==ptr->rsize)
+	{
+		*(ptr->rbuf+ptr->rsize)=0;
+
+		*data=ptr->rbuf;
+		*data_len=ptr->rsize;
+
+		ptr->rbuf=NULL;
+		ptr->rsize=ptr->rbytes=0;
+
+		return 1;
+	}
+	return -1;
 }
 
 int socket_send(conn_t *ptr,const char *data,int data_len)
@@ -117,21 +130,25 @@ int socket_send(conn_t *ptr,const char *data,int data_len)
 
 void socket_close(conn_t *ptr)
 {
+	BEGIN_RUNTIME();
+	char buf[1];
+	buf[0] = '\0';
+
 	BEGIN_READ_LOCK
 	{
 		if (ptr->refable)
 		{
 			ptr->refable=false;
 
-			//shutdown(ptr->sockfd,SHUT_RD);
-
 			conn_info(ptr);
 
 			queue_push(ptr->thread->close_queue, ptr);
 
-			char buf[1];
 			buf[0] = 'x';
-			write(ptr->thread->write_fd, buf, 1);
 		}
 	} END_READ_LOCK;
+
+	if(buf[0]) {
+		write(ptr->thread->write_fd, buf, 1);
+	}
 }

@@ -126,8 +126,7 @@ static PHP_MINIT_FUNCTION(ssp)
 
 	pthread_mutex_init(&unique_lock, NULL);
 
-	SSP_G(vars)=NULL;
-	zend_register_auto_global("_SSP", sizeof("_SSP")-1, php_auto_globals_create_ssp TSRMLS_CC);
+	zend_register_auto_global("_SSP", sizeof("_SSP")-1, NULL TSRMLS_CC);
 
 #ifdef SSP_DEBUG_EXT
 	printf("ssp module init\n");
@@ -142,14 +141,11 @@ static PHP_MINIT_FUNCTION(ssp)
 static PHP_MSHUTDOWN_FUNCTION(ssp)
 {
 	ts_free_id(ssp_globals_id);
-
-	zend_delete_global_variable("_SESSION", sizeof("_SESSION")-1 TSRMLS_CC);
-
-	if (SSP_G(vars)) {
-		zval_ptr_dtor(&SSP_G(vars));
-	}
 	
 	pthread_mutex_destroy(&unique_lock);
+
+	zend_delete_global_variable("_SSP", sizeof("_SSP")-1 TSRMLS_CC);
+
 #ifdef SSP_DEBUG_EXT
 	printf("ssp module shutdown\n");
 #endif
@@ -161,7 +157,7 @@ static PHP_MSHUTDOWN_FUNCTION(ssp)
 */
 static PHP_GINIT_FUNCTION(ssp)
 {
-	SSP_G(timeout)=0;
+	SSP_G(timeout)=(long)time(NULL)+ssp_timeout;
 	SSP_G(trigger_count)=0;
 
 #ifdef SSP_DEBUG_EXT
@@ -189,21 +185,16 @@ static PHP_MINFO_FUNCTION(ssp)
 	php_info_print_table_end();
 }
 
-zend_bool php_auto_globals_create_ssp(char *name, uint name_len TSRMLS_DC)
+void ssp_auto_globals_recreate(TSRMLS_D)
 {
+	zend_delete_global_variable("_SSP", sizeof("_SSP")-1 TSRMLS_CC);
+
 	zval *vars;
 
-	ALLOC_ZVAL(vars);
-	array_init(vars);
-	INIT_PZVAL(vars);
+	MAKE_STD_ZVAL(vars);
+	array_init_size(vars, 8);
 
-	array_init_size(vars,10);
-
-	SSP_G(vars)=vars;
-
-	ZEND_SET_GLOBAL_VAR("_SSP", SSP_G(vars));
-	
-	return 0;
+	ZEND_SET_GLOBAL_VAR("_SSP", vars);
 }
 
 static zval *_ssp_resource_zval(conn_t *value)

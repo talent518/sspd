@@ -5,6 +5,20 @@
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
+#include <time.h>
+
+#define MICRO_IN_SEC 1000000.00
+
+double microtime()
+{
+	struct timeval tp = {0};
+
+	if (gettimeofday(&tp, NULL)) {
+		return 0;
+	}
+
+	return (double)(tp.tv_sec + tp.tv_usec / MICRO_IN_SEC);
+}
 
 char *fsize(int size)
 {

@@ -53,15 +53,12 @@ void *queue_pop(queue_t *queue) {
 }
 
 bool queue_free(queue_t *queue) {
-	pthread_mutex_lock(&queue->lock);
-
 	queue_item_t *ptr=queue->head,*tmp;
 	while(ptr) {
 		tmp=ptr;
 		ptr=ptr->next;
 		free(tmp);
 	}
+	pthread_mutex_destroy(&queue->lock);
 	free(queue);
-
-	pthread_mutex_unlock(&queue->lock);
 }
