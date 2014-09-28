@@ -31,7 +31,7 @@ char *fsize(int size)
 		unit=4;
 	}
 
-	sprintf(buf, "%f%s", size/pow(1024,unit), units[unit]);
+	sprintf(buf, "%.3f%s", size/pow(1024,unit), units[unit]);
 
 	return strdup(buf);
 }

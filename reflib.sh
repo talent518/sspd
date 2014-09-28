@@ -14,7 +14,7 @@ fi
 pushd reflib
 
 #libtool
-if [ ! -f "$(which libtool)" ] && [ ! -f libtool.lock ]; then
+if [ ! -f "/usr/bin/libtool" ]; then
     echo Installing libtool ...
     if [ ! -d "libtool-2.4" ]; then
         tar -zxvf libtool-2.4.tar.gz
@@ -28,7 +28,6 @@ if [ ! -f "$(which libtool)" ] && [ ! -f libtool.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf libtool-2.4
-        touch libtool.lock
         echo Installed libtool Success.
     else
         popd
@@ -38,7 +37,7 @@ if [ ! -f "$(which libtool)" ] && [ ! -f libtool.lock ]; then
 fi
 
 #jpeg8
-if [ ! -f jpeg8.lock ]; then
+if [ ! -f "$INST_DIR/lib/libjpeg.so" ]; then
     echo Installing jpeg8 ...
     if [ ! -d "jpeg-8c" ]; then
         tar -zxvf jpegsrc.v8c.tar.gz
@@ -52,7 +51,6 @@ if [ ! -f jpeg8.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf jpeg-8c
-        touch jpeg8.lock
         echo Installed jpeg8 Success.
     else
         popd
@@ -62,7 +60,7 @@ if [ ! -f jpeg8.lock ]; then
 fi
 
 #libpng
-if [ ! -f libpng.lock ]; then
+if [ ! -f "$INST_DIR/lib/libpng.so" ]; then
     echo Installing libpng ...
     if [ ! -d "libpng-1.5.4beta08" ]; then
         tar -jxvf libpng-1.5.4beta08.tar.bz2
@@ -76,7 +74,6 @@ if [ ! -f libpng.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf libpng-1.5.4beta08
-        touch libpng.lock
         echo Installed libpng Success.
     else
         popd
@@ -86,7 +83,7 @@ if [ ! -f libpng.lock ]; then
 fi
 
 #freetype
-if [ ! -f freetype.lock ]; then
+if [ ! -f "$INST_DIR/lib/libfreetype.so" ]; then
     echo Installing freetype ...
     if [ ! -d "freetype-2.4.5" ]; then
         tar -jxvf freetype-2.4.5.tar.bz2
@@ -100,7 +97,6 @@ if [ ! -f freetype.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf freetype-2.4.5
-        touch freetype.lock
         echo Installed freetype Success.
     else
         popd
@@ -110,7 +106,7 @@ if [ ! -f freetype.lock ]; then
 fi
 
 #gd(freetype)
-if [ ! -f gd.lock ]; then
+if [ ! -f "$INST_DIR/lib/libgd.so" ]; then
     echo Installing gd ...
     if [ ! -d "pierrejoye-gd-libgd-5551f61978e3/src" ]; then
         tar -jxvf pierrejoye-gd-libgd-5551f61978e3.tar.bz2
@@ -124,7 +120,6 @@ if [ ! -f gd.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf pierrejoye-gd-libgd-5551f61978e3
-        touch gd.lock
         echo Installed gd Success.
     else
         popd
@@ -134,7 +129,7 @@ if [ ! -f gd.lock ]; then
 fi
 
 #curl
-if [ ! -f curl.lock ]; then
+if [ ! -f "$INST_DIR/lib/libcurl.so" ]; then
     echo Installing curl ...
     if [ ! -d "curl-7.21.7" ]; then
         tar -jxvf curl-7.21.7.tar.bz2
@@ -148,7 +143,6 @@ if [ ! -f curl.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf curl-7.21.7
-        touch curl.lock
         echo Installed curl Success.
     else
         popd
@@ -158,7 +152,7 @@ if [ ! -f curl.lock ]; then
 fi
 
 #libxml
-if [ ! -f libxml.lock ]; then
+if [ ! -f "$INST_DIR/lib/libxml2.so" ]; then
     echo Installing libxml ...
     if [ ! -d "libxml2-2.6.30" ]; then
         tar -jxvf libxml2-2.6.30.tar.bz2
@@ -172,7 +166,6 @@ if [ ! -f libxml.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf libxml2-2.6.30
-        touch libxml.lock
         echo Installed libxml Success.
     else
         popd
@@ -182,7 +175,7 @@ if [ ! -f libxml.lock ]; then
 fi
 
 #libgcrypt
-if [ ! -f libgcrypt.lock ]; then
+if [ ! -f "/usr/lib/libgcrypt.so" ]; then
     echo Installing libgcrypt ...
     if [ ! -d "libgcrypt-1.4.5" ]; then
         tar -jxvf libgcrypt-1.4.5.tar.bz2
@@ -196,7 +189,6 @@ if [ ! -f libgcrypt.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf libgcrypt-1.4.5
-        touch libgcrypt.lock
         echo Installed libgcrypt Success.
     else
         popd
@@ -206,7 +198,7 @@ if [ ! -f libgcrypt.lock ]; then
 fi
 
 #libxslt
-if [ ! -f libxslt.lock ]; then
+if [ ! -f "$INST_DIR/lib/libxslt.so" ]; then
     echo Installing libxslt ...
     if [ ! -d "libxslt-1.1.22" ]; then
         tar -jxvf libxslt-1.1.22.tar.bz2
@@ -220,7 +212,6 @@ if [ ! -f libxslt.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf libxslt-1.1.22
-        touch libxslt.lock
         echo Installed libxslt Success.
     else
         popd
@@ -230,7 +221,7 @@ if [ ! -f libxslt.lock ]; then
 fi
 
 #openssl
-if [ ! -f openssl.lock ]; then
+if [ ! -f "$INST_DIR/lib/libssl.a" ]; then
     echo Installing openssl ...
     if [ ! -d "openssl-1.0.0d" ]; then
         tar -zxvf openssl-1.0.0d.tar.gz
@@ -244,7 +235,6 @@ if [ ! -f openssl.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf openssl-1.0.0d
-        touch openssl.lock
         echo Installed openssl Success.
     else
         popd
@@ -255,7 +245,7 @@ fi
 
 #imap
 #alter files /etc/inetd.conf and /etc/services exclude pop3 and imap front # number:
-if [ ! -f imap.lock ]; then
+if [ ! -f "$INST_DIR/lib/libc-client.a" ]; then
     echo Installing imap ...
     if [ ! -d "imap-2007a" ]; then
         tar -zxvf imap-2007a1.tar.gz
@@ -272,7 +262,6 @@ if [ ! -f imap.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf imap-2007a
-        touch imap.lock
         echo Installed imap Success.
     else
         popd
@@ -282,7 +271,7 @@ if [ ! -f imap.lock ]; then
 fi
 
 #mcrypt
-if [ ! -f mcrypt.lock ]; then
+if [ ! -f "$INST_DIR/lib/libmcrypt.so" ]; then
     echo Installing mcrypt ...
     if [ ! -d "libmcrypt-2.5.7" ]; then
         tar -zxvf libmcrypt-2.5.7.tar.gz
@@ -306,7 +295,7 @@ if [ ! -f mcrypt.lock ]; then
 fi
 
 #mhash
-if [ ! -f mhash.lock ]; then
+if [ ! -f "$INST_DIR/lib/libmhash.so" ]; then
     echo Installing mhash ...
     if [ ! -d "mhash-0.9.9.9" ]; then
         tar -jxvf mhash-0.9.9.9.tar.bz2
@@ -320,7 +309,6 @@ if [ ! -f mhash.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf mhash-0.9.9.9
-        touch mhash.lock
         echo Installed mhash Success.
     else
         popd
@@ -330,7 +318,7 @@ if [ ! -f mhash.lock ]; then
 fi
 
 #php
-if [ ! -f php.lock ]; then
+if [ ! -f "$INST_DIR/lib/libphp5.so" ]; then
     echo Installing php ...
     if [ ! -d "php-5.3.15" ]; then
         tar -jxvf php-5.3.15.tar.bz2
@@ -347,7 +335,6 @@ if [ ! -f php.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf php-5.3.15
-        touch php.lock
         echo Installed php Success.
     else
         popd
@@ -357,7 +344,7 @@ if [ ! -f php.lock ]; then
 fi
 
 #libevent
-if [ ! -f libevent.lock ]; then
+if [ ! -f "$INST_DIR/lib/libevent.so" ]; then
     echo Installing libevent ...
     if [ ! -d "libevent-2.0.21-stable" ]; then
         tar -zxvf libevent-2.0.21-stable.tar.gz
@@ -371,7 +358,6 @@ if [ ! -f libevent.lock ]; then
     if [ "$?" = "0" ]; then
         popd
         rm -rf libevent-2.0.21-stable
-        touch libevent.lock
         echo Installed libevent Success.
     else
         popd
@@ -379,6 +365,84 @@ if [ ! -f libevent.lock ]; then
         exit 1
     fi
 fi
+
+if [ ! -d "/usr/lib" ]; then
+	ln -s /usr/lib64 /usr/lib
+fi
+
+#libffi
+pkg-config --exists libffi
+if [ "$?" != "0" ]; then
+    echo Installing libffi ...
+    if [ ! -d "/tmp/libffi-3.1" ]; then
+        tar -zxvf libffi-3.1.tar.gz -C /tmp
+    fi
+    pushd /tmp/libffi-3.1
+    
+    ./configure --prefix=/usr \
+    && make \
+    && make install
+    
+    if [ "$?" = "0" ]; then
+        popd
+        rm -rf /tmp/libffi-3.1
+        echo Installed libffi Success.
+    else
+        popd
+        echo Installed libffi error.
+        exit 1
+    fi
+fi
+
+#libglib
+pkg-config --exists glib-2.0
+if [ "$?" != "0" ]; then
+    echo Installing libglib ...
+    if [ ! -d "/tmp/glib-2.40.0" ]; then
+        tar -xvf glib-2.40.0.tar.xz -C /tmp
+    fi
+    pushd /tmp/glib-2.40.0
+    
+    ./configure --prefix=/usr \
+    && make \
+    && make install
+    
+    if [ "$?" = "0" ]; then
+        popd
+        rm -rf /tmp/glib-2.40.0
+        echo Installed libglib Success.
+    else
+        popd
+        echo Installed libglib error.
+        exit 1
+    fi
+fi
+
+#procps
+if [ ! -f "/usr/include/proc/readproc.h" ]; then
+    echo Installing procps ...
+    if [ ! -d "/tmp/procps-3.2.8" ]; then
+        tar -zxvf procps-3.2.8_835.tar.gz -C /tmp
+    fi
+    pushd /tmp/procps-3.2.8
+    
+    make && make install
+    
+    if [ "$?" = "0" ]; then
+		mkdir /usr/include/proc
+		cp proc/*.h /usr/include/proc/
+		ln -s /lib/libproc-3.2.8.so /usr/lib/libproc.so
+        popd
+        rm -rf /tmp/procps-3.2.8
+        echo Installed procps Success.
+    else
+        popd
+        echo Installed procps error.
+        exit 1
+    fi
+fi
+
+echo All library installation has been completed.
 
 #end reflib
 popd

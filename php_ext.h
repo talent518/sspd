@@ -101,7 +101,6 @@ static PHP_MINFO_FUNCTION(ssp);
 void ssp_auto_globals_recreate(TSRMLS_D);
 bool trigger(unsigned short type,...);
 
-static PHP_FUNCTION(ssp_mallinfo);
 static PHP_FUNCTION(ssp_resource);
 static PHP_FUNCTION(ssp_info);
 static PHP_FUNCTION(ssp_send);
@@ -109,6 +108,8 @@ static PHP_FUNCTION(ssp_close);
 static PHP_FUNCTION(ssp_destroy);
 static PHP_FUNCTION(ssp_lock);
 static PHP_FUNCTION(ssp_unlock);
+
+static PHP_FUNCTION(ssp_stats);
 
 ZEND_DECLARE_MODULE_GLOBALS(ssp)
 

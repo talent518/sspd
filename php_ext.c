@@ -6,6 +6,9 @@
 #include <error.h>
 #include <malloc.h>
 #include <signal.h>
+#include <proc/sysinfo.h>
+#include <proc/readproc.h>
+#include <math.h>
 
 static pthread_mutex_t unique_lock;
 
@@ -22,9 +25,6 @@ static char trigger_handlers[7][30]={
 long le_ssp_descriptor,le_ssp_descriptor_ref,ssp_timeout=30;
 
 /* {{{ arginfo */
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_mallinfo, 0, 0, 0)
-ZEND_END_ARG_INFO()
-
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_resource, 0, 0, 2)
 	ZEND_ARG_INFO(0, var)
 	ZEND_ARG_INFO(0, type)
@@ -53,12 +53,13 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_unlock, 0, 0, 0)
 ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_stats, 0, 0, 0)
+ZEND_END_ARG_INFO()
 /* }}} */
 
 /* {{{ ssp_functions[] */
 function_entry ssp_functions[] = {
-	PHP_FE(ssp_mallinfo, arginfo_ssp_mallinfo)
-	//PHP_FE(ssp_setopt, arginfo_ssp_setopt)
 	PHP_FE(ssp_resource, arginfo_ssp_resource)
 	PHP_FE(ssp_info, arginfo_ssp_info)
 	PHP_FE(ssp_send, arginfo_ssp_send)
@@ -66,6 +67,7 @@ function_entry ssp_functions[] = {
 	PHP_FE(ssp_destroy, arginfo_ssp_destroy)
 	PHP_FE(ssp_lock, arginfo_ssp_lock)
 	PHP_FE(ssp_unlock, arginfo_ssp_unlock)
+	PHP_FE(ssp_stats, arginfo_ssp_stats)
 	{NULL, NULL, NULL}
 };
 /* }}} */
@@ -303,21 +305,6 @@ bool trigger(unsigned short type,...){
 	return retbool;
 }
 
-static PHP_FUNCTION(ssp_mallinfo){
-    struct mallinfo info = mallinfo();
-	array_init_size(return_value,10);
-	add_assoc_long(return_value,"arena",info.arena);//size of data segment used by malloc
-	add_assoc_long(return_value,"ordblks",info.ordblks);//number of free chunks
-	add_assoc_long(return_value,"smblks",info.smblks);//number of fast bins
-	add_assoc_long(return_value,"hblks",info.hblks);//number of anonymous mappings
-	add_assoc_long(return_value,"hblkhd",info.hblkhd);//size of anonymous mappings
-	add_assoc_long(return_value,"usmblks",info.usmblks);//maximum total allocated size
-	add_assoc_long(return_value,"fsmblks",info.fsmblks);//size of available fast bins
-	add_assoc_long(return_value,"uordblks",info.uordblks);//size of total allocated space
-	add_assoc_long(return_value,"fordblks",info.fordblks);//size of available chunks
-	add_assoc_long(return_value,"keepcost",info.keepcost);//size of trimmable space
-}
-
 static PHP_FUNCTION(ssp_resource){
 	long var,type;
 	conn_t *ptr=NULL;
@@ -357,7 +344,7 @@ static PHP_FUNCTION(ssp_info){
 		ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
 	}
 	if(key_len==0){
-		array_init_size(return_value,3);
+		array_init_size(return_value,5);
 		add_assoc_long(return_value,"index",ptr->index);
 		add_assoc_long(return_value,"sockfd",ptr->sockfd);
 		add_assoc_string(return_value,"host",ptr->host,1); /* cast to avoid gcc-warning */
@@ -446,4 +433,211 @@ static PHP_FUNCTION(ssp_lock)
 static PHP_FUNCTION(ssp_unlock)
 {
 	pthread_mutex_unlock(&unique_lock);
+}
+
+static PHP_FUNCTION(ssp_stats)
+{
+	zend_bool include_dead_children=0;
+	long sleep_time=1;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|lb", &sleep_time, &include_dead_children) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	unsigned int running, blocked, btime, processes;
+	jiff cpu_use[2], cpu_nic[2], cpu_sys[2], cpu_idl[2], cpu_iow[2], cpu_xxx[2], cpu_yyy[2], cpu_zzz[2];
+	unsigned long pgpgin[2], pgpgout[2], pswpin[2], pswpout[2];
+	unsigned int intr[2], ctxt[2];
+
+	unsigned int sleep_half;
+
+	unsigned long seconds_since_boot;
+	proc_t proc;
+
+	sleep_half=(sleep_time/2);
+
+	bzero(&proc,sizeof(proc_t));
+
+	static pid_t pid=0;
+	if(pid == 0) {
+		pid = getpid();
+	}
+
+	getstat(&cpu_use[0], &cpu_nic[0], &cpu_sys[0], &cpu_idl[0],
+		&cpu_iow[0], &cpu_xxx[0], &cpu_yyy[0], &cpu_zzz[0],
+		&pgpgin[0], &pgpgout[0], &pswpin[0], &pswpout[0],
+		&intr[0], &ctxt[0],
+		&running, &blocked,
+		&btime, &processes);
+
+	seconds_since_boot = uptime(0,0);
+
+	sleep(sleep_time); // wait 1s
+
+	getstat(&cpu_use[1], &cpu_nic[1], &cpu_sys[1], &cpu_idl[1],
+		&cpu_iow[1], &cpu_xxx[1], &cpu_yyy[1], &cpu_zzz[1],
+		&pgpgin[1], &pgpgout[1], &pswpin[1], &pswpout[1],
+		&intr[1], &ctxt[1],
+		&running, &blocked,
+		&btime, &processes);
+
+	get_proc_stats(pid, &proc);
+
+	meminfo();
+
+	array_init_size(return_value,2);
+
+	zval *sysinfo;
+	MAKE_STD_ZVAL(sysinfo);
+	array_init_size(sysinfo,26);
+
+	add_assoc_long(sysinfo,"memTotal", kb_main_total);
+	add_assoc_long(sysinfo,"memUsed", kb_main_used);
+	add_assoc_long(sysinfo,"memActive", kb_active);
+	add_assoc_long(sysinfo,"memInactive", kb_inactive);
+	add_assoc_long(sysinfo,"memFree", kb_main_free);
+	add_assoc_long(sysinfo,"memBuffer", kb_main_buffers);
+	add_assoc_long(sysinfo,"swapCache", kb_main_cached);
+	add_assoc_long(sysinfo,"swapTotal", kb_swap_total);
+	add_assoc_long(sysinfo,"swapUsed", kb_swap_used);
+	add_assoc_long(sysinfo,"swapFree", kb_swap_free);
+
+	add_assoc_long(sysinfo,"running", running);
+	add_assoc_long(sysinfo,"blocked", blocked);
+	add_assoc_long(sysinfo,"bootTime", btime);
+	add_assoc_long(sysinfo,"processes", processes);
+
+	jiff duse, dsys, didl, diow, dstl, Div, divo2;
+	unsigned long kb_per_page = sysconf(_SC_PAGESIZE) / 1024ul;
+	unsigned int hz = Hertz;
+	int debt = 0;  // handle idle ticks running backwards
+
+    duse= cpu_use[1]-cpu_use[0] + cpu_nic[1]-cpu_nic[0];
+    dsys= cpu_sys[1]-cpu_sys[0] + cpu_xxx[1]-cpu_xxx[0] + cpu_yyy[1]-cpu_yyy[0];
+    didl= cpu_idl[1]-cpu_idl[0];
+    diow= cpu_iow[1]-cpu_iow[0];
+    dstl= cpu_zzz[1]-cpu_zzz[0];
+
+    /* idle can run backwards for a moment -- kernel "feature" */
+    if(debt){
+      didl = (int)didl + debt;
+      debt = 0;
+    }
+    if( (int)didl < 0 ){
+      debt = (int)didl;
+      didl = 0;
+    }
+
+    Div= duse+dsys+didl+diow+dstl;
+    divo2= Div/2UL;
+
+	add_assoc_double(sysinfo, "si", 1.0*( (pswpin [1] - pswpin [0])*kb_per_page+sleep_half )/sleep_time ); /*si*/
+	add_assoc_double(sysinfo, "so", 1.0*( (pswpout[1] - pswpout[0])*kb_per_page+sleep_half )/sleep_time ); /*so*/
+	add_assoc_double(sysinfo, "bi", 1.0*(  pgpgin [1] - pgpgin [0]             +sleep_half )/sleep_time ); /*bi*/
+	add_assoc_double(sysinfo, "bo", 1.0*(  pgpgout[1] - pgpgout[0]             +sleep_half )/sleep_time ); /*bo*/
+	add_assoc_double(sysinfo, "in", 1.0*(  intr   [1] - intr   [0]             +sleep_half )/sleep_time ); /*in*/
+	add_assoc_double(sysinfo, "cs", 1.0*(  ctxt   [1] - ctxt   [0]             +sleep_half )/sleep_time ); /*cs*/
+	add_assoc_double(sysinfo, "us", 1.0*(100*duse+divo2)/Div ); /*us*/
+	add_assoc_double(sysinfo, "sy", 1.0*(100*dsys+divo2)/Div ); /*sy*/
+	add_assoc_double(sysinfo, "id", 1.0*(100*didl+divo2)/Div ); /*id*/
+	add_assoc_double(sysinfo, "wa", 1.0*(100*diow+divo2)/Div ); //wa
+
+	add_assoc_zval(return_value, "sysinfo", sysinfo);
+
+	if(proc.tid) {
+		unsigned long long total_time;   /* jiffies used by this process */
+		unsigned long pcpu = 0;               /* scaled %cpu, 999 means 99.9% */
+		unsigned long long seconds;      /* seconds of process life */
+		total_time = proc.utime + proc.stime;
+		if(include_dead_children) total_time += (proc.cutime + proc.cstime);
+		seconds = seconds_since_boot - proc.start_time / Hertz ;
+		if(seconds) pcpu = (total_time * 1000ULL / Hertz) / seconds;
+
+		proc.pcpu = pcpu;  // fits in an int, summing children on 128 CPUs
+
+		zval *procinfo;
+		MAKE_STD_ZVAL(procinfo);
+		array_init_size(procinfo,74);
+		add_assoc_long(procinfo,"pid",proc.tid); // (special)       task id, the POSIX thread ID (see also: tgid)
+		add_assoc_long(procinfo,"ppid",proc.ppid); // stat,status     pid of parent process
+		add_assoc_double(procinfo,"pcpu",proc.pcpu/10.0L); // stat (special)  %CPU usage (is not filled in by readproc!!!)
+		add_assoc_stringl(procinfo,"state",&proc.state,1,1); // stat,status     single-char code for process state (S=sleeping)
+		add_assoc_long(procinfo,"utime",proc.utime); // user-mode CPU time accumulated by process
+		add_assoc_long(procinfo,"stime",proc.stime); // kernel-mode CPU time accumulated by process
+		add_assoc_long(procinfo,"cutime",proc.cutime); // stat            cumulative utime of process and reaped children
+		add_assoc_long(procinfo,"cstime",proc.cstime); // stat            cumulative stime of process and reaped children
+		add_assoc_long(procinfo,"start_time",proc.start_time);	// stat            start time of process -- seconds since 1-1-70
+		add_assoc_string(procinfo,"signal",proc.signal,1); // status          mask of pending signals, per-task for readtask() but per-proc for readproc()
+		add_assoc_string(procinfo,"blocked",proc.blocked,1); // status          mask of blocked signals
+		add_assoc_string(procinfo,"sigignore",proc.sigignore,1); // status          mask of ignored signals
+		add_assoc_string(procinfo,"sigcatch",proc.sigcatch,1); // status          mask of caught  signals
+		add_assoc_string(procinfo,"_sigpnd",proc._sigpnd,1); // status          mask of PER TASK pending signals
+		add_assoc_long(procinfo,"start_code",proc.start_code); // stat            address of beginning of code segment
+		add_assoc_long(procinfo,"end_code",proc.end_code); // stat            address of end of code segment
+		add_assoc_long(procinfo,"start_stack",proc.start_stack); // stat            address of the bottom of stack for the process
+		add_assoc_long(procinfo,"kstk_esp",proc.kstk_esp); // stat            kernel stack pointer
+		add_assoc_long(procinfo,"kstk_eip",proc.kstk_eip); // stat            kernel instruction pointer
+		add_assoc_long(procinfo,"wchan",proc.wchan); // stat (special)  address of kernel wait channel proc is sleeping in
+		add_assoc_long(procinfo,"priority",proc.priority); // stat            kernel scheduling priority
+		add_assoc_long(procinfo,"nice",proc.nice); // stat            standard unix nice level of process
+		add_assoc_long(procinfo,"rss",proc.rss); // stat            resident set size from /proc/#/stat (pages)
+		add_assoc_long(procinfo,"alarm",proc.alarm); // stat            ?
+		add_assoc_long(procinfo,"size",proc.size); // statm           total # of pages of memory
+		add_assoc_long(procinfo,"resident",proc.resident); // statm           number of resident set (non-swapped) pages (4k)
+		add_assoc_long(procinfo,"share",proc.share); // statm           number of pages of shared (mmap'd) memory
+		add_assoc_long(procinfo,"trs",proc.trs); // statm           text resident set size
+		add_assoc_long(procinfo,"lrs",proc.lrs); // statm           shared-lib resident set size
+		add_assoc_long(procinfo,"drs",proc.drs); // statm           data resident set size
+		add_assoc_long(procinfo,"dt",proc.dt); // statm           dirty pages
+		add_assoc_long(procinfo,"vm_size",proc.vm_size); // status          same as vsize in kb
+		add_assoc_long(procinfo,"vm_lock",proc.vm_lock); // status          locked pages in kb
+		add_assoc_long(procinfo,"vm_rss",proc.vm_rss); // status          same as rss in kb
+		add_assoc_long(procinfo,"vm_data",proc.vm_data); // status          data size
+		add_assoc_long(procinfo,"vm_stack",proc.vm_stack); // status          stack size
+		add_assoc_long(procinfo,"vm_exe",proc.vm_exe); // status          executable size
+		add_assoc_long(procinfo,"vm_lib",proc.vm_lib); // status          library size (all pages, not just used ones)
+		add_assoc_long(procinfo,"rtprio",proc.rtprio); // stat            real-time priority
+		add_assoc_long(procinfo,"sched",proc.sched); // stat            scheduling class
+		add_assoc_long(procinfo,"vsize",proc.vsize); // stat            number of pages of virtual memory ...
+		add_assoc_long(procinfo,"rss_rlim",proc.rss_rlim); // stat            resident set size limit?
+		add_assoc_long(procinfo,"flags",proc.flags); // stat            kernel flags for the process
+		add_assoc_long(procinfo,"min_flt",proc.min_flt); // stat            number of minor page faults since process start
+		add_assoc_long(procinfo,"maj_flt",proc.maj_flt); // stat            number of major page faults since process start
+		add_assoc_long(procinfo,"cmin_flt",proc.cmin_flt); // stat            cumulative min_flt of process and child processes
+		add_assoc_long(procinfo,"cmaj_flt",proc.cmaj_flt); // stat            cumulative maj_flt of process and child processes
+
+		if(proc.environ)
+			add_assoc_string(procinfo,"environ",*proc.environ,0); // (special)       environment string vector (/proc/#/environ)
+
+		if(proc.cmdline)
+			add_assoc_string(procinfo,"cmdline",*proc.cmdline,0); // (special)       command line string vector (/proc/#/cmdline)
+
+		add_assoc_string(procinfo,"euser",proc.euser,1); // stat(),status   effective user name
+		add_assoc_string(procinfo,"ruser",proc.ruser,1); // status          real user name
+		add_assoc_string(procinfo,"suser",proc.suser,1); // status          saved user name
+		add_assoc_string(procinfo,"fuser",proc.fuser,1); // status          filesystem user name
+		add_assoc_string(procinfo,"rgroup",proc.rgroup,1); // status          real group name
+		add_assoc_string(procinfo,"egroup",proc.egroup,1); // status          effective group name
+		add_assoc_string(procinfo,"sgroup",proc.sgroup,1); // status          saved group name
+		add_assoc_string(procinfo,"fgroup",proc.fgroup,1); // status          filesystem group name
+		add_assoc_string(procinfo,"cmd",proc.cmd,1); // stat,status     basename of executable file in call to exec(2)
+		add_assoc_long(procinfo,"pgrp",proc.pgrp); // stat            process group id
+		add_assoc_long(procinfo,"session",proc.session); // stat            session id
+		add_assoc_long(procinfo,"nlwp",proc.nlwp); // stat,status     number of threads, or 0 if no clue
+		add_assoc_long(procinfo,"tgid",proc.tgid); // (special)       task group ID, the POSIX PID (see also: tid)
+		add_assoc_long(procinfo,"tty",proc.tty); // stat            full device number of controlling terminal
+		add_assoc_long(procinfo,"euid",proc.euid); // stat(),status   effective
+		add_assoc_long(procinfo,"egid",proc.egid); // stat(),status   effective
+		add_assoc_long(procinfo,"ruid",proc.ruid); // status          real
+		add_assoc_long(procinfo,"rgid",proc.rgid); // status          real
+		add_assoc_long(procinfo,"suid",proc.suid); // status          saved
+		add_assoc_long(procinfo,"sgid",proc.sgid); // status          saved
+		add_assoc_long(procinfo,"fuid",proc.fuid); // status          fs (used for file access only)
+		add_assoc_long(procinfo,"fgid",proc.fgid); // status          fs (used for file access only)
+		add_assoc_long(procinfo,"tpgid",proc.tpgid); // stat            terminal process group id
+		add_assoc_long(procinfo,"exit_signal",proc.exit_signal); // stat            might not be SIGCHLD
+		add_assoc_long(procinfo,"processor",proc.processor); // stat            current (or most recent?) CPU
+
+		add_assoc_zval(return_value, "procinfo", procinfo);
+	}
 }

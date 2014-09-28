@@ -6,7 +6,7 @@ BIN_DIR  = $(INST_DIR)/bin
 BUILD_DIR=$(PWD)/build
 
 CFLAGS   = -I$(INC_DIR) -I$(INC_DIR)/php -I$(INC_DIR)/php/main -I$(INC_DIR)/php/Zend -I$(INC_DIR)/php/TSRM -I$(INC_DIR)/php/ext -DZTS `pkg-config --cflags glib-2.0`
-LFLAGS   = -lstdc++ -L$(INST_DIR)/lib -lphp5 -levent -Wl,-rpath,$(INST_DIR)/lib `pkg-config --libs glib-2.0`
+LFLAGS   = -lstdc++ -L$(INST_DIR)/lib -lphp5 -levent -Wl,-rpath,$(INST_DIR)/lib `pkg-config --libs glib-2.0` -L/lib/ -lproc
 
 all: $(BIN_DIR) $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/daemon
 
@@ -34,16 +34,12 @@ $(BUILD_DIR)/%.o: %.c
 test: kill clean $(BUILD_DIR) $(BIN_DIR)/ssp
 	@echo -e "\E[32m"$@
 	@tput sgr0
-	@rm -rf /tmp/ssp
-	@cp -R $(PWD)/bin /tmp/ssp
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 100 --max-clients 2500 --user sspuser -b 2048 -f /tmp/ssp/init.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 100 --max-clients 2500 --user sspuser -b 2048 -f $(PWD)/bin/init.php -s start
 
 retest: kill
 	@echo -e "\E[32m"$@
 	@tput sgr0
-	@rm -rf /tmp/ssp
-	@cp -R $(PWD)/bin /tmp/ssp
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 100 --max-clients 2500 --user sspuser -b 2048 -f /tmp/ssp/init.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 100 --max-clients 2500 --user sspuser -b 2048 -f $(PWD)/bin/init.php -s start
 
 kill:
 	@echo -e "\E[31m"$@
@@ -53,7 +49,7 @@ kill:
 bench:
 	@echo -e "\E[31m"$@
 	@tput sgr0
-	@$(PWD)/bin/bench 127.0.0.1 8086 250 10 10000
+	@$(PWD)/bin/bench 127.0.0.1 8086 200 10 10000
 
 clean:
 	@echo -e "\E[33m"$@
