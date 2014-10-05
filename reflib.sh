@@ -418,26 +418,26 @@ if [ "$?" != "0" ]; then
     fi
 fi
 
-#procps
-if [ ! -f "/usr/include/proc/readproc.h" ]; then
-    echo Installing procps ...
-    if [ ! -d "/tmp/procps-3.2.8" ]; then
-        tar -zxvf procps-3.2.8_835.tar.gz -C /tmp
+#libgtop
+pkg-config --exists libgtop-2.0
+if [ "$?" != "0" ]; then
+    echo Installing libgtop ...
+    if [ ! -d "/tmp/libgtop-2.6.0" ]; then
+        tar -zxvf libgtop-2.6.0.tar.gz -C /tmp
     fi
-    pushd /tmp/procps-3.2.8
+    pushd /tmp/libgtop-2.6.0
     
-    make && make install
+    ./configure --prefix=/usr \
+    && make \
+    && make install
     
     if [ "$?" = "0" ]; then
-		mkdir /usr/include/proc
-		cp proc/*.h /usr/include/proc/
-		ln -s /lib/libproc-3.2.8.so /usr/lib/libproc.so
         popd
-        rm -rf /tmp/procps-3.2.8
-        echo Installed procps Success.
+        rm -rf /tmp/libgtop-2.6.0
+        echo Installed libgtop Success.
     else
         popd
-        echo Installed procps error.
+        echo Installed libgtop error.
         exit 1
     fi
 fi

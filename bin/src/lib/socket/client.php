@@ -83,7 +83,12 @@ class LibSocketClient{
 			$this->error= 'Couldn\'t create socket: '.@socket_strerror($this->socket);
 			return false;
 		}
-		$this->connected = @socket_connect($this->socket, $server_host, $server_port);
+		$i=0;
+		while(!$this->is_connect() && $i<100){
+			$this->connected = @socket_connect($this->socket, $server_host, $server_port);
+			usleep(100000);
+			$i++;
+		}
 		if (!$this->connected) {
 			$errorcode = socket_last_error();
 			$errormsg = socket_strerror($errorcode);

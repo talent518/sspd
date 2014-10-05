@@ -39,17 +39,23 @@ Class CtlConsoleService extends CtlBase{
 		$xml->sspTime=udate('Y-m-d H:i:s',$stime,$uid);
 		$xml->sspRunTimed=formatsecond(time()-$stime);
 
-		$xml->memoryPeakUsage=formatsize(memory_get_peak_usage(true));
-		$xml->memoryUsage=formatsize(memory_get_usage(true));
-
 		$xml->time=udate('Y-m-d H:i:s',time(),$uid);
 
 		$xml->online=DB()->count('user_online','uid>0').'/'.DB()->count('user_online');
 
-		$xml->stats=ssp_stats();
+		$stats=ssp_stats();
+		foreach($stats as $k=>$v) {
+			$xml->$k=$v;
+		}
 
-		//echo '====================================================================================',PHP_EOL;
-		//print_r($xml->stats);
+		$xml->sysCPUus=round($stats['sysinfo']['us'],3).'%';
+		$xml->sysCPUsy=round($stats['sysinfo']['sy'],3).'%';
+		$xml->sysCPUid=round($stats['sysinfo']['id'],3).'%';
+		$xml->sysCPUni=round($stats['sysinfo']['ni'],3).'%';
+		$xml->sysMemTotal=formatsize($stats['sysinfo']['memTotal']);
+		$xml->sysMemUsed=formatsize($stats['sysinfo']['memUsed']);
+		$xml->procCPU=round($stats['procinfo']['pcpu'],3).'%';
+		$xml->procMem=formatsize($stats['procinfo']['rss']);
 
 		return $xml;
 	}

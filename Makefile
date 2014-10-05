@@ -5,8 +5,8 @@ INC_DIR  = $(INST_DIR)/include
 BIN_DIR  = $(INST_DIR)/bin
 BUILD_DIR=$(PWD)/build
 
-CFLAGS   = -I$(INC_DIR) -I$(INC_DIR)/php -I$(INC_DIR)/php/main -I$(INC_DIR)/php/Zend -I$(INC_DIR)/php/TSRM -I$(INC_DIR)/php/ext -DZTS `pkg-config --cflags glib-2.0`
-LFLAGS   = -lstdc++ -L$(INST_DIR)/lib -lphp5 -levent -Wl,-rpath,$(INST_DIR)/lib `pkg-config --libs glib-2.0` -L/lib/ -lproc
+CFLAGS   = -I$(INC_DIR) -I$(INC_DIR)/php -I$(INC_DIR)/php/main -I$(INC_DIR)/php/Zend -I$(INC_DIR)/php/TSRM -I$(INC_DIR)/php/ext -DZTS `pkg-config --cflags glib-2.0` `pkg-config --cflags libgtop-2.0`
+LFLAGS   = -lstdc++ -L$(INST_DIR)/lib -lphp5 -levent -Wl,-rpath,$(INST_DIR)/lib `pkg-config --libs glib-2.0` `pkg-config --libs libgtop-2.0`
 
 all: $(BIN_DIR) $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/daemon
 
@@ -49,7 +49,7 @@ kill:
 bench:
 	@echo -e "\E[31m"$@
 	@tput sgr0
-	@$(PWD)/bin/bench 127.0.0.1 8086 200 10 10000
+	@$(PWD)/bin/bench 127.0.0.1 8086 200 10 100
 
 clean:
 	@echo -e "\E[33m"$@
