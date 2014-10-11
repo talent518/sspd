@@ -31,7 +31,7 @@ $(BUILD_DIR)/%.o: %.c
 	@tput sgr0
 	@$(CC) $(CFLAGS) -c $? -o $@
 
-test: kill clean $(BUILD_DIR) $(BIN_DIR)/ssp
+test: kill clean $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/daemon
 	@echo -e "\E[32m"$@
 	@tput sgr0
 	@$(BIN_DIR)/ssp --port 8086 --nthreads 100 --max-clients 2500 --user sspuser -b 2048 -f $(PWD)/bin/init.php -s start

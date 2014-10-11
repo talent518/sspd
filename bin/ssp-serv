@@ -12,7 +12,7 @@ DPID_FILE=${SRC_DIR}/log/ssp.pid.daemon
 # See how we were called.
 case $1 in
     start|stop|restart|status)
-        "${BIN_DIR}/ssp" -H -f "${SRC_DIR}/init.php" --port {SERV_PORT} --pidfile "{SERV_PIDFILE}" -s $1
+        "${BIN_DIR}/ssp" -H -f "${SRC_DIR}/init.php" --port {SERV_PORT} --pidfile "{SERV_PIDFILE}" --nthreads {SERV_NTHEADS} --max-clients {SERV_CLIENTS} --user {SERV_USER} -s $1
         if [ "$1" = "stop" ]; then
 	    if [ -s "${DPID_FILE}" ];then
 	        kill `cat ${DPID_FILE}`
