@@ -1,11 +1,14 @@
 <?
-if(!defined('IN_SERVER'))
-exit('Access Denied');
+if (  ! defined('IN_SERVER') )
+	exit('Access Denied');
 
-class LibLang{
-	function __construct(){
+class LibLang {
+
+	function __construct () {
 		$this->LibLang();
 	}
-	function LibLang(){
+
+	function LibLang () {
 	}
+
 }

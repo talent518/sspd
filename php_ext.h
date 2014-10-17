@@ -29,19 +29,24 @@
 #define PHP_SSP_RES_SOCKFD 1
 #define PHP_SSP_RES_PORT 2
 
-extern long le_ssp_descriptor,le_ssp_descriptor_ref,ssp_timeout;
+extern long le_ssp_descriptor,le_ssp_descriptor_ref;
+#ifdef SSP_CODE_TIMEOUT
+extern long ssp_timeout;
+#endif
 
 extern function_entry ssp_functions[];
 extern zend_module_entry ssp_module_entry;
 
 ZEND_BEGIN_MODULE_GLOBALS(ssp)
+#ifdef SSP_CODE_TIMEOUT
 	long timeout;
+#endif
 	long trigger_count;
 ZEND_END_MODULE_GLOBALS(ssp)
 
 #define SSP_G(v) TSRMG(ssp_globals_id, zend_ssp_globals *, v)
 
-#if 1
+#ifdef SSP_CODE_TIMEOUT
 	#define TRIGGER_STARTUP() \
 		TSRMLS_FETCH();\
 		if((SSP_G(trigger_count)++) == 0) {\

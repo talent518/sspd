@@ -344,6 +344,12 @@ void ssp_request_startup(){
 	REGISTER_MAIN_LONG_CONSTANT("SSP_PORT",ssp_port,CONST_CS | CONST_PERSISTENT);
 	REGISTER_MAIN_LONG_CONSTANT("SSP_MAX_CLIENTS",ssp_maxclients,CONST_CS | CONST_PERSISTENT);
 	REGISTER_MAIN_LONG_CONSTANT("SSP_MAX_RECVS",ssp_maxrecvs,CONST_CS | CONST_PERSISTENT);
+	REGISTER_MAIN_LONG_CONSTANT("SSP_NTHREADS",ssp_nthreads,CONST_CS | CONST_PERSISTENT);
+	REGISTER_MAIN_LONG_CONSTANT("SSP_BACKLOG",ssp_backlog,CONST_CS | CONST_PERSISTENT);
+#ifdef SSP_CODE_TIMEOUT
+	REGISTER_MAIN_LONG_CONSTANT("SSP_TIMEOUT",ssp_timeout,CONST_CS | CONST_PERSISTENT);
+#endif
+
 #ifdef PHP_WIN32
 	REGISTER_MAIN_STRINGL_CONSTANT("STD_CHARSET","gbk",sizeof("gbk"),CONST_CS | CONST_PERSISTENT);
 #else
@@ -366,7 +372,6 @@ void ssp_request_shutdown(){
 	zend_hash_del(EG(zend_constants),"SSP_MAX_RECVS",sizeof("SSP_MAX_RECVS"));
 
 	zend_hash_del(EG(zend_constants),"STD_CHARSET",sizeof("STD_CHARSET"));
-	zend_hash_del(EG(zend_constants),"IS_DEBUG",sizeof("IS_DEBUG"));
 }
 
 void ssp_module_shutdown(){

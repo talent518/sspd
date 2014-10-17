@@ -1,6 +1,7 @@
 <?php
-if(!defined('IN_SERVER'))
+if (  ! defined('IN_SERVER') )
 	exit('Access Denied');
 
-Class CtlBase{
+class CtlBase {
+
 }

@@ -1,22 +1,27 @@
 <?php
-if(!defined('IN_SERVER'))
+if (  ! defined('IN_SERVER') )
 	exit('Access Denied');
 
 import('api.uc.client');
 import('mod.base');
 
-class ModNewsGroup extends ModBase{
-	protected $table='v_news_group';
-	protected $priKey='gid';
+class ModNewsGroup extends ModBase {
+
+	protected $table = 'v_news_group';
+
+	protected $priKey = 'gid';
+
 	protected $order;
-	protected $rules=array(
-	);
-	protected $messages=array(
-	);
-	function &get($id){
-		if(!isset($_SSP['NG'][$id])){
-			$_SSP['NG'][$id]=parent::get($id);
+
+	protected $rules = array();
+
+	protected $messages = array();
+
+	function &get ( $id ) {
+		if (  ! isset($_SSP['NG'][$id]) ) {
+			$_SSP['NG'][$id] = parent::get($id);
 		}
 		return $_SSP['NG'][$id];
 	}
+
 }

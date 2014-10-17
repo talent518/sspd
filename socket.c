@@ -76,7 +76,7 @@ int socket_recv(conn_t *ptr,char **data,int *data_len)
 		}
 	}
 	
-	ret=recv(ptr->sockfd,ptr->rbuf+ptr->rbytes,ptr->rsize-ptr->rbytes,0);
+	ret=recv(ptr->sockfd,ptr->rbuf+ptr->rbytes,ptr->rsize-ptr->rbytes,MSG_DONTWAIT);
 	
 	if(ret<0) {
 		return -1;
@@ -119,7 +119,7 @@ int socket_send(conn_t *ptr,const char *data,int data_len)
 
 	memcpy(package+4,data,data_len);//数据包内容
 
-	int ret=send(ptr->sockfd,package,plen,0);
+	int ret=send(ptr->sockfd,package,plen,MSG_WAITALL);
 	free(package);
 	if (ret>0 && ret!=plen)
 	{

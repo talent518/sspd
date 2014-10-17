@@ -1,27 +1,32 @@
 <?php
-if(!defined('IN_SERVER'))
-exit('Access Denied');
+if (  ! defined('IN_SERVER') )
+	exit('Access Denied');
 
-class LibIoDir{
-	function __construct(){
+class LibIoDir {
+
+	function __construct () {
 		$this->LibIoDir();
 	}
-	function LibIoDir(){
-	}
 
-	//获取目录
-	function gets($pdir,$exts=array(),$nots=array()){
+	function LibIoDir () {
+	}
+	
+	// 锟斤拷取目录
+	function gets ( $pdir, $exts = array(), $nots = array() ) {
 		$dirs = array();
-		if($dh = @opendir($pdir)) {
-			while ($file=readdir($dh)){
-				$full=$pdir.$file;
-				if(@in_array($full,$nots)){
-				}elseif(@in_array($file,array('.','..'))){
-				}elseif(is_dir($full.DIR_SEP) && count($_dirs=$this->gets($full.DIR_SEP,$exts,$nots))>0){
-					$dirs[]=$full.DIR_SEP;
-					$dirs=array_merge($dirs,$_dirs);
-				}elseif(is_file($full) && is_array($exts) && (count($exts)==0 || in_array(strtolower(L('io.file')->ext($full)),$exts))){
-					$dirs[]=$full;
+		if ( ( $dh = @opendir($pdir) ) !== false ) {
+			while ( ( $file = readdir($dh) ) !== false ) {
+				$full = $pdir . $file;
+				if ( @in_array($full, $nots) ) {
+				} elseif ( @in_array($file, array(
+					'.', 
+					'..'
+				)) ) {
+				} elseif ( is_dir($full . DIR_SEP) && count($_dirs = $this->gets($full . DIR_SEP, $exts, $nots)) > 0 ) {
+					$dirs[] = $full . DIR_SEP;
+					$dirs = array_merge($dirs, $_dirs);
+				} elseif ( is_file($full) && is_array($exts) && ( count($exts) == 0 || in_array(strtolower(LIB('io.file')->ext($full)), $exts) ) ) {
+					$dirs[] = $full;
 				}
 			}
 			closedir($dh);
@@ -29,38 +34,42 @@ class LibIoDir{
 		return $dirs;
 	}
 
-	function drop($dir,$ischild=false){
-		if(!is_dir($dir)){
+	function drop ( $dir, $ischild = false ) {
+		if (  ! is_dir($dir) ) {
 			return false;
 		}
-		if($ischild){
-			$handle=@opendir($dir);
-			while(($file=@readdir($handle))!==false){
-				if(!in_array($file,array('.','..'))){
-					$_dir=$dir.DIR_SEP.$file;
-					if(is_dir($_dir))
-						$this->drop($_dir,$ischild);
+		if ( $ischild ) {
+			$handle = @opendir($dir);
+			while ( ( $file = @readdir($handle) ) !== false ) {
+				if (  ! in_array($file, array(
+					'.', 
+					'..'
+				)) ) {
+					$_dir = $dir . DIR_SEP . $file;
+					if ( is_dir($_dir) )
+						$this->drop($_dir, $ischild);
 					else
 						@unlink($_dir);
 				}
 			}
 			closedir($handle);
 		}
-		return CFG()->isEncrypt?true:@rmdir($dir);
+		return CFG()->isEncrypt ? true : @rmdir($dir);
 	}
 
-	function writeable($dir){
-		$writeable=FALSE;
-		if(!is_dir($dir)){
-			@mkdir($dir,777) or die('Create directory failed'.(IS_DEBUG?':'.$dir.'.':'!'));
+	function writeable ( $dir ) {
+		$writeable = FALSE;
+		if (  ! is_dir($dir) ) {
+			@mkdir($dir, 777) or die('Create directory failed' . ( IS_DEBUG ? ':' . $dir . '.' : '!' ));
 		}
-		if(is_dir($dir)){
-			if($fp=@fopen($dir.DIR_SEP.'test.txt','w')){
+		if ( is_dir($dir) ) {
+			if ( ( $fp = @fopen($dir . DIR_SEP . 'test.txt', 'w') ) !== false ) {
 				@fclose($fp);
-				@unlink($dir.DIR_SEP.'test.txt');
-				$writeable=TRUE;
+				@unlink($dir . DIR_SEP . 'test.txt');
+				$writeable = TRUE;
 			}
 		}
 		return $writeable;
 	}
+
 }

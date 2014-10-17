@@ -112,7 +112,9 @@ static void php_ssp_usage(char *argv0)
 				"  --max-clients <number>  Max client connect number (default: %d)\n"
 				"  --max-recvs <size>      Max recv data size (default: %s)\n"
 				"  -b <backlog>            Set the backlog queue limit (default: %d)\n"
+#ifdef SSP_CODE_TIMEOUT
 				"  --timeout <timeout>     Set the timeout php cache timeout (default: %ds)\n"
+#endif
 				"\n"
 				"  -s <option>             socket service option\n"
 				"  option:\n"
@@ -121,7 +123,11 @@ static void php_ssp_usage(char *argv0)
 				"       restart            restart ssp service\n"
 				"       status             ssp service status\n"
 				"\n"
-				, prog, ssp_host, ssp_port, ssp_pidfile, ssp_user, ssp_nthreads, ssp_maxclients, maxrecvs, ssp_backlog, ssp_timeout);
+				, prog, ssp_host, ssp_port, ssp_pidfile, ssp_user, ssp_nthreads, ssp_maxclients, maxrecvs, ssp_backlog
+#ifdef SSP_CODE_TIMEOUT
+					, ssp_timeout
+#endif
+				);
 
 	free(maxrecvs);
 }
@@ -275,9 +281,11 @@ int main(int argc, char *argv[])
 		case 'b':
 			ssp_backlog=atoi(php_optarg);
 			break;
+#ifdef SSP_CODE_TIMEOUT
 		case OPT_TIMEOUT:
 			ssp_timeout=atoi(php_optarg);
 			break;
+#endif
 		}
 	}
 

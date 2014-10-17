@@ -1,18 +1,22 @@
 <?php
-if(!defined('IN_SERVER'))
-exit('Access Denied');
+if (  ! defined('IN_SERVER') )
+	exit('Access Denied');
 
-class ModMail{
+class ModMail {
+
 	var $error;
 
-	function send($email,$subject,$body,$attachments=array()){
-		return $this->sends(array($email),$subject,$body,$attachments);
+	function send ( $email, $subject, $body, $attachments = array() ) {
+		return $this->sends(array(
+			$email
+		), $subject, $body, $attachments);
 	}
-	function sends($emails,$subject,$body,$attachments=array()){
-		$mail=LIB('net.smtp');
-		$mail->CharSet='utf-8';
-		$mail->Encoding='base64';
-		$mail->Mailer=MAIL_TYPE; // Ê¹ÓÃSMTP
+
+	function sends ( $emails, $subject, $body, $attachments = array() ) {
+		$mail = LIB('net.smtp');
+		$mail->CharSet = 'utf-8';
+		$mail->Encoding = 'base64';
+		$mail->Mailer = MAIL_TYPE; // Ê¹ï¿½ï¿½SMTP
 		$mail->SMTPSecure = MAIL_SECURE;
 		$mail->Host = MAIL_HOST;
 		$mail->Port = MAIL_PORT;
@@ -21,28 +25,29 @@ class ModMail{
 		$mail->Password = MAIL_PASSWORD;
 		$mail->From = MAIL_FROM;
 		$mail->FromName = MAIL_FROMNAME;
-		foreach($emails as $email){
-			if(is_array($email))
+		foreach ( $emails as $email ) {
+			if ( is_array($email) )
 				extract($email);
 			else
-				$name='';
-			$mail->AddAddress($email,$name);//ÊÕ¼şÈËemailºÍÃû×Ö
+				$name = '';
+			$mail->AddAddress($email, $name); // ï¿½Õ¼ï¿½ï¿½ï¿½emailï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		}
-		if(MAIL_REPLY)
-			$mail->AddReplyTo(MAIL_REPLY,MAIL_REPLYNAME);
-		$mail->WordWrap = 50; // Éè¶¨ word wrap
-		foreach($attachments as $attachment)
-			$mail->AddAttachment($attachment);//¸½¼ş
-		$mail->IsHTML(true); // ÒÔHTML·¢ËÍ
+		if ( MAIL_REPLY )
+			$mail->AddReplyTo(MAIL_REPLY, MAIL_REPLYNAME);
+		$mail->WordWrap = 50; // ï¿½è¶¨ word wrap
+		foreach ( $attachments as $attachment )
+			$mail->AddAttachment($attachment); // ï¿½ï¿½ï¿½ï¿½
+		$mail->IsHTML(true); // ï¿½ï¿½HTMLï¿½ï¿½ï¿½ï¿½
 		$mail->Subject = $subject;
-		$mail->Body = $body; //HTML Body
-		$mail->AltBody = "This is the body when user views in plain text format"; //´¿ÎÄ×ÖÊ±µÄBody
-		if(!$mail->Send()){
-			$this->error=$mail->ErrorInfo;
+		$mail->Body = $body; // HTML Body
+		$mail->AltBody = "This is the body when user views in plain text format"; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Body
+		if (  ! $mail->Send() ) {
+			$this->error = $mail->ErrorInfo;
 			return false;
-		}else{
-			$this->error='';
+		} else {
+			$this->error = '';
 			return true;
 		}
 	}
+
 }

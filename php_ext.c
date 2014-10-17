@@ -25,7 +25,10 @@ static char trigger_handlers[7][30]={
 	"ssp_stop_handler"
 };
 
-long le_ssp_descriptor,le_ssp_descriptor_ref,ssp_timeout=30;
+long le_ssp_descriptor,le_ssp_descriptor_ref;
+#ifdef SSP_CODE_TIMEOUT
+	long ssp_timeout=30;
+#endif
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_resource, 0, 0, 2)
@@ -33,22 +36,22 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_resource, 0, 0, 2)
 	ZEND_ARG_INFO(0, type)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 2)
-	ZEND_ARG_INFO(0, socket)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, res)
 	ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_send, 0, 0, 2)
-	ZEND_ARG_INFO(0, socket)
+	ZEND_ARG_INFO(0, res)
 	ZEND_ARG_INFO(0, message)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_close, 0, 0, 1)
-	ZEND_ARG_INFO(0, socket)
+	ZEND_ARG_INFO(0, res)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_destroy, 0, 0, 1)
-	ZEND_ARG_INFO(0, socket)
+	ZEND_ARG_INFO(0, res)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_lock, 0, 0, 0)
@@ -114,14 +117,6 @@ static PHP_MINIT_FUNCTION(ssp)
 {
 	REGISTER_STRING_CONSTANT("SSP_VERSION",  PHP_SSP_VERSION,  CONST_CS | CONST_PERSISTENT);
 
-	REGISTER_LONG_CONSTANT("SSP_START",  PHP_SSP_START,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_RECEIVE",  PHP_SSP_RECEIVE,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_SEND",  PHP_SSP_SEND,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_CONNECT",  PHP_SSP_CONNECT,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_CONNECT_DENIED",  PHP_SSP_CONNECT_DENIED,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_CLOSE",  PHP_SSP_CLOSE,  CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_STOP",  PHP_SSP_STOP,  CONST_CS | CONST_PERSISTENT);
-
 	REGISTER_LONG_CONSTANT("SSP_RES_INDEX",  PHP_SSP_RES_INDEX,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_RES_SOCKFD",  PHP_SSP_RES_SOCKFD,  CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_RES_PORT",  PHP_SSP_RES_PORT,  CONST_CS | CONST_PERSISTENT);
@@ -162,7 +157,9 @@ static PHP_MSHUTDOWN_FUNCTION(ssp)
 */
 static PHP_GINIT_FUNCTION(ssp)
 {
+#ifdef SSP_CODE_TIMEOUT
 	SSP_G(timeout)=(long)time(NULL)+ssp_timeout;
+#endif
 	SSP_G(trigger_count)=0;
 
 #ifdef SSP_DEBUG_EXT
@@ -440,10 +437,9 @@ static PHP_FUNCTION(ssp_unlock)
 
 static PHP_FUNCTION(ssp_stats)
 {
-	zend_bool include_dead_children=0;
 	long sleep_time=100000;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|lb", &sleep_time, &include_dead_children) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|lb", &sleep_time) == FAILURE) {
 		RETURN_FALSE;
 	}
 	if(sleep_time<=0) {

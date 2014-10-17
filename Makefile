@@ -34,12 +34,12 @@ $(BUILD_DIR)/%.o: %.c
 test: kill clean $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/daemon
 	@echo -e "\E[32m"$@
 	@tput sgr0
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 100 --max-clients 2500 --user sspuser -b 2048 -f $(PWD)/bin/init.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 20 --max-clients 5000 --user sspuser -b 5000 -f $(PWD)/bin/init.php -s start
 
 retest: kill
 	@echo -e "\E[32m"$@
 	@tput sgr0
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 100 --max-clients 2500 --user sspuser -b 2048 -f $(PWD)/bin/init.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 20 --max-clients 5000 --user sspuser -b 5000 -f $(PWD)/bin/init.php -s start
 
 kill:
 	@echo -e "\E[31m"$@
@@ -49,7 +49,7 @@ kill:
 bench:
 	@echo -e "\E[31m"$@
 	@tput sgr0
-	@$(PWD)/bin/bench 127.0.0.1 8086 200 10 100
+	@$(PWD)/bin/bench 127.0.0.1 8086 150 30 100
 
 clean:
 	@echo -e "\E[33m"$@

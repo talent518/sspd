@@ -50,7 +50,7 @@ import('lib.xml');
 $request=new XML_Element('request');
 $request->type='User.Login';
 $request->is_simple=true;
-$request->params=array_to_xml(array('username'=>'abao','password'=>'Tz555888a'),'params');
+$request->params=array_to_xml(array('username'=>'abao','password'=>'Tz555888'),'params');
 
 $sockets=array();
 for($i=0; $i<$nconns; $i++) {
@@ -85,21 +85,16 @@ for($i=0; $i<$ntimes; $i++) {
 	$request->pid=$pid;
 	$request->i=$i;
 	foreach($sockets as $j=>$socket) {
-		//echo 'pid: ',$pid,', request: ',$i,PHP_EOL;
-		//echo 'Send: ',$request,PHP_EOL;
-		//$microtime = microtime(true);
 		if($socket->write($request) === false) {
 			unset($sockets[$j]);
 			continue;
 		}
 		$response=$socket->read();
-		if($response === false) {
+		if(!$response) {
+			echo 'recv error!',PHP_EOL;
 			unset($sockets[$j]);
 			continue;
 		}
-		//echo 'Response time: ', microtime(true)-$microtime,PHP_EOL;
-		//flush();
-		//echo 'Recv: ',$response,PHP_EOL;
 	}
 }
 
