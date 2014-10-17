@@ -172,7 +172,7 @@ static void sapi_ssp_register_variables(zval *track_vars_array TSRMLS_DC) /* {{{
 }
 /* }}} */
 
-static void sapi_ssp_log_message(char *message) /* {{{ */
+static void sapi_ssp_log_message(char *message TSRMLS_DC) /* {{{ */
 {
 	fprintf(stderr, "%s\n", message);
 }

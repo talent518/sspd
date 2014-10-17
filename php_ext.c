@@ -65,7 +65,7 @@ ZEND_END_ARG_INFO()
 /* }}} */
 
 /* {{{ ssp_functions[] */
-function_entry ssp_functions[] = {
+zend_function_entry ssp_functions[] = {
 	PHP_FE(ssp_resource, arginfo_ssp_resource)
 	PHP_FE(ssp_info, arginfo_ssp_info)
 	PHP_FE(ssp_send, arginfo_ssp_send)
@@ -126,7 +126,7 @@ static PHP_MINIT_FUNCTION(ssp)
 
 	pthread_mutex_init(&unique_lock, NULL);
 
-	zend_register_auto_global("_SSP", sizeof("_SSP")-1, NULL TSRMLS_CC);
+	zend_register_auto_global("_SSP", sizeof("_SSP")-1, 0, NULL TSRMLS_CC);
 
 #ifdef SSP_DEBUG_EXT
 	printf("ssp module init\n");
@@ -199,7 +199,7 @@ void ssp_auto_globals_recreate(TSRMLS_D)
 	ZEND_SET_GLOBAL_VAR("_SSP", vars);
 }
 
-static zval *_ssp_resource_zval(conn_t *value)
+static zval *_ssp_resource_zval(conn_t *value TSRMLS_DC)
 {
 	zval *ret;
 	MAKE_STD_ZVAL(ret);
@@ -207,7 +207,7 @@ static zval *_ssp_resource_zval(conn_t *value)
 	return ret;
 }
 
-static zval *_ssp_string_zval(const char *str,int len)
+static zval *_ssp_string_zval(const char *str,int len TSRMLS_DC)
 {
 	zval *ret;
 	MAKE_STD_ZVAL(ret);
@@ -235,7 +235,7 @@ bool trigger(unsigned short type,...){
 	long *data_len;
 
 	call_func_name=strdup(trigger_handlers[type]);
-	pfunc=_ssp_string_zval(call_func_name,strlen(call_func_name));
+	pfunc=_ssp_string_zval(call_func_name,strlen(call_func_name) TSRMLS_CC);
 
 	va_start(args,type);
 	switch(type){
@@ -251,8 +251,8 @@ bool trigger(unsigned short type,...){
 			data=va_arg(args,char**);
 			data_len=va_arg(args,long*);
 			params=(zval ***) emalloc(sizeof(zval **)*param_count);
-			zval_ptr=_ssp_resource_zval(ptr);
-			zval_data=_ssp_string_zval(*data,*data_len);
+			zval_ptr=_ssp_resource_zval(ptr TSRMLS_CC);
+			zval_data=_ssp_string_zval(*data,*data_len TSRMLS_CC);
 			params[0]=&zval_ptr;
 			params[1]=&zval_data;
 			break;
@@ -262,7 +262,7 @@ bool trigger(unsigned short type,...){
 			param_count=1;
 			ptr=va_arg(args,conn_t*);
 			params=(zval ***) emalloc(sizeof(zval **)*param_count);
-			zval_ptr=_ssp_resource_zval(ptr);
+			zval_ptr=_ssp_resource_zval(ptr TSRMLS_CC);
 			params[0]=&zval_ptr;
 			break;
 		default:

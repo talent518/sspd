@@ -34,7 +34,7 @@ extern long le_ssp_descriptor,le_ssp_descriptor_ref;
 extern long ssp_timeout;
 #endif
 
-extern function_entry ssp_functions[];
+extern zend_function_entry ssp_functions[];
 extern zend_module_entry ssp_module_entry;
 
 ZEND_BEGIN_MODULE_GLOBALS(ssp)

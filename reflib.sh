@@ -39,10 +39,10 @@ fi
 #jpeg8
 if [ ! -f "$INST_DIR/lib/libjpeg.so" ]; then
     echo Installing jpeg8 ...
-    if [ ! -d "jpeg-8c" ]; then
-        tar -zxvf jpegsrc.v8c.tar.gz
+    if [ ! -d "/tmp/jpeg-8c" ]; then
+        tar -zxvf jpegsrc.v8c.tar.gz -C /tmp/
     fi
-    pushd jpeg-8c
+    pushd /tmp/jpeg-8c
     
     ./configure --prefix=$INST_DIR \
     && make \
@@ -50,7 +50,7 @@ if [ ! -f "$INST_DIR/lib/libjpeg.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf jpeg-8c
+        rm -rf /tmp/jpeg-8c
         echo Installed jpeg8 Success.
     else
         popd
@@ -62,10 +62,10 @@ fi
 #libpng
 if [ ! -f "$INST_DIR/lib/libpng.so" ]; then
     echo Installing libpng ...
-    if [ ! -d "libpng-1.5.4beta08" ]; then
-        tar -jxvf libpng-1.5.4beta08.tar.bz2
+    if [ ! -d "/tmp/libpng-1.5.4beta08" ]; then
+        tar -jxvf libpng-1.5.4beta08.tar.bz2 -C /tmp/
     fi
-    pushd libpng-1.5.4beta08
+    pushd /tmp/libpng-1.5.4beta08
     
     ./configure --prefix=$INST_DIR --enable-shared --enable-static \
     && make \
@@ -73,7 +73,7 @@ if [ ! -f "$INST_DIR/lib/libpng.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf libpng-1.5.4beta08
+        rm -rf /tmp/libpng-1.5.4beta08
         echo Installed libpng Success.
     else
         popd
@@ -85,10 +85,10 @@ fi
 #freetype
 if [ ! -f "$INST_DIR/lib/libfreetype.so" ]; then
     echo Installing freetype ...
-    if [ ! -d "freetype-2.4.5" ]; then
-        tar -jxvf freetype-2.4.5.tar.bz2
+    if [ ! -d "/tmp/freetype-2.4.5" ]; then
+        tar -jxvf freetype-2.4.5.tar.bz2 -C /tmp/
     fi
-    pushd freetype-2.4.5
+    pushd /tmp/freetype-2.4.5
     
     ./configure --prefix=$INST_DIR \
     && make \
@@ -96,7 +96,7 @@ if [ ! -f "$INST_DIR/lib/libfreetype.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf freetype-2.4.5
+        rm -rf /tmp/freetype-2.4.5
         echo Installed freetype Success.
     else
         popd
@@ -108,10 +108,10 @@ fi
 #gd(freetype)
 if [ ! -f "$INST_DIR/lib/libgd.so" ]; then
     echo Installing gd ...
-    if [ ! -d "pierrejoye-gd-libgd-5551f61978e3/src" ]; then
-        tar -jxvf pierrejoye-gd-libgd-5551f61978e3.tar.bz2
+    if [ ! -d "/tmp/libgd-2.1.0" ]; then
+        tar -zxvf libgd-2.1.0.tar.gz -C /tmp/
     fi
-    pushd pierrejoye-gd-libgd-5551f61978e3/src
+    pushd /tmp/libgd-2.1.0
     
     ./configure --prefix=$INST_DIR \
     && make \
@@ -119,7 +119,7 @@ if [ ! -f "$INST_DIR/lib/libgd.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf pierrejoye-gd-libgd-5551f61978e3
+        rm -rf /tmp/libgd-2.1.0
         echo Installed gd Success.
     else
         popd
@@ -131,10 +131,10 @@ fi
 #curl
 if [ ! -f "$INST_DIR/lib/libcurl.so" ]; then
     echo Installing curl ...
-    if [ ! -d "curl-7.21.7" ]; then
-        tar -jxvf curl-7.21.7.tar.bz2
+    if [ ! -d "/tmp/curl-7.21.7" ]; then
+        tar -jxvf curl-7.21.7.tar.bz2 -C /tmp/
     fi
-    pushd curl-7.21.7
+    pushd /tmp/curl-7.21.7
     
     ./configure --prefix=$INST_DIR \
     && make \
@@ -142,7 +142,7 @@ if [ ! -f "$INST_DIR/lib/libcurl.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf curl-7.21.7
+        rm -rf /tmp/curl-7.21.7
         echo Installed curl Success.
     else
         popd
@@ -154,10 +154,10 @@ fi
 #libxml
 if [ ! -f "$INST_DIR/lib/libxml2.so" ]; then
     echo Installing libxml ...
-    if [ ! -d "libxml2-2.6.30" ]; then
-        tar -jxvf libxml2-2.6.30.tar.bz2
+    if [ ! -d "/tmp/libxml2-2.6.30" ]; then
+        tar -jxvf libxml2-2.6.30.tar.bz2 -C /tmp/
     fi
-    pushd libxml2-2.6.30
+    pushd /tmp/libxml2-2.6.30
     
     ./configure --prefix=$INST_DIR \
     && make \
@@ -165,7 +165,7 @@ if [ ! -f "$INST_DIR/lib/libxml2.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf libxml2-2.6.30
+        rm -rf /tmp/libxml2-2.6.30
         echo Installed libxml Success.
     else
         popd
@@ -177,10 +177,10 @@ fi
 #libgcrypt
 if [ ! -f "/usr/lib/libgcrypt.so" ]; then
     echo Installing libgcrypt ...
-    if [ ! -d "libgcrypt-1.4.5" ]; then
-        tar -jxvf libgcrypt-1.4.5.tar.bz2
+    if [ ! -d "/tmp/libgcrypt-1.4.5" ]; then
+        tar -jxvf libgcrypt-1.4.5.tar.bz2 -C /tmp/
     fi
-    pushd libgcrypt-1.4.5
+    pushd /tmp/libgcrypt-1.4.5
     
     ./configure --prefix=/usr \
     && make \
@@ -188,7 +188,7 @@ if [ ! -f "/usr/lib/libgcrypt.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf libgcrypt-1.4.5
+        rm -rf /tmp/libgcrypt-1.4.5
         echo Installed libgcrypt Success.
     else
         popd
@@ -200,10 +200,10 @@ fi
 #libxslt
 if [ ! -f "$INST_DIR/lib/libxslt.so" ]; then
     echo Installing libxslt ...
-    if [ ! -d "libxslt-1.1.22" ]; then
-        tar -jxvf libxslt-1.1.22.tar.bz2
+    if [ ! -d "/tmp/libxslt-1.1.22" ]; then
+        tar -jxvf libxslt-1.1.22.tar.bz2 -C /tmp/
     fi
-    pushd libxslt-1.1.22
+    pushd /tmp/libxslt-1.1.22
     
     ./configure --prefix=$INST_DIR --with-libxml-prefix=$INST_DIR \
     && make \
@@ -211,7 +211,7 @@ if [ ! -f "$INST_DIR/lib/libxslt.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf libxslt-1.1.22
+        rm -rf /tmp/libxslt-1.1.22
         echo Installed libxslt Success.
     else
         popd
@@ -223,10 +223,10 @@ fi
 #openssl
 if [ ! -f "$INST_DIR/lib/libssl.a" ]; then
     echo Installing openssl ...
-    if [ ! -d "openssl-1.0.0d" ]; then
-        tar -zxvf openssl-1.0.0d.tar.gz
+    if [ ! -d "/tmp/openssl-1.0.0d" ]; then
+        tar -zxvf openssl-1.0.0d.tar.gz -C /tmp/
     fi
-    pushd openssl-1.0.0d
+    pushd /tmp/openssl-1.0.0d
     
     ./config --prefix=$INST_DIR \
     && make \
@@ -234,7 +234,7 @@ if [ ! -f "$INST_DIR/lib/libssl.a" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf openssl-1.0.0d
+        rm -rf /tmp/openssl-1.0.0d
         echo Installed openssl Success.
     else
         popd
@@ -247,10 +247,10 @@ fi
 #alter files /etc/inetd.conf and /etc/services exclude pop3 and imap front # number:
 if [ ! -f "$INST_DIR/lib/libc-client.a" ]; then
     echo Installing imap ...
-    if [ ! -d "imap-2007a" ]; then
-        tar -zxvf imap-2007a1.tar.gz
+    if [ ! -d "/tmp/imap-2007a" ]; then
+        tar -zxvf imap-2007a1.tar.gz -C /tmp/
     fi
-    pushd imap-2007a
+    pushd /tmp/imap-2007a
     
     make lr5 \
     && cp -u c-client/c-client.a $INST_DIR/lib/libc-client.a \
@@ -261,7 +261,7 @@ if [ ! -f "$INST_DIR/lib/libc-client.a" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf imap-2007a
+        rm -rf /tmp/imap-2007a
         echo Installed imap Success.
     else
         popd
@@ -273,10 +273,10 @@ fi
 #mcrypt
 if [ ! -f "$INST_DIR/lib/libmcrypt.so" ]; then
     echo Installing mcrypt ...
-    if [ ! -d "libmcrypt-2.5.7" ]; then
-        tar -zxvf libmcrypt-2.5.7.tar.gz
+    if [ ! -d "/tmp/libmcrypt-2.5.7" ]; then
+        tar -zxvf libmcrypt-2.5.7.tar.gz -C /tmp/
     fi
-    pushd libmcrypt-2.5.7
+    pushd /tmp/libmcrypt-2.5.7
     
     ./configure --prefix=$INST_DIR \
     && make \
@@ -284,8 +284,7 @@ if [ ! -f "$INST_DIR/lib/libmcrypt.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf libmcrypt-2.5.7
-        touch mcrypt.lock
+        rm -rf /tmp/libmcrypt-2.5.7
         echo Installed mcrypt Success.
     else
         popd
@@ -297,10 +296,10 @@ fi
 #mhash
 if [ ! -f "$INST_DIR/lib/libmhash.so" ]; then
     echo Installing mhash ...
-    if [ ! -d "mhash-0.9.9.9" ]; then
-        tar -jxvf mhash-0.9.9.9.tar.bz2
+    if [ ! -d "/tmp/mhash-0.9.9.9" ]; then
+        tar -jxvf mhash-0.9.9.9.tar.bz2 -C /tmp/
     fi
-    pushd mhash-0.9.9.9
+    pushd /tmp/mhash-0.9.9.9
     
     ./configure --prefix=$INST_DIR \
     && make \
@@ -308,7 +307,7 @@ if [ ! -f "$INST_DIR/lib/libmhash.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf mhash-0.9.9.9
+        rm -rf /tmp/mhash-0.9.9.9
         echo Installed mhash Success.
     else
         popd
@@ -320,13 +319,13 @@ fi
 #php
 if [ ! -f "$INST_DIR/lib/libphp5.so" ]; then
     echo Installing php ...
-    if [ ! -d "php-5.3.15" ]; then
-        tar -jxvf php-5.3.15.tar.bz2
+    if [ ! -d "/tmp/php-5.6.2" ]; then
+        tar -xvf php-5.6.2.tar.xz -C /tmp/
     fi
-    pushd php-5.3.15
+    pushd /tmp/php-5.6.2
 
-    OPT_MAK="--build=i386-redhat-linux-gnu --host=i386-redhat-linux-gnu --target=i686-redhat-linux-gnu --program-prefix= --prefix=$INST_DIR --exec-prefix=$INST_DIR --bindir=$INST_DIR/bin --sbindir=$INST_DIR/sbin --sysconfdir=$INST_DIR/etc --datadir=$INST_DIR/share --includedir=$INST_DIR/include --libdir=$INST_DIR/lib --libexecdir=$INST_DIR/libexec --localstatedir=$INST_DIR/var --sharedstatedir=$INST_DIR/var/lib --mandir=$INST_DIR/share/man --infodir=$INST_DIR/share/info --with-libdir=lib --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --with-exec-dir=$INST_DIR/bin --disable-debug"
-    OPT_EXT="--disable-rpath --without-pear --with-ldap=shared --with-bz2=shared --enable-zip=shared --with-freetype-dir=$INST_DIR --with-png-dir=$INST_DIR --with-xpm-dir=$INST_DIR --enable-gd-native-ttf --with-jpeg-dir=$INST_DIR --with-gd=shared,$INST_DIR --without-gdbm --with-iconv --with-openssl=shared,$INST_DIR --with-zlib=shared --with-layout=GNU --enable-exif=shared --disable-magic-quotes --enable-sockets --enable-shmop --with-sqlite=shared --with-sqlite3=shared --with-xsl=shared,$INST_DIR --with-libxml-dir=$INST_DIR --enable-xml --disable-simplexml --disable-dba --without-unixODBC --enable-xmlreader=shared, --enable-xmlwriter=shared --enable-json=shared --without-pspell --with-curl=shared,$INST_DIR --enable-bcmath=shared --with-mcrypt=shared,$INST_DIR --with-mhash=shared,$INST_DIR --enable-mbstring=all --enable-mbregex --with-mysql --with-mysqli --with-pdo-mysql --with-pdo-sqlite=shared --enable-posix --enable-pcntl --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-maintainer-zts  --with-tsrm-pthreads --enable-zend-multibyte --enable-inline-optimization --disable-ctype --disable-tokenizer --disable-session --disable-phar --disable-fileinfo"
+    OPT_MAK="--build=i386-redhat-linux-gnu --host=i386-redhat-linux-gnu --target=i686-redhat-linux-gnu --prefix=$INST_DIR -bindir=$INST_DIR/bin --sbindir=$INST_DIR/sbin --sysconfdir=$INST_DIR/etc --datadir=$INST_DIR/share --includedir=$INST_DIR/include --libdir=$INST_DIR/lib --libexecdir=$INST_DIR/libexec --localstatedir=$INST_DIR/var --sharedstatedir=$INST_DIR/var/lib --mandir=$INST_DIR/share/man --infodir=$INST_DIR/share/info --with-libdir=lib --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-shared"
+    OPT_EXT="--disable-rpath --without-pear --with-ldap=shared --with-bz2=shared --enable-zip=shared --with-freetype-dir=$INST_DIR --with-png-dir=$INST_DIR --with-xpm-dir=$INST_DIR --enable-gd-native-ttf --with-jpeg-dir=$INST_DIR --with-gd=shared,$INST_DIR --without-gdbm --with-iconv --with-openssl=shared,$INST_DIR --with-zlib=shared --with-layout=GNU --enable-exif=shared --enable-sockets --enable-shmop --with-sqlite3=shared --with-xsl=shared,$INST_DIR --with-libxml-dir=$INST_DIR --enable-xml --disable-simplexml --disable-dba --without-unixODBC --enable-xmlreader=shared, --enable-xmlwriter=shared --enable-json=shared --without-pspell --with-curl=shared,$INST_DIR --enable-bcmath=shared --with-mcrypt=shared,$INST_DIR --with-mhash=shared,$INST_DIR --enable-mbstring=all --enable-mbregex --with-mysql --with-mysqli --with-pdo-mysql --with-pdo-sqlite=shared --enable-posix --enable-pcntl --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-maintainer-zts  --with-tsrm-pthreads --enable-inline-optimization --disable-ctype --disable-tokenizer --disable-session --disable-phar --disable-fileinfo"
     OPT_OTH="--enable-embed"
 
     export EXTENSION_DIR=$INST_DIR/lib/extensions
@@ -334,7 +333,11 @@ if [ ! -f "$INST_DIR/lib/libphp5.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf php-5.3.15
+        rm -rf /tmp/php-5.6.2
+		ln -s $INST_DIR/bin/i686-redhat-linux-gnu-phpize $INST_DIR/bin/phpize
+		ln -s $INST_DIR/bin/i686-redhat-linux-gnu-php-config $INST_DIR/bin/php-config
+		ln -s $INST_DIR/bin/i686-redhat-linux-gnu-php-cgi $INST_DIR/bin/php-cgi
+		ln -s $INST_DIR/bin/i686-redhat-linux-gnu-php $INST_DIR/bin/php
         echo Installed php Success.
     else
         popd
@@ -346,10 +349,10 @@ fi
 #libevent
 if [ ! -f "$INST_DIR/lib/libevent.so" ]; then
     echo Installing libevent ...
-    if [ ! -d "libevent-2.0.21-stable" ]; then
-        tar -zxvf libevent-2.0.21-stable.tar.gz
+    if [ ! -d "/tmp/libevent-2.0.21-stable" ]; then
+        tar -zxvf libevent-2.0.21-stable.tar.gz -C /tmp/
     fi
-    pushd libevent-2.0.21-stable
+    pushd /tmp/libevent-2.0.21-stable
     
     ./configure --prefix=$INST_DIR \
     && make \
@@ -357,7 +360,7 @@ if [ ! -f "$INST_DIR/lib/libevent.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf libevent-2.0.21-stable
+        rm -rf /tmp/libevent-2.0.21-stable
         echo Installed libevent Success.
     else
         popd
@@ -375,7 +378,7 @@ pkg-config --exists libffi
 if [ "$?" != "0" ]; then
     echo Installing libffi ...
     if [ ! -d "/tmp/libffi-3.1" ]; then
-        tar -zxvf libffi-3.1.tar.gz -C /tmp
+        tar -zxvf libffi-3.1.tar.gz -C /tmp/
     fi
     pushd /tmp/libffi-3.1
     
@@ -399,7 +402,7 @@ pkg-config --exists glib-2.0
 if [ "$?" != "0" ]; then
     echo Installing libglib ...
     if [ ! -d "/tmp/glib-2.40.0" ]; then
-        tar -xvf glib-2.40.0.tar.xz -C /tmp
+        tar -xvf glib-2.40.0.tar.xz -C /tmp/
     fi
     pushd /tmp/glib-2.40.0
     
@@ -423,7 +426,7 @@ pkg-config --exists libgtop-2.0
 if [ "$?" != "0" ]; then
     echo Installing libgtop ...
     if [ ! -d "/tmp/libgtop-2.6.0" ]; then
-        tar -zxvf libgtop-2.6.0.tar.gz -C /tmp
+        tar -zxvf libgtop-2.6.0.tar.gz -C /tmp/
     fi
     pushd /tmp/libgtop-2.6.0
     
