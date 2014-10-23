@@ -37,7 +37,7 @@ class LibDbBase {
 	function select ( $sqls = array(), $return = 0, $key = '', $vkey = '' ) {
 		$table = $field = $join = $where = $having = $group = $order = $limit = null;
 		$join_split = false;
-		extract($sqls);
+		extract($sqls,EXTR_OVERWRITE|EXTR_REFS);
 		list ( $table, $alias ) = explode(' ', $table);
 		$sql = 'SELECT ' . $field . ' FROM ' . $this->tname($table) . ( $alias ? " as `$alias`" : '' );
 		if ( $join ) {
@@ -176,12 +176,13 @@ class LibDbBase {
 	function halt ( $message = '', $sql = '' ) {
 		$dberror = $this->error();
 		$dberrno = $this->errno();
-		$msg = "MySQL Error" . PHP_EOL;
-		$msg .= "\tMessage: $message" . PHP_EOL;
-		$msg .= "\tSQL: $sql" . PHP_EOL;
-		$msg .= "\tError: $dberror" . PHP_EOL;
-		$msg .= "\tErrno.: $dberrno";
-		server_log($msg);
+		echo "MySQL Error" , PHP_EOL;
+		echo "\tMessage: $message" , PHP_EOL;
+		echo "\tSQL: $sql" ,PHP_EOL;
+		echo "\tError: $dberror" , PHP_EOL;
+		echo "\tErrno.: $dberrno";
+		debug_print_backtrace();
+		exit;
 	}
 
 	function __destruct () {

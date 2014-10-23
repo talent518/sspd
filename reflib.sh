@@ -228,9 +228,15 @@ if [ ! -f "$INST_DIR/lib/libssl.a" ]; then
     fi
     pushd /tmp/openssl-1.0.0d
     
-    ./config --prefix=$INST_DIR \
-    && make \
-    && make install
+	if [ `uname -p` = "x86_64" ]; then
+		./Configure linux-generic64 -fPIC --prefix=$INST_DIR \
+		&& make \
+		&& make install
+	else
+		./config --prefix=$INST_DIR \
+		&& make \
+		&& make install
+	fi
     
     if [ "$?" = "0" ]; then
         popd
@@ -316,6 +322,59 @@ if [ ! -f "$INST_DIR/lib/libmhash.so" ]; then
     fi
 fi
 
+#Berkeley DB
+if [ ! -f "$INST_DIR/include/ldap.h" ]; then
+    echo Installing Berkeley DB ...
+    if [ ! -d "/tmp/db-4.7.25" ]; then
+        tar -xvf db-4.7.25.tar.gz -C /tmp/
+    fi
+    pushd /tmp/db-4.7.25/build_unix
+    
+    ../dist/configure --prefix=$INST_DIR \
+    && make \
+    && make install
+    
+    if [ "$?" = "0" ]; then
+        popd
+        rm -rf /tmp/db-4.7.25
+        echo Installed Berkeley DB Success.
+    else
+        popd
+        echo Installed Berkeley DB error.
+        exit 1
+    fi
+fi
+
+#openldap
+if [ ! -f "$INST_DIR/include/ldap.h" ]; then
+    echo Installing openldap ...
+    if [ ! -d "/tmp/openldap-2.4.15" ]; then
+        tar -xvf openldap-2.4.15.tgz -C /tmp/
+    fi
+    pushd /tmp/openldap-2.4.15
+    
+	export CPPFLAGS="-I$INST_DIR/include -D_GNU_SOURCE $CPPFLAGS"
+	export LDFLAGS="-L$INST_DIR/lib $LDFLAGS"
+
+    ./configure --prefix=$INST_DIR \
+    && make \
+    && make install
+    
+    if [ "$?" = "0" ]; then
+        popd
+        rm -rf /tmp/openldap-2.4.15
+        echo Installed openldap Success.
+    else
+        popd
+        echo Installed openldap error.
+        exit 1
+    fi
+fi
+
+if [ ! -d "$INST_DIR/lib64" -a `uname -p` = "x86_64" ]; then
+	ln -s $INST_DIR/lib $INST_DIR/lib64
+fi
+
 #php
 if [ ! -f "$INST_DIR/lib/libphp5.so" ]; then
     echo Installing php ...
@@ -324,8 +383,14 @@ if [ ! -f "$INST_DIR/lib/libphp5.so" ]; then
     fi
     pushd /tmp/php-5.6.2
 
-    OPT_MAK="--build=i386-redhat-linux-gnu --host=i386-redhat-linux-gnu --target=i686-redhat-linux-gnu --prefix=$INST_DIR -bindir=$INST_DIR/bin --sbindir=$INST_DIR/sbin --sysconfdir=$INST_DIR/etc --datadir=$INST_DIR/share --includedir=$INST_DIR/include --libdir=$INST_DIR/lib --libexecdir=$INST_DIR/libexec --localstatedir=$INST_DIR/var --sharedstatedir=$INST_DIR/var/lib --mandir=$INST_DIR/share/man --infodir=$INST_DIR/share/info --with-libdir=lib --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-shared"
-    OPT_EXT="--disable-rpath --without-pear --with-ldap=shared --with-bz2=shared --enable-zip=shared --with-freetype-dir=$INST_DIR --with-png-dir=$INST_DIR --with-xpm-dir=$INST_DIR --enable-gd-native-ttf --with-jpeg-dir=$INST_DIR --with-gd=shared,$INST_DIR --without-gdbm --with-iconv --with-openssl=shared,$INST_DIR --with-zlib=shared --with-layout=GNU --enable-exif=shared --enable-sockets --enable-shmop --with-sqlite3=shared --with-xsl=shared,$INST_DIR --with-libxml-dir=$INST_DIR --enable-xml --disable-simplexml --disable-dba --without-unixODBC --enable-xmlreader=shared, --enable-xmlwriter=shared --enable-json=shared --without-pspell --with-curl=shared,$INST_DIR --enable-bcmath=shared --with-mcrypt=shared,$INST_DIR --with-mhash=shared,$INST_DIR --enable-mbstring=all --enable-mbregex --with-mysql --with-mysqli --with-pdo-mysql --with-pdo-sqlite=shared --enable-posix --enable-pcntl --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-maintainer-zts  --with-tsrm-pthreads --enable-inline-optimization --disable-ctype --disable-tokenizer --disable-session --disable-phar --disable-fileinfo"
+	if [ `uname -p` = "x86_64" ]; then
+		OPT_MAK="--prefix=$INST_DIR -bindir=$INST_DIR/bin --sbindir=$INST_DIR/sbin --sysconfdir=$INST_DIR/etc --datadir=$INST_DIR/share --includedir=$INST_DIR/include --libdir=$INST_DIR/lib --libexecdir=$INST_DIR/libexec --localstatedir=$INST_DIR/var --sharedstatedir=$INST_DIR/var/lib --mandir=$INST_DIR/share/man --infodir=$INST_DIR/share/info --with-libdir=lib64 --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-shared"
+	else
+		OPT_MAK="--build=i386-redhat-linux-gnu --host=i386-redhat-linux-gnu --target=i686-redhat-linux-gnu --prefix=$INST_DIR -bindir=$INST_DIR/bin --sbindir=$INST_DIR/sbin --sysconfdir=$INST_DIR/etc --datadir=$INST_DIR/share --includedir=$INST_DIR/include --libdir=$INST_DIR/lib --libexecdir=$INST_DIR/libexec --localstatedir=$INST_DIR/var --sharedstatedir=$INST_DIR/var/lib --mandir=$INST_DIR/share/man --infodir=$INST_DIR/share/info --with-libdir=lib --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-shared"
+	fi
+
+	OPT_EXT="--disable-rpath --without-pear --with-ldap=shared,$INST_DIR --with-bz2=shared --enable-zip=shared --with-freetype-dir=$INST_DIR --with-png-dir=$INST_DIR --with-xpm-dir=$INST_DIR --enable-gd-native-ttf --with-jpeg-dir=$INST_DIR --with-gd=shared,$INST_DIR --without-gdbm --with-iconv --with-openssl=shared,$INST_DIR --with-zlib=shared --with-layout=GNU --enable-exif=shared --enable-sockets --enable-shmop --with-sqlite3=shared --with-xsl=shared,$INST_DIR --with-libxml-dir=$INST_DIR --enable-xml --disable-simplexml --disable-dba --without-unixODBC --enable-xmlreader=shared, --enable-xmlwriter=shared --enable-json=shared --without-pspell --with-curl=shared,$INST_DIR --enable-bcmath=shared --with-mcrypt=shared,$INST_DIR --with-mhash=shared,$INST_DIR --enable-mbstring=all --enable-mbregex --with-mysql --with-mysqli --with-pdo-mysql --with-pdo-sqlite=shared --enable-posix --enable-pcntl --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-maintainer-zts  --with-tsrm-pthreads --enable-inline-optimization --disable-ctype --disable-tokenizer --disable-session --disable-phar --disable-fileinfo"
+
     OPT_OTH="--enable-embed"
 
     export EXTENSION_DIR=$INST_DIR/lib/extensions
@@ -369,8 +434,14 @@ if [ ! -f "$INST_DIR/lib/libevent.so" ]; then
     fi
 fi
 
-if [ ! -d "/usr/lib" ]; then
+if [ ! -d "/usr/lib" -a -d "/usr/lib64" ]; then
 	ln -s /usr/lib64 /usr/lib
+elif [ ! -h "/usr/lib/pkgconfig" -a -d "/usr/lib64/pkgconfig" ]; then
+	if [ -d "/usr/lib/pkgconfig" ]; then
+		cp /usr/lib/pkgconfig/* /usr/lib64/pkgconfig/
+		rm -rf /usr/lib/pkgconfig
+	fi
+	ln -s /usr/lib64/pkgconfig /usr/lib/pkgconfig
 fi
 
 #libffi

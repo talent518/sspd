@@ -109,12 +109,11 @@ void worker_create(void *(*func)(void *), void *arg)
 
 static void read_handler(int sock, short event,	void* arg)
 {
+	int data_len=0,ret;
+	char *data=NULL;
 	conn_t *ptr = (conn_t *) arg;
 
 	conn_info(ptr);
-
-	int data_len=0,ret;
-	char *data=NULL;
 
 	ret=socket_recv(ptr,&data,&data_len);
 	if(ret<0) {//已放入缓冲区
@@ -187,6 +186,15 @@ static void notify_handler(const int fd, const short which, void *arg)
 			event_base_set(me->base, &ptr->event);
 			event_add(&ptr->event, NULL);
 			break;
+	#ifdef SSP_CODE_TIMEOUT
+		case 't':
+			dprintf("==================================================================================================================================\n");
+			THREAD_SHUTDOWN();
+			dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");
+			THREAD_STARTUP();
+			dprintf("==================================================================================================================================\n");
+			break;
+	#endif
 		default:
 			break;
 	}
@@ -314,9 +322,7 @@ static void listen_handler(const int fd, const short which, void *arg)
 
 		ret=trigger(PHP_SSP_CONNECT,ptr);
 		if(ret) {
-
 			dprintf("notify thread %d\n", thread->id);
-
 
 			queue_push(thread->accept_queue, ptr);
 
@@ -374,6 +380,19 @@ static void signal_handler(const int fd, short event, void *arg)
 	event_base_loopbreak(listen_thread.base);
 }
 
+#ifdef SSP_CODE_TIMEOUT
+static void timeout_handler(evutil_socket_t fd, short event, void *arg)
+{
+	int i;
+	char buf[1];
+	buf[0] = 't';
+	for(i=0;i<ssp_nthreads;i++) {
+		dprintf("%s: notify thread timeout %d\n", __func__, i);
+		write(worker_threads[i].write_fd, buf, 1);
+	}
+}
+#endif
+
 void loop_event (int sockfd)
 {
 	// init main thread
@@ -427,14 +446,19 @@ void loop_event (int sockfd)
 		exit(1);
 	}
 
-
-	THREAD_STARTUP();
-
-	trigger(PHP_SSP_START);
+#ifdef SSP_CODE_TIMEOUT
+	// timeout event
+	struct timeval tv;
+	evutil_timerclear(&tv);
+	tv.tv_sec = ssp_timeout;
+	event_set(&listen_thread.timeout_int, -1, EV_PERSIST, timeout_handler, NULL);
+	event_base_set(listen_thread.base, &listen_thread.timeout_int);
+	if (event_add(&listen_thread.timeout_int, &tv) == -1)
+	{
+		perror("timeout event");
+		exit(1);
+	}
+#endif
 
 	event_base_loop(listen_thread.base, 0);
-
-	trigger(PHP_SSP_STOP);
-
-	THREAD_SHUTDOWN();
 }

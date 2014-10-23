@@ -17,10 +17,10 @@ static pthread_mutex_t unique_lock;
 
 static char trigger_handlers[7][30]={
 	"ssp_start_handler",
-	"ssp_receive_handler",
-	"ssp_send_handler",
 	"ssp_connect_handler",
 	"ssp_connect_denied_handler",
+	"ssp_receive_handler",
+	"ssp_send_handler",
 	"ssp_close_handler",
 	"ssp_stop_handler"
 };
@@ -74,7 +74,7 @@ zend_function_entry ssp_functions[] = {
 	PHP_FE(ssp_lock, arginfo_ssp_lock)
 	PHP_FE(ssp_unlock, arginfo_ssp_unlock)
 	PHP_FE(ssp_stats, arginfo_ssp_stats)
-	{NULL, NULL, NULL}
+	PHP_FE_END
 };
 /* }}} */
 
@@ -157,9 +157,6 @@ static PHP_MSHUTDOWN_FUNCTION(ssp)
 */
 static PHP_GINIT_FUNCTION(ssp)
 {
-#ifdef SSP_CODE_TIMEOUT
-	SSP_G(timeout)=(long)time(NULL)+ssp_timeout;
-#endif
 	SSP_G(trigger_count)=0;
 
 #ifdef SSP_DEBUG_EXT
@@ -225,14 +222,14 @@ bool trigger(unsigned short type,...){
 		return FAILURE;
 	}
 	zval *zval_ptr,*zval_data,*pfunc;
-	zval ***params,*retval;
+	zval ***params,*retval=NULL;
 	int i,param_count,ret;
 	bool retbool=true;
 	char *call_func_name;
 	va_list args;
 	conn_t *ptr;
 	char **data=NULL;
-	long *data_len;
+	int *data_len;
 
 	call_func_name=strdup(trigger_handlers[type]);
 	pfunc=_ssp_string_zval(call_func_name,strlen(call_func_name) TSRMLS_CC);
@@ -244,18 +241,6 @@ bool trigger(unsigned short type,...){
 			param_count=0;
 			params=NULL;
 			break;
-		case PHP_SSP_RECEIVE:
-		case PHP_SSP_SEND:
-			param_count=2;
-			ptr=va_arg(args,conn_t*);
-			data=va_arg(args,char**);
-			data_len=va_arg(args,long*);
-			params=(zval ***) emalloc(sizeof(zval **)*param_count);
-			zval_ptr=_ssp_resource_zval(ptr TSRMLS_CC);
-			zval_data=_ssp_string_zval(*data,*data_len TSRMLS_CC);
-			params[0]=&zval_ptr;
-			params[1]=&zval_data;
-			break;
 		case PHP_SSP_CONNECT:
 		case PHP_SSP_CONNECT_DENIED:
 		case PHP_SSP_CLOSE:
@@ -264,6 +249,18 @@ bool trigger(unsigned short type,...){
 			params=(zval ***) emalloc(sizeof(zval **)*param_count);
 			zval_ptr=_ssp_resource_zval(ptr TSRMLS_CC);
 			params[0]=&zval_ptr;
+			break;
+		case PHP_SSP_RECEIVE:
+		case PHP_SSP_SEND:
+			param_count=2;
+			ptr=va_arg(args,conn_t*);
+			data=va_arg(args,char**);
+			data_len=va_arg(args,int*);
+			params=(zval ***) emalloc(sizeof(zval **)*param_count);
+			zval_ptr=_ssp_resource_zval(ptr TSRMLS_CC);
+			zval_data=_ssp_string_zval(*data,*data_len TSRMLS_CC);
+			params[0]=&zval_ptr;
+			params[1]=&zval_data;
 			break;
 		default:
 			perror("Trigger type not exists!");
@@ -291,7 +288,9 @@ bool trigger(unsigned short type,...){
 	}else{
 		php_printf("\nUnable to call handler(%s)", call_func_name);
 	}
-	zval_ptr_dtor(&retval);
+	if(retval) {
+		zval_ptr_dtor(&retval);
+	}
 	if(param_count>0){
 		int i;
 		for(i=0;i<param_count;i++){
@@ -334,7 +333,7 @@ static PHP_FUNCTION(ssp_resource){
 static PHP_FUNCTION(ssp_info){
 	zval *res;
 	conn_t *ptr=NULL;
-	char *key;
+	char *key=NULL;
 	int key_len=0;
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r|s", &res,&key,&key_len) == FAILURE) {
 		RETURN_FALSE;

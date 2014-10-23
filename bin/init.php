@@ -11,11 +11,23 @@ function ssp_start_handler () {
 
 function ssp_connect_handler ( $ClientId ) {
 	$info = ssp_info($ClientId);
-	server_log('New connection ( ' . $info['index'] . ' ) from ' . $info['host'] . ' on port ' . $info['port'] . '. Time at ' . date('m-d H:i:s', time()));
-	
+	$index = $sockfd = $host = $port = $tid = null;
+	extract($info,EXTR_OVERWRITE|EXTR_REFS);
 	$info = null;
-	
-	// return $info['index'] % 2 === 1; // 禁止index为偶数的连接
+
+	server_log('New connection ( ' . $index . ' ) from ' . $host . ' on port ' . $port . '. Time at ' . date('m-d H:i:s', time()));
+
+	$data = array(
+		'id' => $index, 
+		'sockfd' => $sockfd, 
+		'host' => $host, 
+		'port' => $port, 
+		'tid' => $tid, 
+		'time' => time()
+	);
+	MOD('user.online')->add($data);
+
+	// return $index % 2 === 1; // 禁止index为偶数的连接
 }
 
 function ssp_connect_denied_handler ( $ClientId ) {
@@ -26,36 +38,28 @@ function ssp_connect_denied_handler ( $ClientId ) {
 	ssp_send($ClientId, ( string ) $response);
 }
 
-function ssp_receive_handler ( $ClientId, $data ) {
+function ssp_receive_handler ( $ClientId, $xml ) {
 	$info = ssp_info($ClientId);
 	$index = $sockfd = $host = $port = $tid = null;
-	extract($info);
+	extract($info,EXTR_OVERWRITE|EXTR_REFS);
 	$info = null;
-	
-	MOD('user.online')->edit($index, array(
-		'microtime' => microtime(true)
-	));
+
 	MOD('user.online')->update(array(
+		'microtime' => microtime(true),
 		'recvs' => 'recvs+1', 
-		'recv_bytes' => 'recv_bytes+' . strlen($data)
+		'recv_bytes' => 'recv_bytes+' . strlen($xml)
 	), $index, false);
 	
-	$request = xml_to_object($data, false, $error);
+	$request = xml_to_object($xml, false, $error);
 	if ( $request ) {
 		switch ( $request->type ) {
 			case 'Connect.Key':
 				$sendKey = LIB('string')->rand(128, STRING_RAND_BOTH);
 				$data = array(
-					'id' => $index, 
-					'sockfd' => $sockfd, 
-					'host' => $host, 
-					'port' => $port, 
-					'tid' => $tid, 
-					'time' => time(), 
 					'sendKey' => $sendKey, 
 					'receiveKey' => $request->getText()
 				);
-				MOD('user.online')->add($data);
+				MOD('user.online')->edit($index,$data);
 				
 				data_log('Received: "' . trim($request) . '" from ' . $index);
 				
@@ -129,10 +133,10 @@ function ssp_receive_handler ( $ClientId, $data ) {
 	$data = null;
 }
 
-function ssp_send_handler ( $ClientId, $data ) {
+function ssp_send_handler ( $ClientId, $xml ) {
 	$index = ssp_info($ClientId, 'index');
-	data_log('Sending: "' . $data . '" to: ' . $index);
-	$xml = xml_to_object($data);
+	data_log('Sending: "' . $xml . '" to: ' . $index);
+	$xml = xml_to_object($xml);
 	if (  ! in_array($xml->type, array(
 		'Connect.Key', 
 		'Connect.Ping'
@@ -140,7 +144,7 @@ function ssp_send_handler ( $ClientId, $data ) {
 		$key = MOD('user.online')->get_by_client($index, 'sendKey');
 		$response = new XML_Element('response');
 		$response->type = 'Connect.Data';
-		$response->setText(str_encode($data, $key));
+		$response->setText(str_encode($xml, $key));
 		
 		$return = ( string ) $response;
 		$xml = $response = null;
@@ -149,6 +153,7 @@ function ssp_send_handler ( $ClientId, $data ) {
 		$xml = null;
 	}
 	MOD('user.online')->update(array(
+		'microtime' => microtime(true),
 		'sends' => 'sends+1', 
 		'send_bytes' => 'send_bytes+' . strlen($return)
 	), $index, false);
@@ -158,7 +163,7 @@ function ssp_send_handler ( $ClientId, $data ) {
 function ssp_close_handler ( $ClientId ) {
 	$info = ssp_info($ClientId);
 	$index = $sockfd = $host = $port = $tid = null;
-	extract($info);
+	extract($info,EXTR_OVERWRITE|EXTR_REFS);
 	$info = null;
 	server_log('Close connection ( ' . $index . ' ) from ' . $host . ' on port ' . $port . '. Time at ' . date('m-d H:i:s', MOD('user.online')->get_by_client($index, 'time')));
 	CTL('user')->logout($ClientId);

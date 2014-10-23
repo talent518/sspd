@@ -125,18 +125,30 @@ function xml_to_object ( $xml, $isMultiRoot = false, &$error = false ) {
 /*
  * php对象转为XML文本 @param string $object XML_Element对象 @param boolean $head 是否包括xml头信息 @return XML文本
  */
-function object_to_xml ( &$object, $head = false ) {
-	$return = ( $head === true ? '<?xml version="1.0" encoding="utf-8"?>' : '' );
+function object_to_xml ( &$object, $head = false, $isFirstCall = true ) {
+	if($isFirstCall) {
+		ob_start();
+		ob_implicit_flush(false);
+	}
+	if($head === true) {
+		echo '<?xml version="1.0" encoding="utf-8"?>';
+	}
 	if ( $object instanceof XML_Element ) {
-		$p = $x = '';
+		$p = '';
+		ob_start();
+		ob_implicit_flush(false);
 		foreach ( $object as $k => $v ) {
 			if ( is_object($v) )
-				$x .= object_to_xml($v, false);
-			elseif ( is_array($v) )
-				$x .= sprintf('<%s>%s</%s>', $k, object_to_xml($v, false), $k);
-			else
-				$p .= sprintf(' %s="%s"', $k, object_to_xml($v, false));
+				echo object_to_xml($v, false, false);
+			elseif ( is_array($v) ) {
+				echo '<',$k,'>';
+				echo object_to_xml($v, false, false);
+				echo '</',$k,'>';
+			} else {
+				$p .= sprintf(' %s="%s"', $k, object_to_xml($v, false, false));
+			}
 		}
+		$x=ob_get_clean();
 		if ( $object->getText() && preg_match('/\s|\&|\<|\>/', $object->getText()) ) {
 			$c = str_replace(array(
 				'<![CDATA[', 
@@ -148,20 +160,23 @@ function object_to_xml ( &$object, $head = false ) {
 			$c = sprintf('<![CDATA[%s]]>', $c);
 		} else
 			$c = $object->getText();
-		$return .= sprintf($x . $c == '' ? '<%s%s/>' : '<%s%s>%s</%s>', $object->getTag(), $p, $x . $c, $object->getTag());
+		echo sprintf($x . $c == '' ? '<%s%s/>' : '<%s%s>%s</%s>', $object->getTag(), $p, $x . $c, $object->getTag());
 	} elseif ( is_array($object) ) {
 		foreach ( $object as $k => $v ) {
 			if ( is_int($k) )
-				$return .= object_to_xml($v, false);
-			else
-				$return .= sprintf('<%s>%s</%s>', $k, object_to_xml($v, false), $k);
+				echo object_to_xml($v, false, false);
+			else {
+				echo '<',$k,'>';
+				echo object_to_xml($v, false, false);
+				echo '</',$k,'>';
+			}
 		}
 	} elseif ( is_bool($object) ) {
-		$return .= ( $object ? 'true' : 'false' );
+		return $object ? 'true' : 'false';
 	} else {
-		$return .= htmlspecialchars($object);
+		return htmlspecialchars($object);
 	}
-	return $return;
+	return $isFirstCall?ob_get_clean():null;
 }
 
 function array_to_xml ( $array, $tagname, $textkey = '' ) {

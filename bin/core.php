@@ -2,7 +2,7 @@
 define('IN_SERVER', TRUE);
 defined('IS_DEBUG') or define('IS_DEBUG', 0);
 
-IS_DEBUG ? error_reporting(E_ALL &  ~ E_WARNING &  ~ E_NOTICE) : error_reporting(0);
+error_reporting(E_ALL &  ~ E_WARNING &  ~ E_NOTICE & ~ E_STRICT);
 
 date_default_timezone_set('PRC');
 

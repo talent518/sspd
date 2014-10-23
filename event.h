@@ -12,6 +12,9 @@ typedef struct
 	struct event notify_ev;
 	struct event listen_ev;
 	struct event signal_int;
+#ifdef SSP_CODE_TIMEOUT
+	struct event timeout_int;
+#endif
 
 	int nthreads;
 

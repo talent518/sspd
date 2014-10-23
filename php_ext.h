@@ -18,10 +18,10 @@
 #define PHP_SSP_VERSION "v2.1.0"
 
 #define PHP_SSP_START 0
-#define PHP_SSP_RECEIVE 1
-#define PHP_SSP_SEND 2
-#define PHP_SSP_CONNECT 3
-#define PHP_SSP_CONNECT_DENIED 4
+#define PHP_SSP_CONNECT 1
+#define PHP_SSP_CONNECT_DENIED 2
+#define PHP_SSP_RECEIVE 3
+#define PHP_SSP_SEND 4
 #define PHP_SSP_CLOSE 5
 #define PHP_SSP_STOP 6
 
@@ -50,15 +50,6 @@ ZEND_END_MODULE_GLOBALS(ssp)
 	#define TRIGGER_STARTUP() \
 		TSRMLS_FETCH();\
 		if((SSP_G(trigger_count)++) == 0) {\
-			long timeout=(long)time(NULL);\
-			if(SSP_G(timeout)<timeout) {\
-				SSP_G(timeout)=timeout+ssp_timeout;\
-				dprintf("==================================================================================================================================\n");\
-				THREAD_SHUTDOWN()\
-				dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");\
-				THREAD_STARTUP();\
-				dprintf("==================================================================================================================================\n");\
-			}\
 			dprintf("--------------------------------------------TRIGGER_STARTUP---------------------------------------------------------------------------\n");\
 			ssp_auto_globals_recreate(TSRMLS_C);\
 		}
@@ -68,9 +59,11 @@ ZEND_END_MODULE_GLOBALS(ssp)
 			dprintf("--------------------------------------------TRIGGER_SHUTDOWN---------------------------------------------------------------------------\n");\
 		}
 
-	#define TRIGGER_STARTUP_EX() TRIGGER_STARTUP()
+	#define TRIGGER_STARTUP_EX() dprintf("############################################TRIGGER_STARTUP_EX#########################################################################\n");\
+		TRIGGER_STARTUP();
 
-	#define TRIGGER_SHUTDOWN_EX() TRIGGER_SHUTDOWN()
+	#define TRIGGER_SHUTDOWN_EX() TRIGGER_SHUTDOWN();\
+		dprintf("############################################TRIGGER_SHUTDOWN_EX########################################################################\n")
 
 	#define THREAD_STARTUP() ssp_request_startup();
 	#define THREAD_SHUTDOWN() ssp_request_shutdown();

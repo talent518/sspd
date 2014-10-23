@@ -62,11 +62,8 @@ int socket_recv(conn_t *ptr,char **data,int *data_len)
 				conn_info_ex(ptr, "[ The received data beyond the limit ] ");
 				return 0;
 			}
-			if (*data!=NULL)
-			{
-				free(*data);
-			}
 			ptr->rbuf=(char*)malloc(ret+1);
+			bzero(ptr->rbuf,ret+1);
 			ptr->rsize=ret;
 			ptr->rbytes=0;
 		}
@@ -77,7 +74,7 @@ int socket_recv(conn_t *ptr,char **data,int *data_len)
 	}
 	
 	ret=recv(ptr->sockfd,ptr->rbuf+ptr->rbytes,ptr->rsize-ptr->rbytes,MSG_DONTWAIT);
-	
+
 	if(ret<0) {
 		return -1;
 	} else if(ret==0) {
@@ -86,9 +83,12 @@ int socket_recv(conn_t *ptr,char **data,int *data_len)
 
 	ptr->rbytes+=ret;
 
-	if (ptr->rbytes==ptr->rsize)
+	if (ptr->rsize>0 && ptr->rbytes==ptr->rsize)
 	{
-		*(ptr->rbuf+ptr->rsize)=0;
+		if (*data)
+		{
+			free(*data);
+		}
 
 		*data=ptr->rbuf;
 		*data_len=ptr->rsize;
@@ -103,15 +103,17 @@ int socket_recv(conn_t *ptr,char **data,int *data_len)
 
 int socket_send(conn_t *ptr,const char *data,int data_len)
 {
+	int i,ret,plen;
+	char *package;
+
 	if (data_len<=0)
 	{
 		return -1;
 	}
-	int plen=4+data_len;
-	char *package;
+
+	plen=4+data_len;
 	package=(char*)malloc(plen);
 
-	int i;
 	for (i=0;i<4;i++)
 	{
 		package[i]=data_len>>((3-i)*8);
@@ -119,12 +121,14 @@ int socket_send(conn_t *ptr,const char *data,int data_len)
 
 	memcpy(package+4,data,data_len);//数据包内容
 
-	int ret=send(ptr->sockfd,package,plen,MSG_WAITALL);
+	ret=send(ptr->sockfd,package,plen,MSG_WAITALL);
 	free(package);
+	
 	if (ret>0 && ret!=plen)
 	{
 		conn_info_ex(ptr, "[ Failed sending data ] ");
 	}
+
 	return ret;
 }
 

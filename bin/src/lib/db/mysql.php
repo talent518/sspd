@@ -44,6 +44,7 @@ class LibDbMysql extends LibDbBase {
 	}
 
 	function query ( $sql, $silent = FALSE, $retry = FALSE ) {
+		$microtime=microtime(true);
 		if ( ( $query = @mysql_query($sql, $this->link) ) == FALSE &&  ! $silent ) {
 			if ( in_array($this->errno(), array(
 				2006, 
@@ -56,6 +57,7 @@ class LibDbMysql extends LibDbBase {
 			}
 			$this->halt('MySQL Query Error', $sql);
 		}
+		//echo sprintf('%3.3f ',microtime(true)-$microtime),$sql,PHP_EOL;
 		return $query;
 	}
 
