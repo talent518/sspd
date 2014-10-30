@@ -28,6 +28,8 @@ $(BIN_DIR)/daemon: $(BUILD_DIR)/daemon.o $(BUILD_DIR)/api.o
 $(BUILD_DIR)/%.o: %.c
 	@echo -e "\E[32m"$?"\E[m"
 	@tput sgr0
+	@$(CC) $(CFLAGS) -S $? -o $(@:.o=.s)
+	@$(CC) $(CFLAGS) -E $? -o $(@:.o=.e)
 	@$(CC) $(CFLAGS) -c $? -o $@
 
 kill:
@@ -36,7 +38,7 @@ kill:
 
 clean:
 	@echo -e "\E[33m"$@"\E[m"
-	@rm -rf $(BUILD_DIR)/*.o
+	@rm -rf $(BUILD_DIR)/*.e $(BUILD_DIR)/*.s $(BUILD_DIR)/*.o
 	@rm -rf $(BIN_DIR)/ssp
 	@rm -rf $(BIN_DIR)/daemon
 
