@@ -38,9 +38,6 @@ extern zend_function_entry ssp_functions[];
 extern zend_module_entry ssp_module_entry;
 
 ZEND_BEGIN_MODULE_GLOBALS(ssp)
-#ifdef SSP_CODE_TIMEOUT
-	long timeout;
-#endif
 	long trigger_count;
 ZEND_END_MODULE_GLOBALS(ssp)
 

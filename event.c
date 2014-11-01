@@ -52,14 +52,14 @@ void is_accept_conn_ex(bool do_accept) {
 }
 
 void is_accept_conn(bool do_accept) {
-	char buf[1];
+	char chr;
 	if (do_accept) {
-		buf[0]='e'; // enable
+		chr='e'; // enable
 	} else {
-		buf[0]='d'; // disable
+		chr='d'; // disable
 	}
 
-	write(listen_thread.write_fd, buf, 1);
+	write(listen_thread.write_fd, &chr, 1);
 }
 
 static void *worker_thread_handler(void *arg)
@@ -140,7 +140,7 @@ static void read_handler(int sock, short event,	void* arg)
 static void notify_handler(const int fd, const short which, void *arg)
 {
 	int ret;
-	char buf[1];
+	char chr;
 	worker_thread_t *me = arg;
 	conn_t *ptr;
 
@@ -150,15 +150,15 @@ static void notify_handler(const int fd, const short which, void *arg)
 		exit(1);
 	}
 
-	ret = read(fd, buf, 1);
+	ret = read(fd, &chr, 1);
 	if (ret <= 0)
 	{
 		return;
 	}
 
-	dprintf("notify_handler: notify(%c) threadId(%d)\n", buf[0], me->id);
+	dprintf("notify_handler: notify(%c) threadId(%d)\n", chr, me->id);
 
-	switch(buf[0]) {
+	switch(chr) {
 		case 'x': // 处理连接关闭对列
 			ptr=queue_pop(me->close_queue);
 
@@ -328,9 +328,8 @@ static void listen_handler(const int fd, const short which, void *arg)
 
 			conn_info(ptr);
 
-			char buf[1];
-			buf[0]='l';
-			write(thread->write_fd, buf, 1);
+			char chr='l';
+			write(thread->write_fd, &chr, 1);
 		} else {
 			conn_info(ptr);
 			clean_conn(ptr);
@@ -359,11 +358,10 @@ static void signal_handler(const int fd, short event, void *arg)
 	is_accept_conn_ex(false);
 
 	int i;
-	char buf[1];
-	buf[0] = '-';
+	char chr = '-';
 	for(i=0;i<ssp_nthreads;i++) {
 		dprintf("%s: notify thread exit %d\n", __func__, i);
-		write(worker_threads[i].write_fd, buf, 1);
+		write(worker_threads[i].write_fd, &chr, 1);
 	}
 
 	dprintf("%s: wait worker thread %d\n", __func__);
@@ -384,12 +382,18 @@ static void signal_handler(const int fd, short event, void *arg)
 static void timeout_handler(evutil_socket_t fd, short event, void *arg)
 {
 	int i;
-	char buf[1];
-	buf[0] = 't';
+	char chr = 't';
+
 	for(i=0;i<ssp_nthreads;i++) {
 		dprintf("%s: notify thread timeout %d\n", __func__, i);
-		write(worker_threads[i].write_fd, buf, 1);
+		write(worker_threads[i].write_fd, &chr, 1);
 	}
+
+	dprintf("==================================================================================================================================\n");
+	THREAD_SHUTDOWN();
+	dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");
+	THREAD_STARTUP();
+	dprintf("==================================================================================================================================\n");
 }
 #endif
 
