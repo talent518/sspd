@@ -98,7 +98,11 @@ function xml_to_object ( $xml, $isMultiRoot = false, &$error = false ) {
 			if ( is_array($elem) ) {
 				array_push($elem, $e);
 			} elseif ( $elem !== null ) {
-				if ( $elem->getTag() == $tag['tag'] . 's' ) {
+				if ( $elem->getTag() == $tag['tag'] . 's' || $elem->{$tag['tag'] . 's'} || $elem->$tag['tag'] ) {
+					if($elem->$tag['tag']) {
+						$elem->{$tag['tag'] . 's'} = true;
+						$elem->addChild($elem->removeAttr($tag['tag']));
+					}
 					$elem->addChild($e);
 				} else {
 					$elem->$tag['tag'] = $e;

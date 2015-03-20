@@ -136,11 +136,10 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 function ssp_send_handler ( $ClientId, $xml ) {
 	$index = ssp_info($ClientId, 'index');
 	data_log('Sending: "' . $xml . '" to: ' . $index);
-	$xml = xml_to_object($xml);
-	if (  ! in_array($xml->type, array(
-		'Connect.Key', 
-		'Connect.Ping'
-	)) ) {
+
+	$tagOpenString = substr($xml, 0, strpos($xml, '>'));
+
+	if (  $tagOpenString !== false && strpos($tagOpenString, 'type="Connect.Key"') === false && strpos($tagOpenString, 'type="Connect.Ping"') === false ) {
 		$key = MOD('user.online')->get_by_client($index, 'sendKey');
 		$response = new XML_Element('response');
 		$response->type = 'Connect.Data';
