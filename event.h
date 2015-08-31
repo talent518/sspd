@@ -14,6 +14,9 @@ typedef struct
 	struct event signal_int;
 #ifdef SSP_CODE_TIMEOUT
 	struct event timeout_int;
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+		struct event timeout_global_int;
+	#endif
 #endif
 
 	int nthreads;

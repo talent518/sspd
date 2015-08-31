@@ -186,7 +186,7 @@ static void notify_handler(const int fd, const short which, void *arg)
 			event_base_set(me->base, &ptr->event);
 			event_add(&ptr->event, NULL);
 			break;
-	#ifdef SSP_CODE_TIMEOUT
+#ifdef SSP_CODE_TIMEOUT
 		case 't':
 			dprintf("==================================================================================================================================\n");
 			THREAD_SHUTDOWN();
@@ -194,7 +194,13 @@ static void notify_handler(const int fd, const short which, void *arg)
 			THREAD_STARTUP();
 			dprintf("==================================================================================================================================\n");
 			break;
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+		case 'g':
+			TSRMLS_FETCH();
+			ssp_auto_globals_recreate(TSRMLS_C);
+			break;
 	#endif
+#endif
 		default:
 			break;
 	}
@@ -379,22 +385,41 @@ static void signal_handler(const int fd, short event, void *arg)
 }
 
 #ifdef SSP_CODE_TIMEOUT
-static void timeout_handler(evutil_socket_t fd, short event, void *arg)
-{
-	int i;
-	char chr = 't';
+	static void timeout_handler(evutil_socket_t fd, short event, void *arg)
+	{
+		int i;
+		char chr = 't';
 
-	for(i=0;i<ssp_nthreads;i++) {
-		dprintf("%s: notify thread timeout %d\n", __func__, i);
-		write(worker_threads[i].write_fd, &chr, 1);
+		for(i=0;i<ssp_nthreads;i++) {
+			dprintf("%s: notify thread timeout %d\n", __func__, i);
+			write(worker_threads[i].write_fd, &chr, 1);
+		}
+
+		dprintf("==================================================================================================================================\n");
+		THREAD_SHUTDOWN();
+		dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");
+		THREAD_STARTUP();
+		dprintf("==================================================================================================================================\n");
 	}
 
-	dprintf("==================================================================================================================================\n");
-	THREAD_SHUTDOWN();
-	dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");
-	THREAD_STARTUP();
-	dprintf("==================================================================================================================================\n");
-}
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+		static void timeout_global_handler(evutil_socket_t fd, short event, void *arg)
+		{
+			int i;
+			char chr = 'g';
+
+			for(i=0;i<ssp_nthreads;i++) {
+				dprintf("%s: notify thread timeout %d\n", __func__, i);
+				write(worker_threads[i].write_fd, &chr, 1);
+			}
+
+			dprintf("==================================================================================================================================\n");
+			THREAD_SHUTDOWN();
+			dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");
+			THREAD_STARTUP();
+			dprintf("==================================================================================================================================\n");
+		}
+	#endif
 #endif
 
 void loop_event (int sockfd)
@@ -462,6 +487,20 @@ void loop_event (int sockfd)
 		perror("timeout event");
 		exit(1);
 	}
+
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+		// timeout global event
+		struct timeval tv2;
+		evutil_timerclear(&tv2);
+		tv2.tv_sec = ssp_global_timeout;
+		event_set(&listen_thread.timeout_global_int, -1, EV_PERSIST, timeout_global_handler, NULL);
+		event_base_set(listen_thread.base, &listen_thread.timeout_global_int);
+		if (event_add(&listen_thread.timeout_global_int, &tv2) == -1)
+		{
+			perror("timeout event");
+			exit(1);
+		}
+	#endif
 #endif
 
 	event_base_loop(listen_thread.base, 0);

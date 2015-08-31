@@ -28,6 +28,9 @@ static char trigger_handlers[7][30]={
 long le_ssp_descriptor,le_ssp_descriptor_ref;
 #ifdef SSP_CODE_TIMEOUT
 	long ssp_timeout=30;
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+		long ssp_global_timeout=3;
+	#endif
 #endif
 
 /* {{{ arginfo */

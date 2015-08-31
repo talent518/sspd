@@ -31,7 +31,10 @@
 
 extern long le_ssp_descriptor,le_ssp_descriptor_ref;
 #ifdef SSP_CODE_TIMEOUT
-extern long ssp_timeout;
+	extern long ssp_timeout;
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+		extern long ssp_global_timeout;
+	#endif
 #endif
 
 extern zend_function_entry ssp_functions[];
@@ -44,17 +47,23 @@ ZEND_END_MODULE_GLOBALS(ssp)
 #define SSP_G(v) TSRMG(ssp_globals_id, zend_ssp_globals *, v)
 
 #ifdef SSP_CODE_TIMEOUT
-	#define TRIGGER_STARTUP() \
-		TSRMLS_FETCH();\
-		if((SSP_G(trigger_count)++) == 0) {\
-			dprintf("--------------------------------------------TRIGGER_STARTUP---------------------------------------------------------------------------\n");\
-			ssp_auto_globals_recreate(TSRMLS_C);\
-		}
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+		#define TRIGGER_STARTUP()
 
-	#define TRIGGER_SHUTDOWN() \
-		if((--SSP_G(trigger_count)) == 0) {\
-			dprintf("--------------------------------------------TRIGGER_SHUTDOWN---------------------------------------------------------------------------\n");\
-		}
+		#define TRIGGER_SHUTDOWN()
+	#else
+		#define TRIGGER_STARTUP() \
+			TSRMLS_FETCH();\
+			if((SSP_G(trigger_count)++) == 0) {\
+				dprintf("--------------------------------------------TRIGGER_STARTUP---------------------------------------------------------------------------\n");\
+				ssp_auto_globals_recreate(TSRMLS_C);\
+			}
+
+		#define TRIGGER_SHUTDOWN() \
+			if((--SSP_G(trigger_count)) == 0) {\
+				dprintf("--------------------------------------------TRIGGER_SHUTDOWN---------------------------------------------------------------------------\n");\
+			}
+	#endif
 
 	#define TRIGGER_STARTUP_EX() dprintf("############################################TRIGGER_STARTUP_EX#########################################################################\n");\
 		TRIGGER_STARTUP();
