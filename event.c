@@ -144,6 +144,11 @@ static void notify_handler(const int fd, const short which, void *arg)
 	worker_thread_t *me = arg;
 	conn_t *ptr;
 
+#ifdef SSP_CODE_TIMEOUT
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+	TSRMLS_FETCH();
+	#endif
+#endif
 	if (fd != me->read_fd)
 	{
 		printf("notify_handler error : fd != me->read_fd\n");
@@ -196,7 +201,6 @@ static void notify_handler(const int fd, const short which, void *arg)
 			break;
 	#ifdef SSP_CODE_TIMEOUT_GLOBAL
 		case 'g':
-			TSRMLS_FETCH();
 			ssp_auto_globals_recreate(TSRMLS_C);
 			break;
 	#endif
