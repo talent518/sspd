@@ -36,6 +36,7 @@
 #define OPT_MAX_RECVS 6
 #define OPT_NTHREADS 7
 #define OPT_TIMEOUT 8
+#define OPT_TIMEOUT_GLOBAL 9
 
 static char *php_optarg = NULL;
 static int php_optind = 1;
@@ -66,6 +67,7 @@ static const opt_struct OPTIONS[] =
 	{OPT_MAX_RECVS,  1, "max-recvs"},
 
 	{OPT_TIMEOUT,  1, "timeout"},
+	{OPT_TIMEOUT_GLOBAL,  1, "gtimeout"},
 
 	{'-', 0, NULL} /* end of args */
 };
@@ -114,6 +116,9 @@ static void php_ssp_usage(char *argv0)
 				"  -b <backlog>            Set the backlog queue limit (default: %d)\n"
 #ifdef SSP_CODE_TIMEOUT
 				"  --timeout <timeout>     Set the timeout php cache timeout (default: %ds)\n"
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+				"  --gtimeout <gtimeout>     Set the gtimeout global php variable _SSP timeout (default: %ds)\n"
+	#endif
 #endif
 				"\n"
 				"  -s <option>             socket service option\n"
@@ -126,6 +131,9 @@ static void php_ssp_usage(char *argv0)
 				, prog, ssp_host, ssp_port, ssp_pidfile, ssp_user, ssp_nthreads, ssp_maxclients, maxrecvs, ssp_backlog
 #ifdef SSP_CODE_TIMEOUT
 					, ssp_timeout
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+					, ssp_global_timeout
+	#endif
 #endif
 				);
 
@@ -284,6 +292,9 @@ int main(int argc, char *argv[])
 #ifdef SSP_CODE_TIMEOUT
 		case OPT_TIMEOUT:
 			ssp_timeout=atoi(php_optarg);
+			break;
+		case OPT_TIMEOUT_GLOBAL:
+			ssp_global_timeout=atoi(php_optarg);
 			break;
 #endif
 		}
