@@ -40,6 +40,9 @@ typedef struct
 	short id;
 	int read_fd;
 	int write_fd;
+
+	int conn_num;
+	bool is_first_zero;
 } worker_thread_t;
 
 extern listen_thread_t listen_thread;

@@ -174,6 +174,8 @@ static void notify_handler(const int fd, const short which, void *arg)
 			trigger(PHP_SSP_CLOSE,ptr);
 			remove_conn(ptr);
 
+			me->conn_num--;
+
 			is_accept_conn(true);
 			break;
 		case '-': // ½áÊøworker/notifyÏß³Ì
@@ -187,12 +189,22 @@ static void notify_handler(const int fd, const short which, void *arg)
 
 			conn_info(ptr);
 
+			me->conn_num++;
+			me->is_first_zero = true;
+
 			event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_handler, ptr);
 			event_base_set(me->base, &ptr->event);
 			event_add(&ptr->event, NULL);
 			break;
 #ifdef SSP_CODE_TIMEOUT
 		case 't':
+			if(me->conn_num<=0) {
+				if(me->is_first_zero) {
+					me->is_first_zero = false;
+				} else {
+					break;
+				}
+			}
 			dprintf("==================================================================================================================================\n");
 			THREAD_SHUTDOWN();
 			dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");
@@ -201,6 +213,9 @@ static void notify_handler(const int fd, const short which, void *arg)
 			break;
 	#ifdef SSP_CODE_TIMEOUT_GLOBAL
 		case 'g':
+			if(me->conn_num<=0) {
+				break;
+			}
 			ssp_auto_globals_recreate(TSRMLS_C);
 			break;
 	#endif
@@ -249,6 +264,8 @@ void thread_init() {
 
 		worker_threads[i].accept_queue=queue_init();
 		worker_threads[i].close_queue=queue_init();
+		worker_threads[i].conn_num = 0;
+		worker_threads[i].is_first_zero = false;
 	}
 
 	for (i = 0; i < ssp_nthreads; i++)
