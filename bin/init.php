@@ -1,11 +1,12 @@
 <?PHP
 require dirname(__FILE__) . DIRECTORY_SEPARATOR . 'core.php';
-require SRC_DIR . 'function_server.php';
 
 import('lib.xml');
 
 function ssp_start_handler () {
-	server_log('Server started at ' . date('m-d H:i:s', time()) . PHP_EOL . 'Listening on port ' . SSP_PORT);
+	if(IS_DEBUG) {
+		echo PHP_EOL,'Server started at ', date('m-d H:i:s', time()), PHP_EOL, 'Listening on port ', SSP_PORT, PHP_EOL;
+	}
 	MOD('user.online')->clean();
 }
 
@@ -15,7 +16,9 @@ function ssp_connect_handler ( $ClientId ) {
 	extract($info,EXTR_OVERWRITE|EXTR_REFS);
 	$info = null;
 
-	server_log('New connection ( ' . $index . ' ) from ' . $host . ' on port ' . $port . '. Time at ' . date('m-d H:i:s', time()));
+	if(IS_DEBUG) {
+		echo PHP_EOL, 'New connection ( ', $index, ' ) from ', $host, ' on port ', $port, '. Time at ', date('m-d H:i:s', time()), PHP_EOL;
+	}
 
 	$data = array(
 		'id' => $index, 
@@ -31,7 +34,10 @@ function ssp_connect_handler ( $ClientId ) {
 }
 
 function ssp_connect_denied_handler ( $ClientId ) {
-	server_log('Too many connections.');
+	if(IS_DEBUG) {
+		echo PHP_EOL, 'Too many connections.', PHP_EOL;
+	}
+
 	$response = new XML_Element('response');
 	$response->type = 'Connect.Denied';
 	$response->setText('服务器连接正在排对中……');
@@ -61,8 +67,10 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 				);
 				MOD('user.online')->edit($index,$data);
 				
-				data_log('Received: "' . trim($request) . '" from ' . $index);
-				
+				if(IS_DEBUG) {
+					echo PHP_EOL, 'Received: "', trim($request), '" from ', $index, PHP_EOL;
+				}
+
 				$response = new XML_Element('response');
 				$response->type = 'Connect.Key';
 				$response->setText($data['sendKey']);
@@ -80,14 +88,18 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 				}
 				break;
 			case 'Connect.Ping':
-				data_log('Received: "' . trim($request) . '" from ' . $index);
+				if(IS_DEBUG) {
+					echo PHP_EOL, 'Received: "', trim($request), '" from ', $index, PHP_EOL;
+				}
 				return '<response type="Connect.Ping"/>';
 				break;
 			default:
 				break;
 		}
 		
-		data_log('Received: "' . trim($request) . '" from ' . $index);
+		if(IS_DEBUG) {
+			echo PHP_EOL, 'Received: "', trim($request), '" from ', $index, PHP_EOL;
+		}
 		
 		$request->ClientId = $ClientId;
 		$type = trim($request->type, '.');
@@ -110,7 +122,9 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 			$ctl = implode('.', $ctl);
 			$ctl_obj = CTL($ctl);
 			if ( $ctl_obj === false ) {
-				server_log("Client $index controller \"$ctl\" not exists!");
+				if(IS_DEBUG) {
+					echo PHP_EOL, 'Client ', $index, ' controller "', $ctl, '" not exists!', PHP_EOL;
+				}
 			} elseif ( method_exists($ctl_obj, $mod) ) {
 				$response = $ctl_obj->$mod($request);
 				if ( $response instanceof XML_Element || substr($response, 0, 1) == '<' ) {
@@ -119,23 +133,30 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 					return $return;
 				}
 			} else {
-				server_log("Client $index controller \"$ctl\" for method \"$mod\" not exists!");
+				if(IS_DEBUG) {
+					echo PHP_EOL, 'Client ', $index, ' controller "', $ctl, '" for method "', $mod, '" not exists!', PHP_EOL;
+				}
 			}
-		} else {
-			server_log("Client $index type \"$type\" error!");
+		} elseif(IS_DEBUG) {
+			echo PHP_EOL, 'Client ', $index, ' type "', $type, '" error!', PHP_EOL;
 		}
 		$request = null;
 	}
-	if ( is_array($error) ) {
-		server_log('XML_Parser_Error:' . var_export($error, TRUE));
-		$error = null;
+	if ( is_array($error) && IS_DEBUG ) {
+		echo PHP_EOL, PHP_EOL, 'XML_Parser_Error:';
+		var_export($error);
+		echo PHP_EOL;
+		echo PHP_EOL;
 	}
+	$error = null;
 	$data = null;
 }
 
 function ssp_send_handler ( $ClientId, $xml ) {
 	$index = ssp_info($ClientId, 'index');
-	data_log('Sending: "' . $xml . '" to: ' . $index);
+	if(IS_DEBUG) {
+		echo PHP_EOL, 'Sending: "', $xml, '" to: ', $index, PHP_EOL;
+	}
 
 	$tagOpenString = substr($xml, 0, strpos($xml, '>'));
 
@@ -164,13 +185,17 @@ function ssp_close_handler ( $ClientId ) {
 	$index = $sockfd = $host = $port = $tid = null;
 	extract($info,EXTR_OVERWRITE|EXTR_REFS);
 	$info = null;
-	server_log('Close connection ( ' . $index . ' ) from ' . $host . ' on port ' . $port . '. Time at ' . date('m-d H:i:s', MOD('user.online')->get_by_client($index, 'time')));
+	if(IS_DEBUG) {
+		echo PHP_EOL, 'Close connection ( ', $index, ' ) from ', $host, ' on port ', $port, '. Time at ', date('m-d H:i:s', MOD('user.online')->get_by_client($index, 'time')), PHP_EOL;
+	}
 	CTL('user')->logout($ClientId);
 	MOD('user.online')->drop($index);
 }
 
 function ssp_stop_handler () {
-	server_log('Server Stoped at ' . date('H:i:s', time()));
+	if(IS_DEBUG) {
+		echo PHP_EOL, 'Server Stoped at ', date('H:i:s', time()), PHP_EOL;
+	}
 	MOD('user.online')->clean();
 	DB()->close();
 }

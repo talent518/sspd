@@ -1,7 +1,6 @@
 #!/opt/ssp/bin/php -q
 <?php
 define('IS_DEBUG', 0);
-define('STD_CHARSET','utf-8');
 
 require 'core.php';
 
@@ -58,7 +57,7 @@ for($i=0; $i<$nconns; $i++) {
 	$socket->connect($host, $port);
 
 	if($socket->is_connect()){
-		echo correct_charset('连接成功！'),PHP_EOL;
+		echo '连接成功！',PHP_EOL;
 
 		$request->pid=$pid;
 		$request->i=$i;
@@ -72,12 +71,12 @@ for($i=0; $i<$nconns; $i++) {
 
 		$sockets[$i]=$socket;
 	}else{
-		echo correct_charset('连接失败！'),PHP_EOL;
+		echo '连接失败！',PHP_EOL;
 	}
 }
 
 $request=new XML_Element('request');
-$request->type='Gold.List';
+$request->type='Gold.State';
 $request->is_simple=true;
 $request->params=array_to_xml(array('page'=>1,'size'=>10,'isToday'=>0),'params');
 

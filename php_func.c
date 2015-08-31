@@ -350,12 +350,6 @@ void ssp_request_startup(){
 	REGISTER_MAIN_LONG_CONSTANT("SSP_TIMEOUT",ssp_timeout,CONST_CS | CONST_PERSISTENT);
 #endif
 
-#ifdef PHP_WIN32
-	REGISTER_MAIN_STRINGL_CONSTANT("STD_CHARSET","gbk",sizeof("gbk"),CONST_CS | CONST_PERSISTENT);
-#else
-	REGISTER_MAIN_STRINGL_CONSTANT("STD_CHARSET","utf-8",sizeof("utf-8"),CONST_CS | CONST_PERSISTENT);
-#endif
-
 	php_execute_script(&zfd TSRMLS_CC);
 }
 

@@ -75,7 +75,7 @@ class ModGold extends ModBase {
 				'user_gold ug' => 'g.gid=ug.gid AND ug.uid=' . $uid
 			), 
 			'where' => ( $isToday ? 'g.dateline>' . @strtotime('today') : '' ), 
-			'order' => 'ug.isread,g.gid DESC', 
+			'order' => 'ug.isread,ug.gid DESC', 
 			'limit' => $limit
 		), SQL_SELECT_LIST);
 	}

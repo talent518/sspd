@@ -13,10 +13,6 @@ class ModUserOnline extends ModBase {
 
 	protected $order;
 
-	protected $onlines = array();
-
-	protected $relations = array();
-
 	function get_list_by_uid_not_id ( $uid, $id ) {
 		return DB()->select(array(
 			'table' => $this->table, 

@@ -52,8 +52,8 @@ retest: kill
 
 bench:
 	@echo -e "\E[31m"$@"\E[m"
-	@$(PWD)/bin/bench 192.168.153.6 8086 64 100 1000
+	@$(PWD)/bin/bench 192.168.88.6 8086 64 10 1000
 
 bench64:
 	@echo -e "\E[31m"$@"\E[m"
-	@$(PWD)/bin/bench 192.168.153.64 8086 64 100 1000
+	@$(PWD)/bin/bench 192.168.88.64 8086 64 10 1000

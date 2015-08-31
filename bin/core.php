@@ -44,19 +44,18 @@ function CFG () {
 }
 
 function &DB () {
-	static $db;
-	if (  ! is_object($db) ) {
-		$db = LIB('Db.' . DB_TYPE);
-		$db->charset = DB_CHARSET;
-		$db->host = DB_HOST;
-		$db->user = DB_USER;
-		$db->pwd = DB_PWD;
-		$db->name = DB_NAME;
-		$db->pconnect = DB_PCONNECT;
-		$db->tablepre = DB_TABLEPRE;
-		$db->connect();
+	if (  ! isset($_SSP['DB']) ) {
+		$_SSP['DB'] = LIB('Db.' . DB_TYPE);
+		$_SSP['DB']->charset = DB_CHARSET;
+		$_SSP['DB']->host = DB_HOST;
+		$_SSP['DB']->user = DB_USER;
+		$_SSP['DB']->pwd = DB_PWD;
+		$_SSP['DB']->name = DB_NAME;
+		$_SSP['DB']->pconnect = DB_PCONNECT;
+		$_SSP['DB']->tablepre = DB_TABLEPRE;
+		$_SSP['DB']->connect();
 	}
-	return $db;
+	return $_SSP['DB'];
 }
 
 function GD ( $dir ) {
@@ -77,33 +76,30 @@ function import ( $lib ) {
 }
 
 function &LIB ( $lib ) {
-	static $libs;
-	if (  ! is_object($libs[$lib]) ) {
+	if (  ! isset($_SSP['LIB'][$lib]) ) {
 		import('lib.' . $lib);
 		$class = 'Lib' . GN($lib);
-		$libs[$lib] = ( class_exists($class) ? new $class() : die('class "' . $class . '" not exists!') );
+		$_SSP['LIB'][$lib] = ( class_exists($class) ? new $class() : die('class "' . $class . '" not exists!') );
 	}
-	return $libs[$lib];
+	return $_SSP['LIB'][$lib];
 }
 
 function &MOD ( $mod ) {
-	static $mods;
-	if (  ! is_object($mods[$mod]) ) {
+	if (  ! isset($_SSP['MOD'][$mod]) ) {
 		import('mod.' . $mod);
 		$class = 'Mod' . GN($mod);
-		$mods[$mod] = ( class_exists($class) ? new $class() : die('class "' . $class . '" not exists!') );
+		$_SSP['MOD'][$mod] = ( class_exists($class) ? new $class() : die('class "' . $class . '" not exists!') );
 	}
-	return $mods[$mod];
+	return $_SSP['MOD'][$mod];
 }
 
 function &CTL ( $ctl ) {
-	static $ctls;
-	if (  ! is_object($ctls[$ctl]) ) {
+	if (  ! isset($_SSP['CTL'][$ctl]) ) {
 		import('ctl.' . $ctl);
 		$class = 'Ctl' . GN($ctl);
-		$ctls[$ctl] = ( class_exists($class) ? new $class() : die('class "' . $class . '" not exists!') );
+		$_SSP['CTL'][$ctl] = ( class_exists($class) ? new $class() : die('class "' . $class . '" not exists!') );
 	}
-	return $ctls[$ctl];
+	return $_SSP['CTL'][$ctl];
 }
 
 function saddslashes ( $string ) {
@@ -212,13 +208,6 @@ function smicrotime () {
 	return bcadd($usec, $sec, 8);
 }
 
-function correct_charset ( $string ) {
-	if ( STD_CHARSET != 'utf-8' && LIB('string')->is_utf8($string) )
-		return LIB('string')->charset($string, 'utf-8', STD_CHARSET);
-	else
-		return $string;
-}
-
 function str_encode ( $string, $key = SSP_KEY, $expiry = 0 ) {
 	return LIB('crypt')->encode(( string ) $string, $key, $expiry);
 }
@@ -290,4 +279,59 @@ function get_limit ( $page, $size, $count ) {
 	}
 	$start = ( $page - 1 ) * $size;
 	return ( $start < 0 ? 0 : $start ) . ',' . $size;
+}
+
+// 检查头像是否上传
+function ckavatar ( $uid ) {
+	if ( UC_DIR ) {
+		$file = UC_DIR . './data/avatar/' . avatar_dir($uid, 'middle');
+		return file_exists($file) ? 1 : 0;
+	} else {
+		import('api.uc.client');
+		$type = ( IS_AVATAR_REAL ? 'real' : 'virtual' );
+		return uc_check_avatar($uid, 'middle', $type);
+	}
+}
+
+function avatar_file ( $uid, $size ) {
+	$afile = '';
+	$dfile = '';
+	if ( UC_DIR ) {
+		$file = UC_DIR . str_replace('/', DIR_SEP, 'data/avatar/' . avatar_dir($uid, $size));
+		if ( file_exists($file) )
+			return file_get_contents($file);
+		else
+			return file_get_contents(UC_DIR . 'images' . DIR_SEP . 'noavatar_' . $size . '.gif');
+	} else {
+		$content = file_get_contents(avatar_url($uid, $size));
+		if ( $content === false )
+			return file_get_contents(UC_API . '/images/noavatar_' . $size . '.gif');
+		else
+			return $content;
+	}
+}
+
+function avatar_url ( $uid, $size ) {
+	return UC_API . ( ckavatar($uid) ? '/data/avatar/' . avatar_dir($uid, $size) : '/images/noavatar_' . $size . '.gif' );
+}
+
+// 得到头像
+function avatar_dir ( $uid, $size ) {
+	$type = ( IS_AVATAR_REAL ? 'real' : 'virtual' );
+	$var = "{$uid}_{$size}_{$type}";
+	if (  ! isset($_SSP['AVR'][$var]) ) {
+		$uid = abs(intval($uid));
+		$uid = sprintf("%09d", $uid);
+		$dir1 = substr($uid, 0, 3);
+		$dir2 = substr($uid, 3, 2);
+		$dir3 = substr($uid, 5, 2);
+		$typeadd = $type == 'real' ? '_real' : '';
+		$_SSP['AVR'][$var] = $dir1 . '/' . $dir2 . '/' . $dir3 . '/' . substr($uid,  - 2) . $typeadd . "_avatar_$size.jpg";
+	}
+	return $_SSP['AVR'][$var];
+}
+
+// 处理头像
+function avatar ( $uid, $size = 'small', $isfile = FALSE ) {
+	return $isfile ? avatar_file($uid, $size) : avatar_url($uid, $size);
 }

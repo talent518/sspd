@@ -15,8 +15,6 @@ define('SSP_NTHREADS', 10);
 define('SSP_BACKLOG', 1024);
 define('SSP_TIMEOUT', time());
 
-define('STD_CHARSET', PHP_OS == 'Linux' ? 'gbk' : 'utf-8');
-
 /* @var array $_SSP */
 /* @global array $_SSP */
 // @var array $_SSP
