@@ -142,22 +142,7 @@ int server_start()
 		system("tput sgr0");
 	}
 
-	attach_conn();
-
-	THREAD_STARTUP();
-
-	trigger(PHP_SSP_START);
-
 	loop_event(listen_fd);
-
-	trigger(PHP_SSP_STOP);
-
-	THREAD_SHUTDOWN();
-
-	shutdown(listen_fd, 2);
-	close(listen_fd);
-
-	detach_conn();
 
 	exit(0);
 }

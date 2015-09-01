@@ -29,6 +29,14 @@
 #define PHP_SSP_RES_SOCKFD 1
 #define PHP_SSP_RES_PORT 2
 
+#ifdef ZTS
+	#define TSRMLS_DE TSRMLS_D,
+	#define TSRMLS_CE TSRMLS_C,
+#else
+	#define TSRMLS_DE
+	#define TSRMLS_CE
+#endif
+
 extern long le_ssp_descriptor,le_ssp_descriptor_ref;
 #ifdef SSP_CODE_TIMEOUT
 	extern long ssp_timeout;
@@ -48,12 +56,11 @@ ZEND_END_MODULE_GLOBALS(ssp)
 
 #ifdef SSP_CODE_TIMEOUT
 	#ifdef SSP_CODE_TIMEOUT_GLOBAL
-		#define TRIGGER_STARTUP() TSRMLS_FETCH();
+		#define TRIGGER_STARTUP()
 
 		#define TRIGGER_SHUTDOWN()
 	#else
 		#define TRIGGER_STARTUP() \
-			TSRMLS_FETCH();\
 			if((SSP_G(trigger_count)++) == 0) {\
 				dprintf("--------------------------------------------TRIGGER_STARTUP---------------------------------------------------------------------------\n");\
 				ssp_auto_globals_recreate(TSRMLS_C);\
@@ -75,7 +82,6 @@ ZEND_END_MODULE_GLOBALS(ssp)
 	#define THREAD_SHUTDOWN() ssp_request_shutdown();
 #else
 	#define TRIGGER_STARTUP() \
-		TSRMLS_FETCH();\
 		if((SSP_G(trigger_count)++) == 0) {\
 			ssp_request_startup();\
 			dprintf("-----------------------------------------ssp_request_startup------------------------------------------------------------------------------\n");\
@@ -92,7 +98,7 @@ ZEND_END_MODULE_GLOBALS(ssp)
 
 	#define TRIGGER_SHUTDOWN_EX() TRIGGER_SHUTDOWN()
 
-	#define THREAD_STARTUP() TSRMLS_FETCH();
+	#define THREAD_STARTUP()
 	#define THREAD_SHUTDOWN()
 #endif
 
@@ -103,7 +109,8 @@ static PHP_GSHUTDOWN_FUNCTION(ssp);
 static PHP_MINFO_FUNCTION(ssp);
 
 void ssp_auto_globals_recreate(TSRMLS_D);
-bool trigger(unsigned short type,...);
+bool trigger_ex(TSRMLS_DE unsigned short type,...);
+#define trigger(...) trigger_ex(TSRMLS_CE __VA_ARGS__)
 
 static PHP_FUNCTION(ssp_resource);
 static PHP_FUNCTION(ssp_info);

@@ -67,10 +67,15 @@ static void *worker_thread_handler(void *arg)
 	worker_thread_t *me = arg;
 	me->tid = pthread_self();
 
+	TSRMLS_FETCH();
+	TSRMLS_SET_CTX(me->TSRMLS_C);
+
 	dprintf("thread %d createed\n", me->id);
 
-    pthread_mutex_lock(&init_lock);
  	THREAD_STARTUP();
+
+    pthread_mutex_lock(&init_lock);
+
     listen_thread.nthreads++;
 	pthread_cond_signal(&init_cond);
     pthread_mutex_unlock(&init_lock);
@@ -82,7 +87,6 @@ static void *worker_thread_handler(void *arg)
 	dprintf("thread %d exited\n", me->id);
     pthread_mutex_lock(&init_lock);
     listen_thread.nthreads--;
-	THREAD_SHUTDOWN();
     pthread_cond_signal(&init_cond);
     pthread_mutex_unlock(&init_lock);
 
@@ -112,6 +116,7 @@ static void read_handler(int sock, short event,	void* arg)
 	int data_len=0,ret;
 	char *data=NULL;
 	conn_t *ptr = (conn_t *) arg;
+	TSRMLS_FETCH_FROM_CTX(ptr->thread->TSRMLS_C);
 
 	conn_info(ptr);
 
@@ -144,11 +149,8 @@ static void notify_handler(const int fd, const short which, void *arg)
 	worker_thread_t *me = arg;
 	conn_t *ptr;
 
-#ifdef SSP_CODE_TIMEOUT
-	#ifdef SSP_CODE_TIMEOUT_GLOBAL
-	TSRMLS_FETCH();
-	#endif
-#endif
+	TSRMLS_FETCH_FROM_CTX(me->TSRMLS_C);
+
 	if (fd != me->read_fd)
 	{
 		printf("notify_handler error : fd != me->read_fd\n");
@@ -190,7 +192,7 @@ static void notify_handler(const int fd, const short which, void *arg)
 			conn_info(ptr);
 
 			me->conn_num++;
-			me->is_first_zero = true;
+			me->clean_times = 0;
 
 			event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_handler, ptr);
 			event_base_set(me->base, &ptr->event);
@@ -199,8 +201,8 @@ static void notify_handler(const int fd, const short which, void *arg)
 #ifdef SSP_CODE_TIMEOUT
 		case 't':
 			if(me->conn_num<=0) {
-				if(me->is_first_zero) {
-					me->is_first_zero = false;
+				if(me->clean_times<SSP_CODE_TIMEOUT) {
+					me->clean_times++;
 				} else {
 					break;
 				}
@@ -265,7 +267,7 @@ void thread_init() {
 		worker_threads[i].accept_queue=queue_init();
 		worker_threads[i].close_queue=queue_init();
 		worker_threads[i].conn_num = 0;
-		worker_threads[i].is_first_zero = false;
+		worker_threads[i].clean_times = 0;
 	}
 
 	for (i = 0; i < ssp_nthreads; i++)
@@ -310,6 +312,7 @@ static void listen_notify_handler(const int fd, const short which, void *arg)
 
 static void listen_handler(const int fd, const short which, void *arg)
 {
+	TSRMLS_FETCH_FROM_CTX(listen_thread.TSRMLS_C);
 	int conn_fd,ret;
 	struct sockaddr_in pin;
 	socklen_t len=sizeof(pin);
@@ -367,6 +370,7 @@ static void listen_handler(const int fd, const short which, void *arg)
 
 static void foreach_conn(gpointer key, gpointer value, gpointer user_data)
 {
+	TSRMLS_FETCH_FROM_CTX(listen_thread.TSRMLS_C);
 	conn_t *ptr = (conn_t *) value;
 
 	conn_info(ptr);
@@ -445,6 +449,9 @@ static void signal_handler(const int fd, short event, void *arg)
 
 void loop_event (int sockfd)
 {
+	TSRMLS_FETCH();
+	TSRMLS_SET_CTX(listen_thread.TSRMLS_C);
+
 	// init main thread
 	listen_thread.sockfd = sockfd;
 	listen_thread.base = event_init();
@@ -524,5 +531,20 @@ void loop_event (int sockfd)
 	#endif
 #endif
 
+	attach_conn();
+
+	THREAD_STARTUP();
+
+	trigger(PHP_SSP_START);
+
 	event_base_loop(listen_thread.base, 0);
+
+	trigger(PHP_SSP_STOP);
+
+	THREAD_SHUTDOWN();
+
+	shutdown(sockfd, 2);
+	close(sockfd);
+
+	detach_conn();
 }

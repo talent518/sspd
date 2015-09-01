@@ -218,7 +218,7 @@ static zval *_ssp_string_zval(const char *str,int len TSRMLS_DC)
 	return ret;
 }
 
-bool trigger(unsigned short type,...){
+bool trigger_ex(TSRMLS_DE unsigned short type,...){
 	TRIGGER_STARTUP();
 	if(trigger_handlers[type]==NULL){
 		TRIGGER_SHUTDOWN();

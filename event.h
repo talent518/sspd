@@ -1,12 +1,14 @@
 #ifndef _EVENT_H
 #define _EVENT_H
 
+#include <TSRM.h>
 #include <stdbool.h>
 #include <event.h>
 #include "queue.h"
 
 typedef struct
 {
+	TSRMLS_D;
 	pthread_t tid;
 	struct event_base *base;
 	struct event notify_ev;
@@ -30,6 +32,7 @@ typedef struct
 
 typedef struct
 {
+	TSRMLS_D;
 	pthread_t tid;
 	struct event_base *base;
 	struct event event;
@@ -42,7 +45,7 @@ typedef struct
 	int write_fd;
 
 	int conn_num;
-	bool is_first_zero;
+	int clean_times;
 } worker_thread_t;
 
 extern listen_thread_t listen_thread;
