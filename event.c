@@ -285,6 +285,7 @@ void thread_init() {
 
 static void listen_notify_handler(const int fd, const short which, void *arg)
 {
+	TSRMLS_FETCH_FROM_CTX(listen_thread.TSRMLS_C);
 	int ret;
 	char buf[1024];
 
@@ -305,6 +306,20 @@ static void listen_notify_handler(const int fd, const short which, void *arg)
 		case 'd': // ½ûÖ¹Á¬½Ó(disable)
 			is_accept_conn_ex(false);
 			break;
+#ifdef SSP_CODE_TIMEOUT
+		case 't':
+			dprintf("==================================================================================================================================\n");
+			THREAD_SHUTDOWN();
+			dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");
+			THREAD_STARTUP();
+			dprintf("==================================================================================================================================\n");
+			break;
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+		case 'g':
+			ssp_auto_globals_recreate(TSRMLS_C);
+			break;
+	#endif
+#endif
 		default:
 			break;
 	}
@@ -415,6 +430,8 @@ static void signal_handler(const int fd, short event, void *arg)
 		int i;
 		char chr = 't';
 
+		write(listen_thread.write_fd, &chr, 1);
+
 		for(i=0;i<ssp_nthreads;i++) {
 			dprintf("%s: notify thread timeout %d\n", __func__, i);
 			write(worker_threads[i].write_fd, &chr, 1);
@@ -432,6 +449,8 @@ static void signal_handler(const int fd, short event, void *arg)
 		{
 			int i;
 			char chr = 'g';
+
+			write(listen_thread.write_fd, &chr, 1);
 
 			for(i=0;i<ssp_nthreads;i++) {
 				dprintf("%s: notify thread timeout %d\n", __func__, i);
