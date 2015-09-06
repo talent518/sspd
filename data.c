@@ -120,8 +120,10 @@ void clean_conn(conn_t *ptr){
 
 	shutdown(ptr->sockfd,SHUT_RDWR);
 	close(ptr->sockfd);
-	free(ptr->rbuf);
-	ptr->rbuf = NULL;
+	if(ptr->rbuf) {
+		free(ptr->rbuf);
+		ptr->rbuf = NULL;
+	}
 	ptr->rbytes = 0;
 	ptr->rsize = 0;
 }
