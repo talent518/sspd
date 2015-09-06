@@ -120,6 +120,10 @@ void clean_conn(conn_t *ptr){
 
 	shutdown(ptr->sockfd,SHUT_RDWR);
 	close(ptr->sockfd);
+	free(ptr->rbuf);
+	ptr->rbuf = NULL;
+	ptr->rbytes = 0;
+	ptr->rsize = 0;
 }
 
 unsigned int _conn_num(){
