@@ -1,8 +1,8 @@
 #!/bin/sh
 
 INST_DIR=/opt/ssp
-export CPPFLAGS="-I$INST_DIR/include -I/usr/include -D_GNU_SOURCE $CPPFLAGS"
-export LDFLAGS="-L$INST_DIR/lib -L/usr/lib64 -L/usr/lib $LDFLAGS"
+#export CPPFLAGS="-I$INST_DIR/include -I/usr/include -D_GNU_SOURCE $CPPFLAGS"
+#export LDFLAGS="-L$INST_DIR/lib -L/usr/lib64 -L/usr/lib $LDFLAGS"
 
 if [ ! -d $INST_DIR/bin ]; then
     mkdir -p $INST_DIR/bin
@@ -18,20 +18,20 @@ pushd reflib
 #php
 if [ ! -f "$INST_DIR/lib/libphp5.so" ]; then
     echo Installing php ...
-    if [ ! -d "/tmp/php-5.6.2" ]; then
-        tar -xvf php-5.6.2.tar.xz -C /tmp/
+    if [ ! -d "/tmp/php-5.6.13" ]; then
+        tar -xvf php-5.6.13.tar.bz2 -C /tmp/
     fi
-    pushd /tmp/php-5.6.2
+    pushd /tmp/php-5.6.13
 
-	OPT_MAK="--prefix=/opt/ssp --with-config-file-path=/opt/ssp/etc --with-config-file-scan-dir=/opt/ssp/etc/php.d --with-mysql=mysqlnd --enable-inline-optimization --disable-debug --enable-bcmath --enable-calendar --enable-ctype --enable-ftp --enable-gd-native-ttf --enable-shmop --disable-sigchild --enable-sysvsem --enable-sysvshm --enable-wddx --with-gdbm=/opt/lampp --with-jpeg-dir=/opt/lampp --with-png-dir=/opt/lampp --with-freetype-dir=/opt/lampp --with-zlib=yes --with-zlib-dir=/opt/lampp --with-openssl=/opt/lampp --with-xsl=/opt/lampp --with-ldap=/opt/lampp --with-gd --with-imap=/opt/lampp/ --with-imap-ssl --with-gettext=/opt/lampp --with-mssql=/opt/lampp --with-sybase-ct=/opt/lampp --with-mysql-sock=/opt/lampp/var/mysql/mysql.sock --with-oci8=shared,instantclient,/opt/lampp/lib/instantclient --with-mcrypt=/opt/lampp --with-mhash=/opt/lampp --enable-sockets --enable-mbstring=all --with-curl=/opt/lampp --enable-mbregex --enable-exif --with-bz2=/opt/lampp --with-sqlite3=/opt/lampp --with-libxml-dir=/opt/lampp --enable-soap --enable-pcntl --with-mysqli=mysqlnd --with-iconv=/opt/lampp --with-pdo-mysql=mysqlnd --with-pdo-sqlite --with-icu-dir=/opt/lampp --enable-fileinfo --enable-phar --enable-zip --enable-intl"
+	OPT_MAK="--prefix=/opt/ssp --with-config-file-path=/opt/ssp/etc --with-config-file-scan-dir=/opt/ssp/etc/php.d --with-mysql=mysqlnd --enable-inline-optimization --disable-debug --enable-bcmath --enable-calendar --enable-ctype --enable-ftp --enable-gd-native-ttf --enable-shmop --disable-sigchild --enable-sysvsem --enable-sysvshm --enable-wddx --with-gdbm=/opt/lampp --with-jpeg-dir=/opt/lampp --with-png-dir=/opt/lampp --with-xpm-dir=/usr --with-freetype-dir=/opt/lampp --with-zlib=yes --with-zlib-dir=/opt/lampp --with-openssl=/opt/lampp --with-xsl=/opt/lampp --with-ldap=/opt/lampp --with-gd --with-imap=/opt/lampp/ --with-imap-ssl --with-gettext=/opt/lampp --with-mssql=/opt/lampp --with-sybase-ct=/opt/lampp --with-mysql-sock=/opt/lampp/var/mysql/mysql.sock --with-oci8=shared,instantclient,/opt/lampp/lib/instantclient --with-mcrypt=/opt/lampp --with-mhash=/opt/lampp --enable-sockets --enable-mbstring=all --with-curl=/opt/lampp --enable-mbregex --enable-exif --with-bz2=/opt/lampp --with-sqlite3=/opt/lampp --with-libxml-dir=/opt/lampp --enable-soap --enable-pcntl --with-mysqli=mysqlnd --with-iconv=/opt/lampp --with-pdo-mysql=mysqlnd --with-pdo-sqlite --with-icu-dir=/opt/lampp --enable-fileinfo --enable-phar --enable-zip --enable-intl"
     OPT_OTH="--enable-maintainer-zts  --with-tsrm-pthreads --enable-embed"
 
     export EXTENSION_DIR=$INST_DIR/lib/extensions
-    ./configure ${OPT_MAK} ${OPT_OTH} && make && make install && cp -u php.ini-* $INST_DIR/etc/
+    ./configure ${OPT_MAK} ${OPT_OTH} && make && make install && cp -u /opt/lampp/etc/php.ini $INST_DIR/etc/php.ini && sed -i 's/\/opt\/lampp\//\/opt\/ssp\//g' $INST_DIR/etc/php.ini
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf /tmp/php-5.6.2
+        rm -rf /tmp/php-5.6.13
         echo Installed php Success.
     else
         popd
@@ -97,8 +97,32 @@ if [ "$?" != "0" ]; then
     fi
 fi
 
+#libglib
+pkg-config --exists glib-2.0
+if [ "$?" != "0" ]; then
+    echo Installing libglib ...
+    if [ ! -d "/tmp/glib-2.40.0" ]; then
+        tar -xvf glib-2.40.0.tar.xz -C /tmp/
+    fi
+    pushd /tmp/glib-2.40.0
+    
+    ./configure --prefix=/usr \
+    && make \
+    && make install
+    
+    if [ "$?" = "0" ]; then
+        popd
+        rm -rf /tmp/glib-2.40.0
+        echo Installed libglib Success.
+    else
+        popd
+        echo Installed libglib error.
+        exit 1
+    fi
+fi
+
 #libpopt
-if [ ! -f "usr/lib/libpopt.so" ]; then
+if [ ! -f /usr/include/popt.h ]; then
     echo Installing libpopt ...
     if [ ! -d "/tmp/popt-1.7" ]; then
         tar -xvf popt-1.7.tar.gz -C /tmp/
@@ -121,32 +145,7 @@ if [ ! -f "usr/lib/libpopt.so" ]; then
 fi
 
 #libgtop
-pkg-config --exists popt-1.7
-if [ "$?" != "0" ]; then
-    echo Installing libgtop ...
-    if [ ! -d "/tmp/libgtop-2.6.0" ]; then
-        tar -zxvf libgtop-2.6.0.tar.gz -C /tmp/
-    fi
-    pushd /tmp/libgtop-2.6.0
-    
-    ./configure --prefix=/usr \
-    && make \
-    && make install
-    
-    if [ "$?" = "0" ]; then
-        popd
-        rm -rf /tmp/libgtop-2.6.0
-        echo Installed libgtop Success.
-    else
-        popd
-        echo Installed libgtop error.
-        exit 1
-    fi
-fi
-
-#libgtop
-pkg-config --exists libgtop-2.0
-if [ "$?" != "0" ]; then
+if [ ! -d /usr/include/libgtop-2.0/ ]; then
     echo Installing libgtop ...
     if [ ! -d "/tmp/libgtop-2.6.0" ]; then
         tar -zxvf libgtop-2.6.0.tar.gz -C /tmp/

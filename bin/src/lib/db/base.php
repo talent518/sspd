@@ -176,12 +176,14 @@ class LibDbBase {
 	function halt ( $message = '', $sql = '' ) {
 		$dberror = $this->error();
 		$dberrno = $this->errno();
-		echo "MySQL Error" , PHP_EOL;
-		echo "\tMessage: $message" , PHP_EOL;
-		echo "\tSQL: $sql" ,PHP_EOL;
-		echo "\tError: $dberror" , PHP_EOL;
-		echo "\tErrno.: $dberrno";
+		echo PHP_EOL, "-----------MySQL Error---------", PHP_EOL;
+		echo "\tMessage: $message", PHP_EOL;
+		echo "\tSQL: $sql", PHP_EOL;
+		echo "\tError: $dberror", PHP_EOL;
+		echo "\tErrno.: $dberrno", PHP_EOL, PHP_EOL;
+		echo '-----------debug backtrace---------', PHP_EOL;
 		debug_print_backtrace();
+		echo PHP_EOL, PHP_EOL;
 		exit;
 	}
 

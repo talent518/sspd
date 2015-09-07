@@ -3,31 +3,30 @@ if (  ! defined('IN_SERVER') )
 	exit('Access Denied');
 
 function UDB () {
-	static $db;
-	if (  ! is_object($db) ) {
+	if (  ! isset($_SSP['UDB']) ) {
 		$isConn = true;
 		if ( DB_TYPE != UC_TYPE ) {
-			$db = LIB('db.' . UC_TYPE);
+			$_SSP['UDB'] = LIB('db.' . UC_TYPE);
 		} else {
 			if ( DB_CHARSET == UC_CHARSET && DB_HOST == UC_HOST && DB_USER == UC_USER && DB_PWD == UC_PWD && DB_NAME == UC_NAME ) {
-				$db = clone DB();
+				$_SSP['UDB'] = clone DB();
 				$isConn = false;
 			} else {
-				$db = clone LIB('db.' . UC_TYPE);
+				$_SSP['UDB'] = clone LIB('db.' . UC_TYPE);
 			}
 		}
-		$db->charset = UC_CHARSET;
-		$db->host = UC_HOST;
-		$db->user = UC_USER;
-		$db->pwd = UC_PWD;
-		$db->name = UC_NAME;
-		$db->pconnect = UC_PCONNECT;
-		$db->tablepre = UC_TABLEPRE;
+		$_SSP['UDB']->charset = UC_CHARSET;
+		$_SSP['UDB']->host = UC_HOST;
+		$_SSP['UDB']->user = UC_USER;
+		$_SSP['UDB']->pwd = UC_PWD;
+		$_SSP['UDB']->name = UC_NAME;
+		$_SSP['UDB']->pconnect = UC_PCONNECT;
+		$_SSP['UDB']->tablepre = UC_TABLEPRE;
 		if ( $isConn ) {
-			$db->connect();
+			$_SSP['UDB']->connect();
 		}
 	}
-	return $db;
+	return $_SSP['UDB'];
 }
 
 class ModUcBase {
