@@ -24,6 +24,7 @@ $content=str_replace('{SERV_PORT}',$SERV_PORT,$content);
 $content=str_replace('{SERV_USER}',$SERV_USER,$content);
 $content=str_replace('{SERV_NTHEADS}',$SERV_NTHEADS,$content);
 $content=str_replace('{SERV_CLIENTS}',$SERV_CLIENTS,$content);
+$content=str_replace('{SERV_PIDFILE}','/var/run/'.$SERV_NAME.'.pid',$content);
 file_put_contents('/etc/init.d/'.$SERV_NAME,$content);
 
 system('chmod 773 /etc/init.d/'.$SERV_NAME);
