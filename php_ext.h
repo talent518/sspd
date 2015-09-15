@@ -50,6 +50,7 @@ extern zend_module_entry ssp_module_entry;
 
 ZEND_BEGIN_MODULE_GLOBALS(ssp)
 	long trigger_count;
+	zval *ssp_vars;
 ZEND_END_MODULE_GLOBALS(ssp)
 
 #define SSP_G(v) TSRMG(ssp_globals_id, zend_ssp_globals *, v)
@@ -104,6 +105,8 @@ ZEND_END_MODULE_GLOBALS(ssp)
 
 static PHP_MINIT_FUNCTION(ssp);
 static PHP_MSHUTDOWN_FUNCTION(ssp);
+static PHP_RINIT_FUNCTION(ssp);
+static PHP_RSHUTDOWN_FUNCTION(ssp);
 static PHP_GINIT_FUNCTION(ssp);
 static PHP_GSHUTDOWN_FUNCTION(ssp);
 static PHP_MINFO_FUNCTION(ssp);

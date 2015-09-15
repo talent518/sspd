@@ -89,8 +89,8 @@ zend_module_entry ssp_module_entry = {
 	ssp_functions,
 	PHP_MINIT(ssp),
 	PHP_MSHUTDOWN(ssp),
-	NULL,
-	NULL,
+	PHP_RINIT(ssp),
+	PHP_RSHUTDOWN(ssp),
 	PHP_MINFO(ssp),
 	PHP_SSP_VERSION,
 	PHP_MODULE_GLOBALS(ssp),
@@ -156,6 +156,27 @@ static PHP_MSHUTDOWN_FUNCTION(ssp)
 }
 /* }}} */
 
+/* {{{ PHP_RINIT_FUNCTION
+*/
+PHP_RINIT_FUNCTION(ssp)
+{
+	SSP_G(ssp_vars) = NULL;
+	ssp_auto_globals_recreate(TSRMLS_C);
+}
+/* }}} */
+
+/* {{{ PHP_MSHUTDOWN_FUNCTION
+*/
+PHP_RSHUTDOWN_FUNCTION(ssp)
+{
+	if (SSP_G(ssp_vars)) {
+		zval_ptr_dtor(&SSP_G(ssp_vars));
+		SSP_G(ssp_vars) = NULL;
+	}
+	
+}
+/* }}} */
+
 /* {{{ PHP_GINIT_FUNCTION
 */
 static PHP_GINIT_FUNCTION(ssp)
@@ -192,11 +213,16 @@ void ssp_auto_globals_recreate(TSRMLS_D)
 	zend_delete_global_variable("_SSP", sizeof("_SSP")-1 TSRMLS_CC);
 
 	zval *vars;
+	
+	if (SSP_G(ssp_vars)) {
+		zval_ptr_dtor(&SSP_G(ssp_vars));
+	}
 
 	MAKE_STD_ZVAL(vars);
 	array_init_size(vars, 8);
 
-	ZEND_SET_GLOBAL_VAR("_SSP", vars);
+	SSP_G(ssp_vars) = vars;
+	ZEND_SET_GLOBAL_VAR_WITH_LENGTH("_SESSION", sizeof("_SESSION"), SSP_G(ssp_vars), 2, 1);
 }
 
 static zval *_ssp_resource_zval(conn_t *value TSRMLS_DC)

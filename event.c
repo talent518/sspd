@@ -70,7 +70,7 @@ static void *worker_thread_handler(void *arg)
 	TSRMLS_FETCH();
 	TSRMLS_SET_CTX(me->TSRMLS_C);
 
-	dprintf("thread %d createed\n", me->id);
+	dprintf("thread %d created\n", me->id);
 
  	THREAD_STARTUP();
 
@@ -104,8 +104,7 @@ void worker_create(void *(*func)(void *), void *arg)
 
 	pthread_attr_init(&attr);
 
-	if ((ret = pthread_create(&thread, &attr, func, arg)) != 0)
-	{
+	if ((ret = pthread_create(&thread, &attr, func, arg)) != 0) {
 		fprintf(stderr, "Can't create thread: %s\n", strerror(ret));
 		exit(1);
 	}
@@ -122,16 +121,16 @@ static void read_handler(int sock, short event,	void* arg)
 
 	ret=socket_recv(ptr,&data,&data_len);
 	if(ret<0) {//已放入缓冲区
-	}else if(ret==0){//关闭连接
+	} else if(ret==0) {//关闭连接
 		event_del(&ptr->event);
 		trigger(PHP_SSP_CLOSE,ptr);
 		remove_conn(ptr);
 
 		is_accept_conn(true);
-	}else{//接收数据成功
+	} else {//接收数据成功
 		TRIGGER_STARTUP_EX() {
 			trigger(PHP_SSP_RECEIVE,ptr,&data,&data_len);
-			if(data_len>0){
+			if(data_len>0) {
 				trigger(PHP_SSP_SEND,ptr,&data,&data_len);
 				socket_send(ptr,data,data_len);
 			}
@@ -144,86 +143,105 @@ static void read_handler(int sock, short event,	void* arg)
 
 static void notify_handler(const int fd, const short which, void *arg)
 {
-	int ret;
-	char chr;
+#ifdef SSP_CODE_TIMEOUT
+	bool isclean=false;
+#ifdef SSP_CODE_TIMEOUT_GLOBAL
+	bool isglobal=false;
+#endif
+#endif
+	int buffer_len,i;
+	char chr,buffer[1024];
 	worker_thread_t *me = arg;
 	conn_t *ptr;
 
 	TSRMLS_FETCH_FROM_CTX(me->TSRMLS_C);
 
-	if (fd != me->read_fd)
-	{
+	if (fd != me->read_fd) {
 		printf("notify_handler error : fd != me->read_fd\n");
 		exit(1);
 	}
 
-	ret = read(fd, &chr, 1);
-	if (ret <= 0)
-	{
+	buffer_len = read(fd, buffer, sizeof(buffer));
+	if (buffer_len <= 0) {
 		return;
 	}
 
-	dprintf("notify_handler: notify(%c) threadId(%d)\n", chr, me->id);
+	for(i=0;i<buffer_len;i++) {
+		chr=buffer[i];
 
-	switch(chr) {
-		case 'x': // 处理连接关闭对列
-			ptr=queue_pop(me->close_queue);
+		dprintf("notify_handler: notify(%c) threadId(%d)\n", chr, me->id);
 
-			assert(ptr);
+		switch(chr) {
+			case 'x': // 处理连接关闭对列
+				ptr=queue_pop(me->close_queue);
 
-			conn_info(ptr);
-			clean_conn(ptr);
-			trigger(PHP_SSP_CLOSE,ptr);
-			remove_conn(ptr);
+				assert(ptr);
 
-			me->conn_num--;
+				conn_info(ptr);
+				clean_conn(ptr);
+				trigger(PHP_SSP_CLOSE,ptr);
+				remove_conn(ptr);
 
-			is_accept_conn(true);
-			break;
-		case '-': // 结束worker/notify线程
-			event_base_loopbreak(me->base);
-			break;
-		case 'l':
-			ptr=queue_pop(me->accept_queue);
+				me->conn_num--;
 
-			assert(ptr);
-			assert(ptr->thread == me);
+				is_accept_conn(true);
+				break;
+			case '-': // 结束worker/notify线程
+				event_base_loopbreak(me->base);
+				break;
+			case 'l':
+				ptr=queue_pop(me->accept_queue);
 
-			conn_info(ptr);
+				assert(ptr);
+				assert(ptr->thread == me);
 
-			me->conn_num++;
-			me->clean_times = 0;
+				conn_info(ptr);
 
-			event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_handler, ptr);
-			event_base_set(me->base, &ptr->event);
-			event_add(&ptr->event, NULL);
-			break;
-#ifdef SSP_CODE_TIMEOUT
-		case 't':
-			if(me->conn_num<=0) {
-				if(me->clean_times<SSP_CODE_TIMEOUT) {
-					me->clean_times++;
-				} else {
+				me->conn_num++;
+				me->clean_times = 0;
+
+				event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_handler, ptr);
+				event_base_set(me->base, &ptr->event);
+				event_add(&ptr->event, NULL);
+				break;
+	#ifdef SSP_CODE_TIMEOUT
+			case 't':
+				if(isclean) {
 					break;
 				}
-			}
-			dprintf("==================================================================================================================================\n");
-			THREAD_SHUTDOWN();
-			dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");
-			THREAD_STARTUP();
-			dprintf("==================================================================================================================================\n");
-			break;
-	#ifdef SSP_CODE_TIMEOUT_GLOBAL
-		case 'g':
-			if(me->conn_num<=0) {
+				if(me->conn_num<=0) {
+					if(me->clean_times<SSP_CODE_TIMEOUT) {
+						me->clean_times++;
+					} else {
+						break;
+					}
+				}
+				dprintf("==================================================================================================================================\n");
+				THREAD_SHUTDOWN();
+				dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");
+				THREAD_STARTUP();
+				dprintf("==================================================================================================================================\n");
+				
+				isclean=true;
+		#ifdef SSP_CODE_TIMEOUT_GLOBAL
+				isglobal=true;
 				break;
-			}
-			ssp_auto_globals_recreate(TSRMLS_C);
-			break;
+			case 'g':
+				if(isglobal) {
+					break;
+				}
+				if(me->conn_num<=0) {
+					break;
+				}
+				ssp_auto_globals_recreate(TSRMLS_C);
+				
+				isglobal=true;
+		#endif
+				break;
 	#endif
-#endif
-		default:
-			break;
+			default:
+				break;
+		}
 	}
 }
 
@@ -238,8 +256,7 @@ void thread_init() {
 
 	int i;
 	int fds[2];
-	for (i = 0; i < ssp_nthreads; i++)
-	{
+	for (i = 0; i < ssp_nthreads; i++) {
         if (pipe(fds)) {
             perror("Can't create notify pipe");
             exit(1);
@@ -250,16 +267,14 @@ void thread_init() {
 		worker_threads[i].write_fd = fds[1];
 
 		worker_threads[i].base = event_init();
-		if (worker_threads[i].base == NULL)
-		{
+		if (worker_threads[i].base == NULL) {
 			perror("event_init()");
 			exit(1);
 		}
 
 		event_set(&worker_threads[i].event, worker_threads[i].read_fd, EV_READ | EV_PERSIST, notify_handler, &worker_threads[i]);
 		event_base_set(worker_threads[i].base, &worker_threads[i].event);
-		if (event_add(&worker_threads[i].event, 0) == -1)
-		{
+		if (event_add(&worker_threads[i].event, 0) == -1) {
 			perror("event_add()");
 			exit(1);
 		}
@@ -270,8 +285,7 @@ void thread_init() {
 		worker_threads[i].clean_times = 0;
 	}
 
-	for (i = 0; i < ssp_nthreads; i++)
-	{
+	for (i = 0; i < ssp_nthreads; i++) {
 		worker_create(worker_thread_handler, &worker_threads[i]);
 	}
 
@@ -286,75 +300,91 @@ void thread_init() {
 static void listen_notify_handler(const int fd, const short which, void *arg)
 {
 	TSRMLS_FETCH_FROM_CTX(listen_thread.TSRMLS_C);
-	int ret;
+#ifdef SSP_CODE_TIMEOUT
+	bool isclean=false;
+#ifdef SSP_CODE_TIMEOUT_GLOBAL
+	bool isglobal=false;
+#endif
+#endif
+	int buf_len,i;
 	char buf[1024];
 
 	assert(fd == listen_thread.read_fd);
 
-	ret = read(fd, buf, 1024);
-	if (ret <= 0)
-	{
+	buf_len = read(fd, buf, 1024);
+	if (buf_len <= 0) {
 		return;
 	}
 
-	dprintf("%s(%c)\n", __func__, buf[ret-1]);
+	for(i=0; i<buf_len; i++) {
+		dprintf("%s(%c)\n", __func__, buf[i]);
 
-	switch(buf[ret-1]) {
-		case 'e': // 接受连接(enable)
-			is_accept_conn_ex(true);
-			break;
-		case 'd': // 禁止连接(disable)
-			is_accept_conn_ex(false);
-			break;
-#ifdef SSP_CODE_TIMEOUT
-		case 't':
-			dprintf("==================================================================================================================================\n");
-			THREAD_SHUTDOWN();
-			dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");
-			THREAD_STARTUP();
-			dprintf("==================================================================================================================================\n");
-			break;
-	#ifdef SSP_CODE_TIMEOUT_GLOBAL
-		case 'g':
-			ssp_auto_globals_recreate(TSRMLS_C);
-			break;
+		switch(buf[i]) {
+			case 'e': // 接受连接(enable)
+				is_accept_conn_ex(true);
+				break;
+			case 'd': // 禁止连接(disable)
+				is_accept_conn_ex(false);
+				break;
+	#ifdef SSP_CODE_TIMEOUT
+			case 't':
+				if(isclean) {
+					break;
+				}
+				dprintf("==================================================================================================================================\n");
+				THREAD_SHUTDOWN();
+				dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");
+				THREAD_STARTUP();
+				dprintf("==================================================================================================================================\n");
+				isclean = true;
+		#ifdef SSP_CODE_TIMEOUT_GLOBAL
+				isglobal = true;
+				break;
+			case 'g':
+				if(isglobal) {
+					break;
+				}
+				ssp_auto_globals_recreate(TSRMLS_C);
+				isglobal = true;
+		#endif
+				break;
 	#endif
-#endif
-		default:
-			break;
+			default:
+				break;
+		}
 	}
 }
 
 static void listen_handler(const int fd, const short which, void *arg)
 {
 	TSRMLS_FETCH_FROM_CTX(listen_thread.TSRMLS_C);
-	int conn_fd,ret;
+	int conn_fd, ret;
 	struct sockaddr_in pin;
-	socklen_t len=sizeof(pin);
-	conn_fd=accept(fd, (struct sockaddr *)&pin,&len);
+	socklen_t len = sizeof(pin);
+	conn_fd = accept(fd, (struct sockaddr *)&pin, &len);
 	
-	if(conn_fd<=0){
+	if(conn_fd <= 0) {
 		return;
 	}
 
-	int send_timeout=1000,recv_timeout=1000;
-	setsockopt(conn_fd,SOL_SOCKET,SO_SNDTIMEO,&send_timeout,sizeof(int));//发送超时
-	setsockopt(conn_fd,SOL_SOCKET,SO_RCVTIMEO,&recv_timeout,sizeof(int));//接收超时
+	int send_timeout = 1000, recv_timeout = 1000;
+	setsockopt(conn_fd, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int));//发送超时
+	setsockopt(conn_fd, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int));//接收超时
 
-	conn_t *ptr=(conn_t *)malloc(sizeof(conn_t));
+	conn_t *ptr = (conn_t *)malloc(sizeof(conn_t));
 
-	bzero(ptr,sizeof(conn_t));
+	bzero(ptr, sizeof(conn_t));
 
-	ptr->sockfd=conn_fd;
-	inet_ntop(AF_INET,&pin.sin_addr,ptr->host,sizeof(ptr->host));
-	ptr->port=ntohs(pin.sin_port);
+	ptr->sockfd = conn_fd;
+	inet_ntop(AF_INET, &pin.sin_addr, ptr->host, sizeof(ptr->host));
+	ptr->port = ntohs(pin.sin_port);
 
-	if(CONN_NUM >= ssp_maxclients){
+	if(CONN_NUM >= ssp_maxclients) {
 		is_accept_conn_ex(false);
 
 		conn_info(ptr);
 
-		trigger(PHP_SSP_CONNECT_DENIED,ptr);
+		trigger(PHP_SSP_CONNECT_DENIED, ptr);
 		clean_conn(ptr);
 
 		free(ptr);
@@ -363,9 +393,9 @@ static void listen_handler(const int fd, const short which, void *arg)
 
 		worker_thread_t *thread = worker_threads + (ptr->index-1) % ssp_nthreads;
 
-		ptr->thread=thread;
+		ptr->thread = thread;
 
-		ret=trigger(PHP_SSP_CONNECT,ptr);
+		ret=trigger(PHP_SSP_CONNECT, ptr);
 		if(ret) {
 			dprintf("notify thread %d\n", thread->id);
 
@@ -383,8 +413,7 @@ static void listen_handler(const int fd, const short which, void *arg)
 	}
 }
 
-static void foreach_conn(gpointer key, gpointer value, gpointer user_data)
-{
+static void foreach_conn(gpointer key, gpointer value, gpointer user_data) {
 	TSRMLS_FETCH_FROM_CTX(listen_thread.TSRMLS_C);
 	conn_t *ptr = (conn_t *) value;
 
@@ -395,8 +424,7 @@ static void foreach_conn(gpointer key, gpointer value, gpointer user_data)
 	trigger(PHP_SSP_CLOSE, ptr);
 }
 
-static void signal_handler(const int fd, short event, void *arg)
-{
+static void signal_handler(const int fd, short event, void *arg) {
 	dprintf("%s: got signal %d\n", __func__, EVENT_SIGNAL(&listen_thread.signal_int));
 
 	event_del(&listen_thread.signal_int);
@@ -405,7 +433,7 @@ static void signal_handler(const int fd, short event, void *arg)
 
 	int i;
 	char chr = '-';
-	for(i=0;i<ssp_nthreads;i++) {
+	for(i=0; i<ssp_nthreads; i++) {
 		dprintf("%s: notify thread exit %d\n", __func__, i);
 		write(worker_threads[i].write_fd, &chr, 1);
 	}
@@ -425,8 +453,7 @@ static void signal_handler(const int fd, short event, void *arg)
 }
 
 #ifdef SSP_CODE_TIMEOUT
-	static void timeout_handler(evutil_socket_t fd, short event, void *arg)
-	{
+	static void timeout_handler(evutil_socket_t fd, short event, void *arg) {
 		int i;
 		char chr = 't';
 
@@ -445,8 +472,7 @@ static void signal_handler(const int fd, short event, void *arg)
 	}
 
 	#ifdef SSP_CODE_TIMEOUT_GLOBAL
-		static void timeout_global_handler(evutil_socket_t fd, short event, void *arg)
-		{
+		static void timeout_global_handler(evutil_socket_t fd, short event, void *arg) {
 			int i;
 			char chr = 'g';
 
@@ -466,16 +492,14 @@ static void signal_handler(const int fd, short event, void *arg)
 	#endif
 #endif
 
-void loop_event (int sockfd)
-{
+void loop_event (int sockfd) {
 	TSRMLS_FETCH();
 	TSRMLS_SET_CTX(listen_thread.TSRMLS_C);
 
 	// init main thread
 	listen_thread.sockfd = sockfd;
 	listen_thread.base = event_init();
-	if (listen_thread.base == NULL)
-	{
+	if (listen_thread.base == NULL) {
 		perror("event_init( base )");
 		exit(1);
 	}
@@ -497,8 +521,7 @@ void loop_event (int sockfd)
 	// listen notify event
 	event_set(&listen_thread.notify_ev, listen_thread.read_fd, EV_READ | EV_PERSIST, listen_notify_handler, NULL);
 	event_base_set(listen_thread.base, &listen_thread.notify_ev);
-	if (event_add(&listen_thread.notify_ev, NULL) == -1)
-	{
+	if (event_add(&listen_thread.notify_ev, NULL) == -1) {
 		perror("event_add()");
 		exit(1);
 	}
@@ -507,8 +530,7 @@ void loop_event (int sockfd)
 	listen_thread.ev_flags=EV_READ | EV_PERSIST;
 	event_set(&listen_thread.listen_ev, sockfd, listen_thread.ev_flags, listen_handler, NULL);
 	event_base_set(listen_thread.base, &listen_thread.listen_ev);
-	if (event_add(&listen_thread.listen_ev, NULL) == -1)
-	{
+	if (event_add(&listen_thread.listen_ev, NULL) == -1) {
 		perror("listen event");
 		exit(1);
 	}
@@ -516,8 +538,7 @@ void loop_event (int sockfd)
 	// int signal event
 	event_set(&listen_thread.signal_int, SIGINT, EV_SIGNAL|EV_PERSIST, signal_handler, NULL);
 	event_base_set(listen_thread.base, &listen_thread.signal_int);
-	if (event_add(&listen_thread.signal_int, NULL) == -1)
-	{
+	if (event_add(&listen_thread.signal_int, NULL) == -1) {
 		perror("int signal event");
 		exit(1);
 	}
@@ -529,8 +550,7 @@ void loop_event (int sockfd)
 	tv.tv_sec = ssp_timeout;
 	event_set(&listen_thread.timeout_int, -1, EV_PERSIST, timeout_handler, NULL);
 	event_base_set(listen_thread.base, &listen_thread.timeout_int);
-	if (event_add(&listen_thread.timeout_int, &tv) == -1)
-	{
+	if (event_add(&listen_thread.timeout_int, &tv) == -1) {
 		perror("timeout event");
 		exit(1);
 	}
@@ -542,8 +562,7 @@ void loop_event (int sockfd)
 		tv2.tv_sec = ssp_global_timeout;
 		event_set(&listen_thread.timeout_global_int, -1, EV_PERSIST, timeout_global_handler, NULL);
 		event_base_set(listen_thread.base, &listen_thread.timeout_global_int);
-		if (event_add(&listen_thread.timeout_global_int, &tv2) == -1)
-		{
+		if (event_add(&listen_thread.timeout_global_int, &tv2) == -1) {
 			perror("timeout event");
 			exit(1);
 		}

@@ -35,9 +35,11 @@ typedef struct _conn_t{
 
 extern queue_t *iqueue;
 
-extern GHashTable *fconns;
 extern GHashTable *iconns;
-extern GHashTable *pconns;
+#ifdef SSP_DATA_SOCKFD_PORT
+	extern GHashTable *fconns;
+	extern GHashTable *pconns;
+#endif
 
 #define BEGIN_READ_LOCK		begin_read_lock();
 #define END_READ_LOCK		end_read_lock();
@@ -57,8 +59,13 @@ unsigned int _conn_num();
 
 //½Óµã¶Á
 conn_t* index_conn(int index);
+#ifdef SSP_DATA_SOCKFD_PORT
 conn_t* sockfd_conn(int sockfd);
 conn_t* port_conn(int port);
+#else
+	#define sockfd_conn(a) (NULL)
+	#define port_conn(a) (NULL)
+#endif
 
 void ref_conn(conn_t *ptr);
 void unref_conn(conn_t *ptr);
