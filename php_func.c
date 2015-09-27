@@ -181,10 +181,6 @@ static void sapi_ssp_log_message(char *message TSRMLS_DC) /* {{{ */
 static int sapi_ssp_deactivate(TSRMLS_D) /* {{{ */
 {
 	fflush(stdout);
-	if(SG(request_info).argv0) {
-		free(SG(request_info).argv0);
-		SG(request_info).argv0 = NULL;
-	}
 	return SUCCESS;
 }
 /* }}} */
@@ -243,8 +239,8 @@ static void sapi_ssp_ini_defaults(HashTable *configuration_hash)
 	zval tmp;
 	INI_DEFAULT("report_zend_debug", "1");
 	INI_DEFAULT("display_errors", "1");
-	INI_DEFAULT("memory_limit", "512M");
-	INI_DEFAULT("zend.enable_gc","0");
+	INI_DEFAULT("memory_limit", "-1");
+	INI_DEFAULT("zend.enable_gc","1");
 }
 /* }}} */
 

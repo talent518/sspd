@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include "api.h"
 #include "ssp.h"
 #include "data.h"
 #include "php_ext.h"
@@ -129,10 +130,15 @@ static void read_handler(int sock, short event,	void* arg)
 		is_accept_conn(true);
 	} else {//接收数据成功
 		TRIGGER_STARTUP_EX() {
+			rprintf("============================================================\n");
+			INIT_RUNTIME();
 			trigger(PHP_SSP_RECEIVE,ptr,&data,&data_len);
+			INFO_RUNTIME("RECV");
 			if(data_len>0) {
 				trigger(PHP_SSP_SEND,ptr,&data,&data_len);
+				INFO_RUNTIME("SEND");
 				socket_send(ptr,data,data_len);
+				INFO_RUNTIME("send");
 			}
 		} TRIGGER_SHUTDOWN_EX();
 	}
@@ -233,6 +239,7 @@ static void notify_handler(const int fd, const short which, void *arg)
 				if(me->conn_num<=0) {
 					break;
 				}
+				gc_collect_cycles(TSRMLS_C);
 				ssp_auto_globals_recreate(TSRMLS_C);
 				
 				isglobal=true;

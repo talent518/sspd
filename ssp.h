@@ -8,8 +8,15 @@
 #include "config.h"
 #include "api.h"
 
-#define BEGIN_RUNTIME() double runtime=microtime()
-#define END_RUNTIME() printf("[ run time ] %20s: %.3fs\n", __func__, microtime()-runtime)
+#ifdef SSP_RUNTIME
+	#define INIT_RUNTIME() double runtime=microtime(),tmpruntime
+	#define INFO_RUNTIME(info) tmpruntime=microtime();printf("[ " info " ] %20s: %.3fs\n", __func__, tmpruntime-runtime);runtime=tmpruntime
+	#define rprintf(...) printf(__VA_ARGS__)
+#else
+	#define INIT_RUNTIME()
+	#define INFO_RUNTIME(info)
+	#define rprintf(...)
+#endif
 
 #ifdef SSP_DEBUG_PRINTF
 #define dprintf(...) fprintf(stdout,__VA_ARGS__)

@@ -6,4 +6,5 @@
 	// #define SSP_DEBUG_EXT // debug php ext
 	#define SSP_CODE_TIMEOUT 10
 	#define SSP_CODE_TIMEOUT_GLOBAL
+	// #define SSP_RUNTIME
 #endif

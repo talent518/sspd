@@ -134,7 +134,6 @@ int socket_send(conn_t *ptr,const char *data,int data_len)
 
 void socket_close(conn_t *ptr)
 {
-	BEGIN_RUNTIME();
 	char buf[1];
 	buf[0] = '\0';
 
