@@ -26,6 +26,7 @@ static char trigger_handlers[7][30]={
 };
 
 long le_ssp_descriptor,le_ssp_descriptor_ref;
+unsigned int ssp_vars_length=10;
 #ifdef SSP_CODE_TIMEOUT
 	long ssp_timeout=60;
 	#ifdef SSP_CODE_TIMEOUT_GLOBAL
@@ -219,7 +220,7 @@ void ssp_auto_globals_recreate(TSRMLS_D)
 	}
 
 	MAKE_STD_ZVAL(vars);
-	array_init_size(vars, 8);
+	array_init_size(vars, ssp_vars_length);
 
 	SSP_G(ssp_vars) = vars;
 	ZEND_SET_GLOBAL_VAR_WITH_LENGTH("_SSP", sizeof("_SSP"), SSP_G(ssp_vars), 2, 1);

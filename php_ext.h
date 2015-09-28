@@ -38,6 +38,7 @@
 #endif
 
 extern long le_ssp_descriptor,le_ssp_descriptor_ref;
+extern unsigned int ssp_vars_length;
 #ifdef SSP_CODE_TIMEOUT
 	extern long ssp_timeout;
 	#ifdef SSP_CODE_TIMEOUT_GLOBAL

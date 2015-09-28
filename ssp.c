@@ -37,6 +37,7 @@
 #define OPT_NTHREADS 7
 #define OPT_TIMEOUT 8
 #define OPT_TIMEOUT_GLOBAL 9
+#define OPT_SSP_VARS 10
 
 static char *php_optarg = NULL;
 static int php_optind = 1;
@@ -68,6 +69,8 @@ static const opt_struct OPTIONS[] =
 
 	{OPT_TIMEOUT,  1, "timeout"},
 	{OPT_TIMEOUT_GLOBAL,  1, "gtimeout"},
+
+	{OPT_SSP_VARS,  1, "sspvars"},
 
 	{'-', 0, NULL} /* end of args */
 };
@@ -114,6 +117,7 @@ static void php_ssp_usage(char *argv0)
 				"  --max-clients <number>  Max client connect number (default: %d)\n"
 				"  --max-recvs <size>      Max recv data size (default: %s)\n"
 				"  -b <backlog>            Set the backlog queue limit (default: %d)\n"
+				"  --sspvars <sspvars>     Set the global php variable _SSP init array length (default: %ds)\n"
 #ifdef SSP_CODE_TIMEOUT
 				"  --timeout <timeout>     Set the timeout php cache timeout (default: %ds)\n"
 	#ifdef SSP_CODE_TIMEOUT_GLOBAL
@@ -128,7 +132,7 @@ static void php_ssp_usage(char *argv0)
 				"       restart            restart ssp service\n"
 				"       status             ssp service status\n"
 				"\n"
-				, prog, ssp_host, ssp_port, ssp_pidfile, ssp_user, ssp_nthreads, ssp_maxclients, maxrecvs, ssp_backlog
+				, prog, ssp_host, ssp_port, ssp_pidfile, ssp_user, ssp_nthreads, ssp_maxclients, maxrecvs, ssp_backlog, ssp_global_timeout
 #ifdef SSP_CODE_TIMEOUT
 					, ssp_timeout
 	#ifdef SSP_CODE_TIMEOUT_GLOBAL
@@ -288,6 +292,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'b':
 			ssp_backlog=atoi(php_optarg);
+			break;
+		case OPT_SSP_VARS:
+			ssp_vars_length=atoi(php_optarg);
 			break;
 #ifdef SSP_CODE_TIMEOUT
 		case OPT_TIMEOUT:
