@@ -222,7 +222,7 @@ void ssp_auto_globals_recreate(TSRMLS_D)
 	array_init_size(vars, 8);
 
 	SSP_G(ssp_vars) = vars;
-	ZEND_SET_GLOBAL_VAR_WITH_LENGTH("_SESSION", sizeof("_SESSION"), SSP_G(ssp_vars), 2, 1);
+	ZEND_SET_GLOBAL_VAR_WITH_LENGTH("_SSP", sizeof("_SSP"), SSP_G(ssp_vars), 2, 1);
 }
 
 static zval *_ssp_resource_zval(conn_t *value TSRMLS_DC)
