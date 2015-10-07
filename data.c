@@ -44,7 +44,7 @@ void attach_conn(){
 	pthread_mutex_init(&mx_reader, NULL);
 	pthread_mutex_init(&mx_writer, NULL);
 
-	iconns=(conn_t*)malloc(sizeof(conn_t)*ssp_maxclients);
+	iconns=(conn_t**)malloc(sizeof(conn_t)*ssp_maxclients);
 	memset(iconns, 0, sizeof(conn_t)*ssp_maxclients);
 }
 
