@@ -420,17 +420,6 @@ static void listen_handler(const int fd, const short which, void *arg)
 	}
 }
 
-static void foreach_conn(gpointer key, gpointer value, gpointer user_data) {
-	TSRMLS_FETCH_FROM_CTX(listen_thread.TSRMLS_C);
-	conn_t *ptr = (conn_t *) value;
-
-	conn_info(ptr);
-	
-	clean_conn(ptr);
-
-	trigger(PHP_SSP_CLOSE, ptr);
-}
-
 static void signal_handler(const int fd, short event, void *arg) {
 	dprintf("%s: got signal %d\n", __func__, EVENT_SIGNAL(&listen_thread.signal_int));
 
@@ -453,7 +442,23 @@ static void signal_handler(const int fd, short event, void *arg) {
     pthread_mutex_unlock(&init_lock);
 
 	dprintf("%s: close conn\n", __func__);
-	g_hash_table_foreach(iconns, foreach_conn, NULL);
+
+	TSRMLS_FETCH_FROM_CTX(listen_thread.TSRMLS_C);
+	conn_t *ptr;
+
+	for(i=0; i<ssp_maxclients; i++) {
+		ptr = iconns[i];
+
+		if(!ptr) {
+			continue;
+		}
+
+		conn_info(ptr);
+		
+		clean_conn(ptr);
+
+		trigger(PHP_SSP_CLOSE, ptr);
+	}
 
 	dprintf("%s: exit main thread\n", __func__);
 	event_base_loopbreak(listen_thread.base);

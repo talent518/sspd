@@ -5,7 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
-#include <time.h>
+#include <sys/time.h>
 
 #define MICRO_IN_SEC 1000000.00
 

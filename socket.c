@@ -1,9 +1,7 @@
 #include <sys/errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <curses.h>
 #include <sys/socket.h>
-#include <error.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <string.h>

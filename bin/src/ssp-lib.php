@@ -23,10 +23,9 @@ $_SSP = $GLOBALS['_SSP'] = array();
 /**
  * 获取连接资源
  * 
- * @param resource $var index/sockfd/port
- * @param integer $type SSP_RES_INDEX、SSP_RES_SOCKFD 或 SSP_RES_PORT
+ * @param resource $var index
  */
-function ssp_resource ( $var, $type ) {
+function ssp_resource ( $var ) {
 }
 
 /**

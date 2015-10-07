@@ -3,16 +3,16 @@
 #include "ssp.h"
 #include "data.h"
 #include "api.h"
-#include <error.h>
 #include <malloc.h>
 #include <signal.h>
 #include <math.h>
+#ifdef HAVE_LIBGTOP
 #include <glibtop.h>
 #include <glibtop/cpu.h>
 #include <glibtop/mem.h>
 #include <glibtop/proctime.h>
 #include <glibtop/procmem.h>
-
+#endif
 static pthread_mutex_t unique_lock;
 
 static char trigger_handlers[7][30]={
@@ -35,9 +35,8 @@ unsigned int ssp_vars_length=10;
 #endif
 
 /* {{{ arginfo */
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_resource, 0, 0, 2)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_resource, 0, 0, 1)
 	ZEND_ARG_INFO(0, var)
-	ZEND_ARG_INFO(0, type)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 1)
@@ -337,22 +336,12 @@ bool trigger_ex(TSRMLS_DE unsigned short type,...){
 static PHP_FUNCTION(ssp_resource){
 	long var,type;
 	conn_t *ptr=NULL;
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ll", &var, &type) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &var) == FAILURE) {
 		RETURN_FALSE;
 	}
-	switch(type) {
-		case PHP_SSP_RES_SOCKFD:
-			ptr=sockfd_conn(var);
-			break;
-		case PHP_SSP_RES_PORT:
-			ptr=port_conn(var);
-			break;
-		case PHP_SSP_RES_INDEX:
-			ptr=index_conn(var);
-			break;
-		default:
-			break;
-	}
+
+	ptr=index_conn(var);
+
 	if(ptr!=NULL){
 		ZEND_REGISTER_RESOURCE(return_value,ptr,le_ssp_descriptor_ref);
 	}else{
@@ -469,6 +458,7 @@ static PHP_FUNCTION(ssp_unlock)
 
 static PHP_FUNCTION(ssp_stats)
 {
+#ifdef HAVE_LIBGTOP
 	long sleep_time=100000;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|lb", &sleep_time) == FAILURE) {
@@ -549,4 +539,7 @@ static PHP_FUNCTION(ssp_stats)
 	add_assoc_long(procinfo,"rss_rlim",procmem.rss_rlim);	/* current limit (in bytes) of the rss of the process; usually 2,147,483,647 */
 
 	add_assoc_zval(return_value, "procinfo", procinfo);
+#else
+	RETURN_FALSE;
+#endif
 }

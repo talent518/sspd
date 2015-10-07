@@ -10,7 +10,6 @@
 
 #include <sys/types.h>
 #include <ctype.h>
-#include <curses.h>
 #include <signal.h>
 
 char *apidfile;
@@ -76,7 +75,7 @@ int main(int argc, char *argv[]){
 	signal(SIGSTOP,stop);
 	signal(SIGTSTP,stop);
 
-	while(true){
+	while(1){
 		fp=fopen(pidfile,"r+");
 		if(fp!=NULL){
 			fscanf(fp,"%d",&pid);

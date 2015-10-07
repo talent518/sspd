@@ -1,7 +1,6 @@
 #ifndef HAVE_CONFIG_H
 	#define HAVE_CONFIG_H
 
-	// #define SSP_DATA_SOCKFD_PORT // disable sockfd_conn and port_conn function
 	// #define SSP_DEBUG_PRINTF // debug for dprintf
 	// #define SSP_DEBUG_EXT // debug php ext
 	#define SSP_CODE_TIMEOUT 10

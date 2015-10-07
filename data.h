@@ -5,7 +5,6 @@
 #include <inttypes.h>
 #include <pthread.h>
 
-#include <glib.h>
 #include <event.h>
 
 #include "event.h"
@@ -35,11 +34,7 @@ typedef struct _conn_t{
 
 extern queue_t *iqueue;
 
-extern GHashTable *iconns;
-#ifdef SSP_DATA_SOCKFD_PORT
-	extern GHashTable *fconns;
-	extern GHashTable *pconns;
-#endif
+extern conn_t **iconns;
 
 #define BEGIN_READ_LOCK		begin_read_lock();
 #define END_READ_LOCK		end_read_lock();

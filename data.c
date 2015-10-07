@@ -8,11 +8,7 @@
 
 queue_t *iqueue=NULL;
 
-GHashTable *iconns; // index table
-#ifdef SSP_DATA_SOCKFD_PORT
-	GHashTable *fconns; // sockfd table
-	GHashTable *pconns; // port table
-#endif
+conn_t **iconns; // index table
 
 static unsigned int readers=0;
 static unsigned int conn_num=0;
@@ -48,18 +44,15 @@ void attach_conn(){
 	pthread_mutex_init(&mx_reader, NULL);
 	pthread_mutex_init(&mx_writer, NULL);
 
-	iconns=g_hash_table_new(g_int_hash, g_int_equal);
-#ifdef SSP_DATA_SOCKFD_PORT
-	fconns=g_hash_table_new(g_int_hash, g_int_equal);
-	pconns=g_hash_table_new(g_int_hash, g_int_equal);
-#endif
+	iconns=(conn_t*)malloc(sizeof(conn_t)*ssp_maxclients);
+	memset(iconns, 0, sizeof(conn_t)*ssp_maxclients);
 }
 
 conn_t *index_conn(int index){
 	conn_t *ptr=NULL;
 
 	BEGIN_READ_LOCK {
-		ptr=g_hash_table_lookup(iconns, &index);
+		ptr=iconns[index];
 
 		if(ptr && ptr->refable) {
 			ref_conn(ptr);
@@ -70,40 +63,6 @@ conn_t *index_conn(int index){
 
 	return ptr;
 }
-
-#ifdef SSP_DATA_SOCKFD_PORT
-	conn_t *sockfd_conn(int sockfd){
-		conn_t *ptr=NULL;
-
-		BEGIN_READ_LOCK {
-			ptr=g_hash_table_lookup(fconns, &sockfd);
-
-			if(ptr && ptr->refable) {
-				ref_conn(ptr);
-			} else {
-				ptr=NULL;
-			}
-		} END_READ_LOCK;
-
-		return ptr;
-	}
-
-	conn_t *port_conn(int port){
-		conn_t *ptr=NULL;
-
-		BEGIN_READ_LOCK {
-			ptr=g_hash_table_lookup(pconns, &port);
-
-			if(ptr && ptr->refable) {
-				ref_conn(ptr);
-			} else {
-				ptr=NULL;
-			}
-		} END_READ_LOCK;
-
-		return ptr;
-	}
-#endif
 
 void ref_conn(conn_t *ptr) {
     pthread_mutex_lock(&ptr->lock);
@@ -156,11 +115,7 @@ void insert_conn(conn_t *ptr){
 			ptr->index = conn_num;
 		}
 
-		g_hash_table_insert(iconns, &ptr->index, ptr);
-#ifdef SSP_DATA_SOCKFD_PORT
-		g_hash_table_insert(fconns, &ptr->sockfd, ptr);
-		g_hash_table_insert(pconns, &ptr->port, ptr);
-#endif
+		iconns[ptr->index] = ptr;
 
 		pthread_mutex_init(&ptr->lock, NULL);
 		pthread_cond_init(&ptr->cond, NULL);
@@ -176,11 +131,7 @@ void remove_conn(conn_t *ptr){
 	BEGIN_WRITE_LOCK {
 		conn_num--;
 
-		g_hash_table_remove(iconns, &ptr->index);
-#ifdef SSP_DATA_SOCKFD_PORT
-		g_hash_table_remove(fconns, &ptr->sockfd);
-		g_hash_table_remove(pconns, &ptr->port);
-#endif
+		iconns[ptr->index] = NULL;
 
 		int *index=(int *)malloc(sizeof(int));
 		*index=ptr->index;
@@ -210,11 +161,7 @@ void detach_conn(){
 		queue_free(iqueue);
 		iqueue=NULL;
 
-		g_hash_table_destroy(iconns);
-#ifdef SSP_DATA_SOCKFD_PORT
-		g_hash_table_destroy(fconns);
-		g_hash_table_destroy(pconns);
-#endif
+		free(iconns);
 	} END_WRITE_LOCK;
 
 	pthread_mutex_destroy(&mx_reader);

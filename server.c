@@ -1,9 +1,7 @@
 #include <sys/errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <curses.h>
 #include <sys/socket.h>
-#include <error.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <string.h>
@@ -126,6 +124,12 @@ int server_start()
 
 	struct passwd *pwnam;
 	pwnam = getpwnam(ssp_user);
+
+	if(!pwnam)
+	{
+		printf("Not found user %s.\n", ssp_user);
+		exit(1);
+	}
 
 	setuid(pwnam->pw_uid);
 	setgid(pwnam->pw_gid);
