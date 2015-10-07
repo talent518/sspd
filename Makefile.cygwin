@@ -34,7 +34,7 @@ $(BUILD_DIR)/%.o: %.c
 
 kill:
 	@echo -e "\E[31m"$@"\E[m"
-	@-killall -2 -w -q ssp
+	@-taskkill /f /im php.exe /im ssp.exe 2>&1 | iconv -f gbk -t utf8
 
 clean:
 	@echo -e "\E[33m"$@"\E[m"
@@ -48,8 +48,8 @@ rebuild: kill clean $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/daemon
 retest: kill
 	@echo -e "\E[32m"$@"\E[m"
 	@tput sgr0
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 64 --max-clients 10000 --user administrator --timeout 300 -f $(PWD)/bin/init.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 64 --max-clients 500 --user administrator --timeout 300 -f $(PWD)/bin/init.php -s start
 
 bench:
 	@echo -e "\E[31m"$@"\E[m"
-	@$(PWD)/bin/bench 127.0.0.1 8086 100 5 1000000
+	@$(PWD)/bin/bench 127.0.0.1 8086 50 10 1000000
