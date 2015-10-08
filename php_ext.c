@@ -6,13 +6,21 @@
 #include <malloc.h>
 #include <signal.h>
 #include <math.h>
+
 #ifdef HAVE_LIBGTOP
-#include <glibtop.h>
-#include <glibtop/cpu.h>
-#include <glibtop/mem.h>
-#include <glibtop/proctime.h>
-#include <glibtop/procmem.h>
+	#include <glibtop.h>
+	#include <glibtop/cpu.h>
+	#include <glibtop/mem.h>
+	#include <glibtop/proctime.h>
+	#include <glibtop/procmem.h>
+#elif defined(HAVE_WIN32_PROCESS_STAT)
+	#include <windows.h>
+	#include <psapi.h>
+
+	typedef long long           int64_t;
+	typedef unsigned long long	uint64_t;
 #endif
+
 static pthread_mutex_t unique_lock;
 
 static char trigger_handlers[7][30]={
@@ -456,9 +464,21 @@ static PHP_FUNCTION(ssp_unlock)
 	pthread_mutex_unlock(&unique_lock);
 }
 
+#ifdef HAVE_WIN32_PROCESS_STAT
+static uint64_t file_time_2_utc(const FILETIME* ftime)
+{
+	LARGE_INTEGER li;
+
+	assert(ftime);
+	li.LowPart = ftime->dwLowDateTime;
+	li.HighPart = ftime->dwHighDateTime;
+	return li.QuadPart;
+}
+#define CompareFileTimeEx(time1,time2) (file_time_2_utc(time2) - file_time_2_utc(time1))
+#endif
+
 static PHP_FUNCTION(ssp_stats)
 {
-#ifdef HAVE_LIBGTOP
 	long sleep_time=100000;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|lb", &sleep_time) == FAILURE) {
@@ -468,6 +488,7 @@ static PHP_FUNCTION(ssp_stats)
 		sleep_time=100000;
 	}
 
+#ifdef HAVE_LIBGTOP
 	glibtop_cpu cpu_begin,cpu_end;                                 /////////////////////////////
 	glibtop_proc_time proctime_begin,proctime_end;                 ///Declare the CPU info and
 	glibtop_mem memory;                                            ///memory info struct
@@ -537,6 +558,77 @@ static PHP_FUNCTION(ssp_stats)
 	add_assoc_long(procinfo,"share",procmem.share);			/* number of pages of shared (mmap'd) memory */
 	add_assoc_long(procinfo,"rss",procmem.rss);				/* resident set size */
 	add_assoc_long(procinfo,"rss_rlim",procmem.rss_rlim);	/* current limit (in bytes) of the rss of the process; usually 2,147,483,647 */
+
+	add_assoc_zval(return_value, "procinfo", procinfo);
+#elif defined(HAVE_WIN32_PROCESS_STAT)
+	MEMORYSTATUS status;
+	PROCESS_MEMORY_COUNTERS pmc;
+
+	FILETIME preidleTime, idleTime;
+	FILETIME prekernelTime, kernelTime;
+	FILETIME preuserTime, userTime;
+
+	FILETIME ignoreTime;
+	FILETIME preprocKernelTime, procKernelTime;
+	FILETIME preprocUserTime, procUserTime;
+
+	int idle,kernel,user,procKernel, procUser;
+	double scale;
+	HANDLE hProcess = GetCurrentProcess();
+
+	GlobalMemoryStatus(&status);
+	GetProcessMemoryInfo(hProcess, &pmc, sizeof(pmc));
+
+	GetSystemTimes( &preidleTime, &prekernelTime, &preuserTime );
+	GetProcessTimes(hProcess, &ignoreTime, &ignoreTime, &preprocKernelTime, &preprocUserTime);
+	
+	usleep(sleep_time); // 1s=1000000
+
+	GetSystemTimes( &idleTime, &kernelTime, &userTime );
+	GetProcessTimes(hProcess, &ignoreTime, &ignoreTime, &procKernelTime, &procUserTime);
+
+	idle = CompareFileTimeEx(&preidleTime, &idleTime);
+	kernel = CompareFileTimeEx(&prekernelTime, &kernelTime);
+	user = CompareFileTimeEx(&preuserTime, &userTime);
+	procKernel = CompareFileTimeEx(&preprocKernelTime, &procKernelTime);
+	procUser = CompareFileTimeEx(&preprocUserTime, &procUserTime);
+
+	scale = 100.0/(double)(kernel+user);
+
+	printf("===================================\n");
+	printf("idle: %d\n", idle);
+	printf("kernel: %d\n", kernel);
+	printf("user: %d\n", user);
+	printf("procKernel: %d\n", procKernel);
+	printf("procUser: %d\n", procUser);
+	printf("scale: %lf\n", scale);
+
+	array_init_size(return_value,2);
+
+	zval *sysinfo;
+	MAKE_STD_ZVAL(sysinfo);
+	array_init_size(sysinfo,27);
+
+	add_assoc_double(sysinfo,"us", (double)(user*scale));
+	add_assoc_double(sysinfo,"ni", 0);
+	add_assoc_double(sysinfo,"sy", (double)((kernel-idle)*scale));
+	add_assoc_double(sysinfo,"id", (double)(idle*scale));
+
+	add_assoc_long(sysinfo,"memTotal", (long)status.dwTotalPhys); // 物理内存总量
+	add_assoc_long(sysinfo,"memUsed", (long)(status.dwTotalPhys-status.dwAvailPhys)); // 已用物理内存
+	add_assoc_long(sysinfo,"memFree", (long)status.dwAvailPhys); // 可用物理内存
+
+	add_assoc_zval(return_value, "sysinfo", sysinfo);
+
+	zval *procinfo;
+	MAKE_STD_ZVAL(procinfo);
+	array_init_size(procinfo,74);
+
+	add_assoc_double(procinfo,"pcpu", (procKernel+procUser)*scale);
+
+	add_assoc_long(procinfo,"size",pmc.PeakPagefileUsage);		// Peak space allocated for the pagefile, in bytes.// 使用分页文件高峰
+	add_assoc_long(procinfo,"vsize",pmc.PagefileUsage);			// Current working set size, in bytes. // 当前使用的内存
+	add_assoc_long(procinfo,"rss",pmc.WorkingSetSize);			// Current working set size, in bytes. // 当前使用的内存
 
 	add_assoc_zval(return_value, "procinfo", procinfo);
 #else

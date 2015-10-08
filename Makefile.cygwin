@@ -5,7 +5,7 @@ INC_DIR  = $(INST_DIR)/include
 BIN_DIR  = $(INST_DIR)/bin
 BUILD_DIR=$(PWD)/build
 
-CFLAGS   = -O3 -I$(INC_DIR) -I$(INC_DIR)/php -I$(INC_DIR)/php/main -I$(INC_DIR)/php/Zend -I$(INC_DIR)/php/TSRM -I$(INC_DIR)/php/ext -DZTS
+CFLAGS   = -O3 -I$(INC_DIR) -I$(INC_DIR)/php -I$(INC_DIR)/php/main -I$(INC_DIR)/php/Zend -I$(INC_DIR)/php/TSRM -I$(INC_DIR)/php/ext -DZTS -DHAVE_WIN32_PROCESS_STAT
 LFLAGS   = -lstdc++ -L$(INST_DIR)/lib -levent -lpthread -Wl,-rpath,$(INST_DIR)/lib -Wl,-rpath,/usr/lib
 
 all: $(BIN_DIR) $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/daemon
@@ -19,7 +19,7 @@ $(BUILD_DIR):
 $(BIN_DIR)/ssp: $(BUILD_DIR)/php_ext.o $(BUILD_DIR)/php_func.o $(BUILD_DIR)/socket.o $(BUILD_DIR)/queue.o $(BUILD_DIR)/event.o $(BUILD_DIR)/server.o $(BUILD_DIR)/data.o $(BUILD_DIR)/ssp.o $(BUILD_DIR)/api.o
 	@echo -e "\E[34mbuild ssp"
 	@tput sgr0
-	@$(CC) $(LFLAGS) -o $@ $? $(INST_DIR)/lib/libphp5.a $(INST_DIR)/lib/libevent.a -lcrypt -lcrypto -lssl -lcrypto -lcrypt -liconv -liconv -lrt -lm  -lxml2 -lz -liconv -lm -lxml2 -lz -liconv -lm -lcrypt -lxml2 -lz -liconv -lm -lcrypt
+	@$(CC) $(LFLAGS) -o $@ $? $(INST_DIR)/lib/libphp5.a $(INST_DIR)/lib/libevent.a -lcrypt -lcrypto -lssl -lcrypto -lcrypt -liconv -liconv -lrt -lm  -lxml2 -lz -liconv -lm -lxml2 -lz -liconv -lm -lcrypt -lxml2 -lz -liconv -lm -lcrypt /usr/lib/w32api/libpsapi.a
 
 $(BIN_DIR)/daemon: $(BUILD_DIR)/daemon.o $(BUILD_DIR)/api.o
 	@echo -e "\E[34mbuild daemon\E[m"
