@@ -595,13 +595,14 @@ static PHP_FUNCTION(ssp_stats)
 
 	scale = 100.0/(double)(kernel+user);
 
-	printf("===================================\n");
-	printf("idle: %d\n", idle);
-	printf("kernel: %d\n", kernel);
-	printf("user: %d\n", user);
-	printf("procKernel: %d\n", procKernel);
-	printf("procUser: %d\n", procUser);
-	printf("scale: %lf\n", scale);
+	dprintf("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
+	dprintf("idle: %d\n", idle);
+	dprintf("kernel: %d\n", kernel);
+	dprintf("user: %d\n", user);
+	dprintf("procKernel: %d\n", procKernel);
+	dprintf("procUser: %d\n", procUser);
+	dprintf("scale: %lf\n", scale);
+	dprintf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
 
 	array_init_size(return_value,2);
 
