@@ -229,7 +229,7 @@ if [ ! -f "$INST_DIR/lib/libssl.a" ]; then
     pushd /tmp/openssl-1.0.0d
     
 	if [ `uname -p` = "x86_64" ]; then
-		./Configure linux-generic64 -fPIC --prefix=$INST_DIR \
+		./Configure -fPIC --prefix=$INST_DIR \
 		&& make \
 		&& make install
 	else
@@ -379,7 +379,7 @@ fi
 if [ ! -f "$INST_DIR/lib/libphp5.so" ]; then
     echo Installing php ...
     if [ ! -d "/tmp/php-5.6.13" ]; then
-        tar -xvf php-5.6.13.tar.xz -C /tmp/
+        tar -xvf php-5.6.13.tar.bz2 -C /tmp/
     fi
     pushd /tmp/php-5.6.13
 
