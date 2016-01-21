@@ -59,9 +59,11 @@ if($pid===null) {
 							break;
 						case 'S':
 							$sendRequestErrors++;
+							$conns--;
 							break;
 						case 'R':
 							$recvRequestErrors++;
+							$conns--;
 							break;
 						case 'q':
 							$requests++;
@@ -75,7 +77,15 @@ if($pid===null) {
 				}
 			}
 		}
-		echo 'conns(',$conns,'), connErrors(',$connErrors,'), sendLoginErrors(',$sendLoginErrors,'), recvLoginErrors(',$recvLoginErrors,'), logins(',$logins,'), sendRequestErrors(',$sendRequestErrors,'), recvRequestErrors(',$recvRequestErrors,'), requests(',$requests,'), nthreads(',$nthreads,'), closeThreads(',$nthreads-count($pipes),')', PHP_EOL;
+		//echo 'conns(',$conns,'), connErrors(',$connErrors,'), sendLoginErrors(',$sendLoginErrors,'), recvLoginErrors(',$recvLoginErrors,'), logins(',$logins,'), sendRequestErrors(',$sendRequestErrors,'), recvRequestErrors(',$recvRequestErrors,'), requests(',$requests,'), nthreads(',$nthreads,'), closeThreads(',$nthreads-count($pipes),')', PHP_EOL;
+		if($beginRequestTime) {
+			echo 'logins: ', $logins, ', avg logins(',$logins/($beginRequestTime - $beginTime),'), avg requests: ', $requests/(microtime(true) - $beginRequestTime), PHP_EOL;
+		}elseif($requests) {
+			$beginRequestTime = microtime(true);
+			echo 'logins: ', $logins, ', requests: ', $requests, PHP_EOL;
+		}else{
+			echo 'logins: ', $logins, ', avg logins: ', $logins/(microtime(true) - $beginTime), PHP_EOL;
+		}
 		sleep(1);
 	}
 

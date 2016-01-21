@@ -50,11 +50,11 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 	extract($info,EXTR_OVERWRITE|EXTR_REFS);
 	$info = null;
 
-	MOD('user.online')->update(array(
+	/*MOD('user.online')->update(array(
 		'microtime' => microtime(true),
 		'recvs' => 'recvs+1',
 		'recv_bytes' => 'recv_bytes+' . strlen($xml)
-	), $index, false);
+	), $index, false);*/
 	
 	$request = xml_to_object($xml, false, $error);
 	if ( $request ) {
@@ -172,11 +172,11 @@ function ssp_send_handler ( $ClientId, $xml ) {
 		$return = ( string ) $xml;
 		$xml = null;
 	}
-	MOD('user.online')->update(array(
+	/*MOD('user.online')->update(array(
 		'microtime' => microtime(true),
 		'sends' => 'sends+1',
 		'send_bytes' => 'send_bytes+' . strlen($return)
-	), $index, false);
+	), $index, false);*/
 	return $return;
 }
 
