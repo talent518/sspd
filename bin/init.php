@@ -52,7 +52,7 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 
 	MOD('user.online')->update(array(
 		'microtime' => microtime(true),
-		'recvs' => 'recvs+1', 
+		'recvs' => 'recvs+1',
 		'recv_bytes' => 'recv_bytes+' . strlen($xml)
 	), $index, false);
 	
@@ -174,7 +174,7 @@ function ssp_send_handler ( $ClientId, $xml ) {
 	}
 	MOD('user.online')->update(array(
 		'microtime' => microtime(true),
-		'sends' => 'sends+1', 
+		'sends' => 'sends+1',
 		'send_bytes' => 'send_bytes+' . strlen($return)
 	), $index, false);
 	return $return;

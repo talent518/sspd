@@ -127,6 +127,7 @@ static void php_ssp_usage(char *argv0)
 				"\n"
 				"  -s <option>             socket service option\n"
 				"  option:\n"
+				"       script             run script\n"
 				"       start              start ssp service\n"
 				"       stop               stop ssp service\n"
 				"       restart            restart ssp service\n"
@@ -502,6 +503,15 @@ int main(int argc, char *argv[])
 	{
 		exit_status=0;
 		goto err;
+	}
+	else if (strcmp(serv_opt,"script")==0)
+	{
+		SG(request_info).argc=argc-php_optind+1;
+		argv[php_optind-1] = request_init_file;
+		SG(request_info).argv=argv+php_optind-1;
+		
+		ssp_request_startup();
+		ssp_request_shutdown();
 	}
 	else if (strcmp(serv_opt,"restart")==0)
 	{

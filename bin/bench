@@ -1,55 +1,99 @@
-#!/opt/ssp/bin/php -q
 <?php
-define('IS_DEBUG', 0);
+@list(,$host,$port,$nthreads,$nconns,$ntimes,$pid) = $_SERVER['argv'];
 
-require 'core.php';
-
-@list(,$host,$port,$nthreads,$nconns,$ntimes) = $_SERVER['argv'];
-
-if(!$host) {
+if($host === null) {
 	$host = '127.0.0.1';
 }
-if(!$port) {
+if($port === null) {
 	$port = 8083;
 }
-if(!$ntimes) {
+if($nthreads === null) {
+	$nthreads = 8;
+}
+if($nconns === null) {
+	$nconns = 10;
+}
+if($ntimes === null) {
 	$ntimes = 1000;
 }
 
-$beginTime=microtime(true);
+if($pid===null) {
+	$pipes = array();
+	$conns = $connErrors = $sendLoginErrors = $recvLoginErrors = $logins = $sendRequestErrors = $recvRequestErrors = $requests = $closes = 0;
 
-for($i=0;$i<$nthreads;$i++) {
-	$pid = pcntl_fork();
-	//父进程和子进程都会执行下面代码
-	if ($pid == -1) {
-		//错误处理：创建子进程失败时返回-1.
-		 die('could not fork');
-	} else if ($pid) {
-	} else {
-		break;
-	}
-}
-
-if($pid) {
-	$_pid = posix_getpid();
-
-	while(pcntl_wait($status) > 0) {
+	for($pid=0; $pid<$nthreads; $pid++) {
+		$cmdString = sprintf("/opt/ssp/bin/ssp -f %s -s script %s %s %s %s %s %s", __FILE__,$host,$port,$nthreads,$nconns,$ntimes,$pid);
+		$fp = popen($cmdString, 'r');
+		stream_set_blocking($fp, 1);
+		$pipes[] = $fp;
 	}
 
-	echo 'all run time: ',microtime(true)-$beginTime,PHP_EOL;
+	$beginTime=microtime(true);
+	while ( count($pipes) )
+	{
+		$reads = $pipes;
+		$writes = null;
+		$excepts = null;
+		$ret = stream_select($reads, $writes, $excepts, 0);
+		if ( $ret > 0 && count($reads) )
+		{
+			foreach ( $reads as $fp )
+			{
+				$buffer = fread($fp, 1024*1024);
+				for($i=0; $i<strlen($buffer); $i++) {
+					switch($buffer{$i}) {
+						case 'c':
+							$conns++;
+							break;
+						case 's':
+							$sendLoginErrors++;
+							break;
+						case 'r':
+							$recvLoginErrors++;
+							break;
+						case 'l':
+							$logins++;
+							break;
+						case 'e':
+							$connErrors++;
+							break;
+						case 'S':
+							$sendRequestErrors++;
+							break;
+						case 'R':
+							$recvRequestErrors++;
+							break;
+						case 'q':
+							$requests++;
+							break;
+						case 'C':
+							$id = array_search($fp, $pipes);
+							unset($pipes[$id]);
+							pclose($fp);
+							break;
+					}
+				}
+			}
+		}
+		echo 'conns(',$conns,'), connErrors(',$connErrors,'), sendLoginErrors(',$sendLoginErrors,'), recvLoginErrors(',$recvLoginErrors,'), logins(',$logins,'), sendRequestErrors(',$sendRequestErrors,'), recvRequestErrors(',$recvRequestErrors,'), requests(',$requests,'), nthreads(',$nthreads,'), closeThreads(',$nthreads-count($pipes),')', PHP_EOL;
+		sleep(1);
+	}
 
 	exit;
 }
 
-$pid = posix_getpid();
-$beginTime=microtime(true);
+define('IS_DEBUG', 0);
+
+require 'core.php';
 
 import('lib.xml');
 
 $request=new XML_Element('request');
 $request->type='User.Login';
 $request->is_simple=true;
-$request->params=array_to_xml(array('username'=>'abao','password'=>'Tz555888'),'params');
+$request->params=array_to_xml(array('username'=>'abao','password'=>'123456'),'params');
+
+$list = MOD('uc.user')->get_list_by_where('', ($i*$nconns).','.$nconns, 'uid');
 
 $sockets=array();
 for($i=0; $i<$nconns; $i++) {
@@ -57,21 +101,26 @@ for($i=0; $i<$nconns; $i++) {
 	$socket->connect($host, $port);
 
 	if($socket->is_connect()){
-		echo '连接成功！',PHP_EOL;
+		echo 'c'; // connect
 
 		$request->pid=$pid;
 		$request->i=$i;
 
+		$user = array_shift($list);
+		$request->params->username = $user['username'];
 		if($socket->write($request) === false) {
+			echo 's'; // send login error and close connection
 			continue;
 		}
 		if($socket->read() === false) {
+			echo 'r'; // recv login error and close connection
 			continue;
 		}
+		echo 'l'; // login success
 
 		$sockets[$i]=$socket;
 	}else{
-		echo '连接失败！',PHP_EOL;
+		echo 'e'; // connection error
 	}
 }
 
@@ -86,20 +135,21 @@ for($i=0; $i<$ntimes; $i++) {
 	foreach($sockets as $j=>$socket) {
 		if($socket->write($request) === false) {
 			unset($sockets[$j]);
+			echo 'S'; // send request error and close connection
 			continue;
 		}
 		$response=$socket->read();
 		if(!$response) {
-			echo 'recv error!',PHP_EOL;
+			echo 'R'; // recv request error and close connection
 			unset($sockets[$j]);
 			continue;
 		}
+		echo 'q'; // ok request
 	}
 }
 
 foreach($sockets as $socket) {
 	$socket->close();
+	echo 'C'; // close connection
 }
-
-echo 'pid: ',$pid,', requests: ',$i,',run time: ',microtime(true)-$beginTime,PHP_EOL;
 ?>

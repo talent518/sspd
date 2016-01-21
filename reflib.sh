@@ -440,54 +440,6 @@ elif [ ! -h "/usr/lib/pkgconfig" -a -d "/usr/lib64/pkgconfig" ]; then
 	ln -s /usr/lib64/pkgconfig /usr/lib/pkgconfig
 fi
 
-#libffi
-pkg-config --exists libffi
-if [ "$?" != "0" ]; then
-    echo Installing libffi ...
-    if [ ! -d "/tmp/libffi-3.1" ]; then
-        tar -zxvf libffi-3.1.tar.gz -C /tmp/
-    fi
-    pushd /tmp/libffi-3.1
-    
-    ./configure --prefix=/usr \
-    && make \
-    && make install
-    
-    if [ "$?" = "0" ]; then
-        popd
-        rm -rf /tmp/libffi-3.1
-        echo Installed libffi Success.
-    else
-        popd
-        echo Installed libffi error.
-        exit 1
-    fi
-fi
-
-#libglib
-pkg-config --exists glib-2.0
-if [ "$?" != "0" ]; then
-    echo Installing libglib ...
-    if [ ! -d "/tmp/glib-2.40.0" ]; then
-        tar -xvf glib-2.40.0.tar.xz -C /tmp/
-    fi
-    pushd /tmp/glib-2.40.0
-    
-    ./configure --prefix=/usr \
-    && make \
-    && make install
-    
-    if [ "$?" = "0" ]; then
-        popd
-        rm -rf /tmp/glib-2.40.0
-        echo Installed libglib Success.
-    else
-        popd
-        echo Installed libglib error.
-        exit 1
-    fi
-fi
-
 #libgtop
 pkg-config --exists libgtop-2.0
 if [ "$?" != "0" ]; then

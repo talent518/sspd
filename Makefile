@@ -6,7 +6,7 @@ BIN_DIR  = $(INST_DIR)/bin
 BUILD_DIR=$(PWD)/build
 
 CFLAGS   = -O3 -I$(INC_DIR) -I$(INC_DIR)/php -I$(INC_DIR)/php/main -I$(INC_DIR)/php/Zend -I$(INC_DIR)/php/TSRM -I$(INC_DIR)/php/ext -DZTS -DHAVE_LIBGTOP `pkg-config --cflags libgtop-2.0`
-LFLAGS   = -lstdc++ -L$(INST_DIR)/lib -lphp5 -levent -Wl,-rpath,$(INST_DIR)/lib -Wl,-rpath,/usr/lib `pkg-config --libs libgtop-2.0`
+LFLAGS   = -lstdc++ -L$(INST_DIR)/lib -lphp5 -levent -Wl,-rpath,$(INST_DIR)/lib -Wl,-rpath,/opt/lampp/lib -Wl,-rpath,/usr/lib `pkg-config --libs libgtop-2.0`
 
 all: $(BIN_DIR) $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/daemon
 
@@ -48,8 +48,8 @@ rebuild: kill clean $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/daemon
 retest: kill
 	@echo -e "\E[32m"$@"\E[m"
 	@tput sgr0
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 64 --max-clients 10000 --user sspuser --timeout 300 -f $(PWD)/bin/init.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 64 --max-clients 10000 --timeout 300 -f $(PWD)/bin/init.php -s start
 
 bench:
 	@echo -e "\E[31m"$@"\E[m"
-	@$(PWD)/bin/bench 127.0.0.1 8086 100 30 1000000
+	@$(BIN_DIR)/ssp -f $(PWD)/bin/bench -s script 127.0.0.1 8086 100 30 1000000

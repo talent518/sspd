@@ -93,9 +93,7 @@ class CtlUser extends CtlBase {
 			$exitLogin->setText('此用户在另一地点登录，你被迫退出！');
 			$exitStrng = ( string ) $exitLogin;
 			
-			/*
-			 * $exitData=array( 'uid'=>0, 'gid'=>0, 'logintimes'=>0, 'logintime'=>time(), 'timezone'=>0, 'broadcast'=>0, 'consult'=>0, );
-			 */
+			$exitData=array( 'uid'=>0, 'gid'=>0, 'logintimes'=>0, 'logintime'=>time(), 'timezone'=>0, 'broadcast'=>0, 'consult'=>0, );
 			
 			$data = array(
 				'uid' => $uid, 
@@ -108,16 +106,20 @@ class CtlUser extends CtlBase {
 			);
 			
 			ssp_lock();
-			/*
-			 * $list=MOD('user.online')->get_list_by_uid_not_id($uid,$index); foreach($list as $exitId){ MOD('user.online')->edit($exitId,$exitData); }
-			 */
+			$list=MOD('user.online')->get_list_by_uid_not_id($uid,$index);
+			foreach($list as $exitId){
+				MOD('user.online')->edit($exitId,$exitData);
+			}
 			MOD('user.online')->edit($index, $data);
 			ssp_unlock();
 			
-			/*
-			 * foreach($list as $exitId){ $exitRes=ssp_resource($exitId,SSP_RES_INDEX); if($exitRes) { ssp_send($exitRes,$exitStrng); ssp_close($exitRes); } }
-			 */
-			
+			foreach($list as $exitId){
+				$exitRes=ssp_resource($exitId,SSP_RES_INDEX);
+				if($exitRes) {
+				ssp_send($exitRes,$exitStrng); ssp_close($exitRes);
+				}
+			}
+
 			if ( UGK($uid, 'consult_reply') ) {
 				if (  !  ! ( $consults = ( string ) $params->consults ) ) {
 					MOD('user.serv')->update(array(
