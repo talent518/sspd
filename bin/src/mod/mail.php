@@ -16,13 +16,14 @@ class ModMail {
 		$mail = LIB('net.smtp');
 		$mail->CharSet = 'utf-8';
 		$mail->Encoding = 'base64';
-		$mail->Mailer = MAIL_TYPE; // ʹ��SMTP
+		$mail->Mailer = MAIL_TYPE; // 使用SMTP
 		$mail->SMTPSecure = MAIL_SECURE;
 		$mail->Host = MAIL_HOST;
 		$mail->Port = MAIL_PORT;
 		$mail->SMTPAuth = MAIL_AUTH;
 		$mail->Username = MAIL_USERNAME;
 		$mail->Password = MAIL_PASSWORD;
+		$mail->Sender = MAIL_SENDER;
 		$mail->From = MAIL_FROM;
 		$mail->FromName = MAIL_FROMNAME;
 		foreach ( $emails as $email ) {
@@ -30,17 +31,17 @@ class ModMail {
 				extract($email);
 			else
 				$name = '';
-			$mail->AddAddress($email, $name); // �ռ���email������
+			$mail->AddAddress($email, $name); // 收件人email和名字
 		}
 		if ( MAIL_REPLY )
 			$mail->AddReplyTo(MAIL_REPLY, MAIL_REPLYNAME);
-		$mail->WordWrap = 50; // �趨 word wrap
+		$mail->WordWrap = 50; // 设定 word wrap
 		foreach ( $attachments as $attachment )
-			$mail->AddAttachment($attachment); // ����
-		$mail->IsHTML(true); // ��HTML����
+			$mail->AddAttachment($attachment); // 附件
+		$mail->IsHTML(true); // 以HTML发送
 		$mail->Subject = $subject;
 		$mail->Body = $body; // HTML Body
-		$mail->AltBody = "This is the body when user views in plain text format"; // ������ʱ��Body
+		$mail->AltBody = "This is the body when user views in plain text format"; // 纯文字时的 Body
 		if (  ! $mail->Send() ) {
 			$this->error = $mail->ErrorInfo;
 			return false;

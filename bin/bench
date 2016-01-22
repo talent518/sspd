@@ -19,7 +19,7 @@ if($ntimes === null) {
 
 if($pid===null) {
 	$pipes = array();
-	$conns = $connErrors = $sendLoginErrors = $recvLoginErrors = $logins = $sendRequestErrors = $recvRequestErrors = $requests = $closes = 0;
+	$conns = $connErrors = $sendLoginErrors = $recvLoginErrors = $loginFails = $logins = $sendRequestErrors = $recvRequestErrors = $recvRequestFails = $requests = $closes = 0;
 
 	for($pid=0; $pid<$nthreads; $pid++) {
 		$cmdString = sprintf("/opt/ssp/bin/ssp -f %s -s script %s %s %s %s %s %s", __FILE__,$host,$port,$nthreads,$nconns,$ntimes,$pid);
@@ -39,7 +39,7 @@ if($pid===null) {
 		{
 			foreach ( $reads as $fp )
 			{
-				$buffer = fread($fp, 1024*1024);
+				$buffer = fread($fp, 8192);
 				for($i=0; $i<strlen($buffer); $i++) {
 					switch($buffer{$i}) {
 						case 'c':
@@ -50,6 +50,9 @@ if($pid===null) {
 							break;
 						case 'r':
 							$recvLoginErrors++;
+							break;
+						case 'f':
+							$loginFails++;
 							break;
 						case 'l':
 							$logins++;
@@ -63,6 +66,10 @@ if($pid===null) {
 							break;
 						case 'R':
 							$recvRequestErrors++;
+							$conns--;
+							break;
+						case 'F':
+							$recvRequestFails++;
 							$conns--;
 							break;
 						case 'q':
@@ -103,7 +110,7 @@ $request->type='User.Login';
 $request->is_simple=true;
 $request->params=array_to_xml(array('username'=>'abao','password'=>'123456'),'params');
 
-$list = MOD('uc.user')->get_list_by_where('', ($i*$nconns).','.$nconns, 'uid');
+$list = MOD('uc.user')->get_list_by_where('', ($pid*$nconns).','.$nconns, 'uid');
 
 $sockets=array();
 for($i=0; $i<$nconns; $i++) {
@@ -119,11 +126,15 @@ for($i=0; $i<$nconns; $i++) {
 		$user = array_shift($list);
 		$request->params->username = $user['username'];
 		if($socket->write($request) === false) {
-			echo 's'; // send login error and close connection
+			echo 's'; // send login request error and close connection
 			continue;
 		}
-		if($socket->read() === false) {
-			echo 'r'; // recv login error and close connection
+		if(($recv=$socket->read()) === false) {
+			echo 'r'; // recv login response error and close connection
+			continue;
+		}
+		if($recv->type === 'User.Login.Failed') {
+			echo 'f'; // recv login fail and close connection
 			continue;
 		}
 		echo 'l'; // login success
@@ -149,10 +160,13 @@ for($i=0; $i<$ntimes; $i++) {
 			continue;
 		}
 		$response=$socket->read();
-		if(!$response) {
+		if($response === false) {
 			echo 'R'; // recv request error and close connection
 			unset($sockets[$j]);
 			continue;
+		}
+		if($response->type === 'Gold.State.Failed') {
+			echo 'F'; // fail request
 		}
 		echo 'q'; // ok request
 	}

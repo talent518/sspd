@@ -93,7 +93,7 @@ class CtlUser extends CtlBase {
 			$exitLogin->setText('此用户在另一地点登录，你被迫退出！');
 			$exitStrng = ( string ) $exitLogin;
 			
-			$exitData=array( 'uid'=>0, 'gid'=>0, 'logintimes'=>0, 'logintime'=>time(), 'timezone'=>0, 'broadcast'=>0, 'consult'=>0, );
+			$exitData=array( 'uid'=>0, 'gid'=>0, 'logintimes'=>0, 'logintime'=>time(), 'timezone'=>0, 'broadcast'=>0, 'consult'=>0 );
 			
 			$data = array(
 				'uid' => $uid, 
@@ -116,7 +116,7 @@ class CtlUser extends CtlBase {
 			foreach($list as $exitId){
 				$exitRes=ssp_resource($exitId,SSP_RES_INDEX);
 				if($exitRes) {
-				ssp_send($exitRes,$exitStrng); ssp_close($exitRes);
+					ssp_send($exitRes,$exitStrng); ssp_close($exitRes);
 				}
 			}
 
