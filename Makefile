@@ -52,4 +52,4 @@ retest: kill
 
 bench:
 	@echo -e "\E[31m"$@"\E[m"
-	@$(BIN_DIR)/ssp -f $(PWD)/bin/bench -s script 127.0.0.1 8086 100 30 1000000
+	@$(BIN_DIR)/ssp -f $(PWD)/bin/bench.php -s script 127.0.0.1 8086 64 100 10000

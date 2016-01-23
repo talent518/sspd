@@ -223,10 +223,10 @@ fi
 #openssl
 if [ ! -f "$INST_DIR/lib/libssl.a" ]; then
     echo Installing openssl ...
-    if [ ! -d "/tmp/openssl-1.0.0d" ]; then
-        tar -zxvf openssl-1.0.0d.tar.gz -C /tmp/
+    if [ ! -d "/tmp/openssl-1.0.2e" ]; then
+        tar -zxvf openssl-1.0.2e.tar.gz -C /tmp/
     fi
-    pushd /tmp/openssl-1.0.0d
+    pushd /tmp/openssl-1.0.2e
     
 	if [ `uname -p` = "x86_64" ]; then
 		./Configure -fPIC --prefix=$INST_DIR \
@@ -240,7 +240,7 @@ if [ ! -f "$INST_DIR/lib/libssl.a" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf /tmp/openssl-1.0.0d
+        rm -rf /tmp/openssl-1.0.2e
         echo Installed openssl Success.
     else
         popd

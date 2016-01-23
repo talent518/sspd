@@ -223,10 +223,10 @@ fi
 #openssl
 if [ ! -f "$INST_DIR/lib/libssl.a" ]; then
     echo Installing openssl ...
-    if [ ! -d "/tmp/openssl-1.0.0d" ]; then
-        tar -zxvf openssl-1.0.0d.tar.gz -C /tmp/
+    if [ ! -d "/tmp/openssl-1.0.2e" ]; then
+        tar -zxvf openssl-1.0.2e.tar.gz -C /tmp/
     fi
-    pushd /tmp/openssl-1.0.0d
+    pushd /tmp/openssl-1.0.2e
     
 	if [ `uname -p` = "x86_64" ]; then
 		./Configure linux-generic64 -fPIC --prefix=$INST_DIR \
@@ -240,7 +240,7 @@ if [ ! -f "$INST_DIR/lib/libssl.a" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf /tmp/openssl-1.0.0d
+        rm -rf /tmp/openssl-1.0.2e
         echo Installed openssl Success.
     else
         popd
@@ -358,17 +358,17 @@ if [ ! -f "$INST_DIR/lib/libphp5.a" ]; then
     pushd /tmp/php-5.6.13
 
 	if [ `uname -p` = "x86_64" ]; then
-		OPT_MAK="--prefix=$INST_DIR -bindir=$INST_DIR/bin --sbindir=$INST_DIR/sbin --sysconfdir=$INST_DIR/etc --datadir=$INST_DIR/share --includedir=$INST_DIR/include --libdir=$INST_DIR/lib --libexecdir=$INST_DIR/libexec --localstatedir=$INST_DIR/var --sharedstatedir=$INST_DIR/var/lib --mandir=$INST_DIR/share/man --infodir=$INST_DIR/share/info --with-libdir=lib64 --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-shared"
+		OPT_MAK="--prefix=$INST_DIR -bindir=$INST_DIR/bin --sbindir=$INST_DIR/sbin --sysconfdir=$INST_DIR/etc --datadir=$INST_DIR/share --includedir=$INST_DIR/include --libdir=$INST_DIR/lib --libexecdir=$INST_DIR/libexec --localstatedir=$INST_DIR/var --sharedstatedir=$INST_DIR/var/lib --mandir=$INST_DIR/share/man --infodir=$INST_DIR/share/info --with-libdir=lib64 --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-shared --disable-static"
 	else
-		OPT_MAK="--prefix=$INST_DIR -bindir=$INST_DIR/bin --sbindir=$INST_DIR/sbin --sysconfdir=$INST_DIR/etc --datadir=$INST_DIR/share --includedir=$INST_DIR/include --libdir=$INST_DIR/lib --libexecdir=$INST_DIR/libexec --localstatedir=$INST_DIR/var --sharedstatedir=$INST_DIR/var/lib --mandir=$INST_DIR/share/man --infodir=$INST_DIR/share/info --with-libdir=lib --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-shared"
+		OPT_MAK="--prefix=$INST_DIR -bindir=$INST_DIR/bin --sbindir=$INST_DIR/sbin --sysconfdir=$INST_DIR/etc --datadir=$INST_DIR/share --includedir=$INST_DIR/include --libdir=$INST_DIR/lib --libexecdir=$INST_DIR/libexec --localstatedir=$INST_DIR/var --sharedstatedir=$INST_DIR/var/lib --mandir=$INST_DIR/share/man --infodir=$INST_DIR/share/info --with-libdir=lib --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-shared --disable-static"
 	fi
 
-	OPT_EXT="--disable-rpath --without-pear --with-ldap=no --with-bz2=shared --enable-zip=shared --with-freetype-dir=$INST_DIR --with-png-dir=$INST_DIR --with-xpm-dir=$INST_DIR --enable-gd-native-ttf --with-jpeg-dir=$INST_DIR --with-gd=shared,$INST_DIR --without-gdbm --with-iconv --with-openssl=shared,$INST_DIR --with-zlib=shared --with-layout=GNU --enable-exif=shared --enable-sockets --enable-shmop --with-sqlite3=shared --with-xsl=shared,$INST_DIR --with-libxml-dir=$INST_DIR --enable-xml --disable-simplexml --disable-dba --without-unixODBC --enable-xmlreader=shared, --enable-xmlwriter=shared --enable-json=shared --without-pspell --with-curl=shared,$INST_DIR --enable-bcmath=shared --with-mcrypt=shared,/usr --with-mhash=shared,/usr --enable-mbstring=all --enable-mbregex --with-mysql --with-mysqli --with-pdo-mysql --with-pdo-sqlite=shared --enable-posix --enable-pcntl --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-maintainer-zts  --with-tsrm-pthreads --enable-inline-optimization --disable-ctype --disable-tokenizer --disable-session --disable-phar --disable-fileinfo --with-imap=no"
+	OPT_EXT="--enable-fd-setsize=2048 --disable-rpath --without-pear --with-ldap=no --with-bz2=shared --enable-zip=shared --with-freetype-dir=$INST_DIR --with-png-dir=$INST_DIR --with-xpm-dir=$INST_DIR --enable-gd-native-ttf --with-jpeg-dir=$INST_DIR --with-gd=shared,$INST_DIR --without-gdbm --with-iconv --with-openssl=shared,$INST_DIR --with-zlib=shared --with-layout=GNU --enable-exif=shared --enable-sockets --enable-shmop --with-sqlite3=shared --with-xsl=shared,$INST_DIR --with-libxml-dir=$INST_DIR --enable-xml --disable-simplexml --disable-dba --without-unixODBC --enable-xmlreader=shared, --enable-xmlwriter=shared --enable-json=shared --without-pspell --with-curl=shared,$INST_DIR --enable-bcmath=shared --with-mcrypt=shared,/usr --with-mhash=shared,/usr --enable-mbstring=all --enable-mbregex --with-mysql --with-mysqli --with-pdo-mysql --with-pdo-sqlite=shared --enable-posix --enable-pcntl --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-maintainer-zts  --with-tsrm-pthreads --enable-inline-optimization --disable-ctype --disable-tokenizer --disable-session --disable-phar --disable-fileinfo --with-imap=no"
 
     OPT_OTH="--enable-embed"
 
     export EXTENSION_DIR=$INST_DIR/lib/extensions
-    ./configure ${OPT_MAK} ${OPT_EXT} ${OPT_OTH} && make && sed -i 's/ libs\/libphp5.so/.libs\/libphp5.a/g' Makefile && make install && cp -u php.ini-* $INST_DIR/etc/
+    ./configure ${OPT_MAK} ${OPT_EXT} ${OPT_OTH} && make && make install && cp -u php.ini-* $INST_DIR/etc/
     
     if [ "$?" = "0" ]; then
         popd
