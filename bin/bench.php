@@ -78,7 +78,7 @@ if($pid===null) {
 						case 'C':
 							$id = array_search($fp, $pipes);
 							unset($pipes[$id]);
-							pclose($fp);
+							@pclose($fp);
 							break;
 					}
 				}

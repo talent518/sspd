@@ -208,10 +208,6 @@ class CtlUser extends CtlBase {
 	function login ( $ClientId ) {
 		$response = new XML_Element('response');
 		$response->type = 'User.Login';
-		/*
-		 * $response->secode=new XML_Element('secode'); $response->secode->type='jpg'; $response->secode->mime='image/jpg'; $response->secode->encoding='Base64';
-		 * $response->secode->setText=base64_encode('Base64');
-		 */
 		return $response;
 	}
 
