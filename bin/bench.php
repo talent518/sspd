@@ -104,13 +104,19 @@ define('IS_DEBUG', 0);
 require 'core.php';
 
 import('lib.xml');
+import('mod.uc.base');
 
 $request=new XML_Element('request');
 $request->type='User.Login';
 $request->is_simple=true;
 $request->params=array_to_xml(array('username'=>'abao','password'=>'123456'),'params');
 
-$list = MOD('uc.user')->get_list_by_where('', ($pid*$nconns).','.$nconns, 'uid');
+$list = UDB()->select(array(
+	'table' => 'members',
+	'field' => 'username',
+	'order' => 'uid',
+	'limit' => ($pid*$nconns).','.$nconns
+), SQL_SELECT_LIST);
 
 $sockets=array();
 for($i=0; $i<$nconns; $i++) {
@@ -134,6 +140,7 @@ for($i=0; $i<$nconns; $i++) {
 			continue;
 		}
 		if($recv->type === 'User.Login.Failed') {
+			UDB()->delete('members', 'username=\''.$user['username'].'\'');
 			echo 'f'; // recv login fail and close connection
 			continue;
 		}

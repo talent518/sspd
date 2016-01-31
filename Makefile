@@ -48,8 +48,11 @@ rebuild: kill clean $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/daemon
 retest: kill
 	@echo -e "\E[32m"$@"\E[m"
 	@tput sgr0
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 64 --max-clients 10000 --timeout 300 -f $(PWD)/bin/init.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 200 --max-clients 10000 --timeout 300 -f $(PWD)/bin/init.php -s start
+
+pidstat: retest
+	@pidstat -r -p `cat /var/run/ssp.pid` 1
 
 bench:
 	@echo -e "\E[31m"$@"\E[m"
-	@$(BIN_DIR)/ssp -f $(PWD)/bin/bench.php -s script 127.0.0.1 8086 64 100 10000
+	@$(BIN_DIR)/ssp -f $(PWD)/bin/bench.php -s script 127.0.0.1 8086 200 20 10000
