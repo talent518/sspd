@@ -17,11 +17,6 @@
 
 #include <fopen_wrappers.h>
 #include <ext/standard/php_standard.h>
-#ifdef PHP_WIN32
-	#include <io.h>
-	#include <fcntl.h>
-	#include <win32/php_registry.h>
-#endif
 
 #if HAVE_SIGNAL_H
 	#include <signal.h>
@@ -35,11 +30,7 @@
 #include <zend_execute.h>
 #include <zend_exceptions.h>
 
-#ifndef PHP_WIN32
-	#define php_select(m, r, w, e, t)	select(m, r, w, e, t)
-#else
-	#include <win32/select.h>
-#endif
+#define php_select(m, r, w, e, t)	select(m, r, w, e, t)
 
 #ifndef STDOUT_FILENO
 #define STDOUT_FILENO 1
@@ -58,7 +49,7 @@ const char HARDCODED_INI[] =
 
 static php_stream *s_in_process = NULL;
 
-static inline int sapi_ssp_select(int fd TSRMLS_DC)
+static inline int sapi_ssp_select(int fd)
 {
 	fd_set wfd, dfd;
 	struct timeval tv;
@@ -69,7 +60,7 @@ static inline int sapi_ssp_select(int fd TSRMLS_DC)
 
 	PHP_SAFE_FD_SET(fd, &wfd);
 
-	tv.tv_sec = FG(default_socket_timeout);
+	tv.tv_sec = (long)FG(default_socket_timeout);
 	tv.tv_usec = 0;
 
 	ret = php_select(fd+1, &dfd, &wfd, &dfd, &tv);
@@ -77,14 +68,18 @@ static inline int sapi_ssp_select(int fd TSRMLS_DC)
 	return ret != -1;
 }
 
-static inline size_t sapi_ssp_single_write(const char *str, uint str_length TSRMLS_DC) /* {{{ */
+static inline size_t sapi_ssp_single_write(const char *str, uint str_length) /* {{{ */
 {
 #ifdef PHP_WRITE_STDOUT
-	long ret;
+	zend_long ret;
+#else
+	size_t ret;
+#endif
 
+#ifdef PHP_WRITE_STDOUT
 	do {
 		ret = write(STDOUT_FILENO, str, str_length);
-	} while (ret <= 0 && errno == EAGAIN && sapi_ssp_select(STDOUT_FILENO TSRMLS_CC));
+	} while (ret <= 0 && errno == EAGAIN && sapi_ssp_select(STDOUT_FILENO));
 
 	if (ret <= 0) {
 		return 0;
@@ -92,27 +87,27 @@ static inline size_t sapi_ssp_single_write(const char *str, uint str_length TSRM
 
 	return ret;
 #else
-	size_t ret;
-
 	ret = fwrite(str, 1, MIN(str_length, 16384), stdout);
 	return ret;
 #endif
 }
 /* }}} */
 
-static int sapi_ssp_ub_write(const char *str, uint str_length TSRMLS_DC) /* {{{ */
+static size_t sapi_ssp_ub_write(const char *str, size_t str_length) /* {{{ */
 {
 	const char *ptr = str;
-	uint remaining = str_length;
+	size_t remaining = str_length;
 	size_t ret;
+
+	if (!str_length) {
+		return 0;
+	}
 
 	while (remaining > 0)
 	{
-		ret = sapi_ssp_single_write(ptr, remaining TSRMLS_CC);
+		ret = sapi_ssp_single_write(ptr, remaining);
 		if (!ret) {
-#ifndef PHP_CLI_WIN32_NO_CONSOLE
 			php_handle_aborted_connection();
-#endif
 			break;
 		}
 		ptr += ret;
@@ -129,75 +124,71 @@ static void sapi_ssp_flush(void *server_context) /* {{{ */
 	 * are/could be closed before fflush() is called.
 	 */
 	if (fflush(stdout)==EOF && errno!=EBADF) {
-#ifndef PHP_CLI_WIN32_NO_CONSOLE
 		php_handle_aborted_connection();
-#endif
 	}
 }
 /* }}} */
 
-static void sapi_ssp_register_variables(zval *track_vars_array TSRMLS_DC) /* {{{ */
+static void sapi_ssp_register_variables(zval *track_vars_array) /* {{{ */
 {
-	unsigned int len;
-	char   *docroot;
+	size_t len;
+	char *docroot = "";
 
 	/* In CGI mode, we consider the environment to be a part of the server
 	 * variables
 	 */
-	php_import_environment_variables(track_vars_array TSRMLS_CC);
+	php_import_environment_variables(track_vars_array);
 
-	if(request_init_file) {
-		/* Build the special-case PHP_SELF variable for the CLI version */
-		len = strlen(request_init_file);
-		if (sapi_module.input_filter(PARSE_SERVER, "PHP_SELF", &request_init_file, len, &len TSRMLS_CC)) {
-			php_register_variable("PHP_SELF", request_init_file, track_vars_array TSRMLS_CC);
-		}
-		if (sapi_module.input_filter(PARSE_SERVER, "SCRIPT_NAME", &request_init_file, len, &len TSRMLS_CC)) {
-			php_register_variable("SCRIPT_NAME", request_init_file, track_vars_array TSRMLS_CC);
-		}
-		/* filenames are empty for stdin */
-		len = strlen(request_init_file);
-		if (sapi_module.input_filter(PARSE_SERVER, "SCRIPT_FILENAME", &request_init_file, len, &len TSRMLS_CC)) {
-			php_register_variable("SCRIPT_FILENAME", request_init_file, track_vars_array TSRMLS_CC);
-		}
-		if (sapi_module.input_filter(PARSE_SERVER, "PATH_TRANSLATED", &request_init_file, len, &len TSRMLS_CC)) {
-			php_register_variable("PATH_TRANSLATED", request_init_file, track_vars_array TSRMLS_CC);
-		}
+	/* Build the special-case PHP_SELF variable for the CLI version */
+	len = strlen(request_init_file);
+	if (sapi_module.input_filter(PARSE_SERVER, "PHP_SELF", &request_init_file, len, &len)) {
+		php_register_variable("PHP_SELF", request_init_file, track_vars_array);
+	}
+	if (sapi_module.input_filter(PARSE_SERVER, "SCRIPT_NAME", &request_init_file, len, &len)) {
+		php_register_variable("SCRIPT_NAME", request_init_file, track_vars_array);
+	}
+	/* filenames are empty for stdin */
+	len = strlen(request_init_file);
+	if (sapi_module.input_filter(PARSE_SERVER, "SCRIPT_FILENAME", &request_init_file, len, &len)) {
+		php_register_variable("SCRIPT_FILENAME", request_init_file, track_vars_array);
+	}
+	if (sapi_module.input_filter(PARSE_SERVER, "PATH_TRANSLATED", &request_init_file, len, &len)) {
+		php_register_variable("PATH_TRANSLATED", request_init_file, track_vars_array);
 	}
 	/* just make it available */
 	len = 0U;
-	if (sapi_module.input_filter(PARSE_SERVER, "DOCUMENT_ROOT", &docroot, len, &len TSRMLS_CC)) {
-		php_register_variable("DOCUMENT_ROOT", docroot, track_vars_array TSRMLS_CC);
+	if (sapi_module.input_filter(PARSE_SERVER, "DOCUMENT_ROOT", &docroot, len, &len)) {
+		php_register_variable("DOCUMENT_ROOT", docroot, track_vars_array);
 	}
 }
 /* }}} */
 
-static void sapi_ssp_log_message(char *message TSRMLS_DC) /* {{{ */
+static void sapi_ssp_log_message(char *message) /* {{{ */
 {
 	fprintf(stderr, "%s\n", message);
 }
 /* }}} */
 
-static int sapi_ssp_deactivate(TSRMLS_D) /* {{{ */
+static int sapi_ssp_deactivate() /* {{{ */
 {
 	fflush(stdout);
 	return SUCCESS;
 }
 /* }}} */
 
-static char* sapi_ssp_read_cookies(TSRMLS_D) /* {{{ */
+static char* sapi_ssp_read_cookies() /* {{{ */
 {
 	return NULL;
 }
 /* }}} */
 
-static int sapi_ssp_header_handler(sapi_header_struct *h, sapi_header_op_enum op, sapi_headers_struct *s TSRMLS_DC) /* {{{ */
+static int sapi_ssp_header_handler(sapi_header_struct *h, sapi_header_op_enum op, sapi_headers_struct *s) /* {{{ */
 {
 	return 0;
 }
 /* }}} */
 
-static int sapi_ssp_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC) /* {{{ */
+static int sapi_ssp_send_headers(sapi_headers_struct *sapi_headers) /* {{{ */
 {
 	/* We do nothing here, this function is needed to prevent that the fallback
 	 * header handling is called. */
@@ -205,7 +196,7 @@ static int sapi_ssp_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC) /*
 }
 /* }}} */
 
-static void sapi_ssp_send_header(sapi_header_struct *sapi_header, void *server_context TSRMLS_DC) /* {{{ */
+static void sapi_ssp_send_header(sapi_header_struct *sapi_header, void *server_context) /* {{{ */
 {
 }
 /* }}} */
@@ -229,10 +220,8 @@ static int php_ssp_shutdown(sapi_module_struct *sapi_module) /* {{{ */
 
 /* overwriteable ini defaults must be set in sapi_ssp_ini_defaults() */
 #define INI_DEFAULT(name,value)\
-	Z_SET_REFCOUNT(tmp, 0);\
-	Z_UNSET_ISREF(tmp);	\
-	ZVAL_STRINGL(&tmp, zend_strndup(value, sizeof(value)-1), sizeof(value)-1, 0);\
-	zend_hash_update(configuration_hash, name, sizeof(name), &tmp, sizeof(zval), NULL);\
+	ZVAL_NEW_STR(&tmp, zend_string_init(value, sizeof(value)-1, 1));\
+	zend_hash_str_update(configuration_hash, name, sizeof(name)-1, &tmp);\
 
 static void sapi_ssp_ini_defaults(HashTable *configuration_hash)
 {
@@ -296,8 +285,15 @@ void ssp_init(){
 	CSM(ini_defaults) = sapi_ssp_ini_defaults;
 	CSM(php_ini_path_override) = NULL;
 	CSM(phpinfo_as_text) = 1;
+	CSM(php_ini_ignore_cwd) = 1;
 
 	tsrm_startup(ssp_nthreads+1, 1, 0, NULL);
+	(void)ts_resource(0);
+
+#ifdef ZEND_SIGNALS
+	zend_signal_startup();
+#endif
+
 	sapi_startup(&ssp_sapi_module);
 
 	CSM(ini_entries) = malloc(sizeof(HARDCODED_INI));
@@ -313,9 +309,9 @@ void ssp_module_startup(){
 }
 
 void ssp_request_startup(){
-	TSRMLS_FETCH();
-
 	zend_file_handle zfd;
+
+	(void)ts_resource(0);
 
 	zfd.type = ZEND_HANDLE_FILENAME;
 	zfd.opened_path = NULL;
@@ -329,7 +325,7 @@ void ssp_request_startup(){
 		zfd.free_filename = 0;
 	}
 
-	if (php_request_startup(TSRMLS_C)==FAILURE) {
+	if (php_request_startup()==FAILURE) {
 		printf("Request could not startup.\n");
 		return;
 	}
@@ -346,22 +342,20 @@ void ssp_request_startup(){
 	REGISTER_MAIN_LONG_CONSTANT("SSP_TIMEOUT",ssp_timeout,CONST_CS | CONST_PERSISTENT);
 #endif
 
-	php_execute_script(&zfd TSRMLS_CC);
+	php_execute_script(&zfd);
 }
 
 void ssp_request_shutdown(){
-	TSRMLS_FETCH();
-
 	php_request_shutdown(NULL);
 
-	zend_hash_del(EG(zend_constants),"SSP_PIDFILE",sizeof("SSP_PIDFILE"));
-	zend_hash_del(EG(zend_constants),"SSP_USER",sizeof("SSP_USER"));
-	zend_hash_del(EG(zend_constants),"SSP_HOST",sizeof("SSP_HOST"));
-	zend_hash_del(EG(zend_constants),"SSP_PORT",sizeof("SSP_PORT"));
-	zend_hash_del(EG(zend_constants),"SSP_MAX_CLIENTS",sizeof("SSP_MAX_CLIENTS"));
-	zend_hash_del(EG(zend_constants),"SSP_MAX_RECVS",sizeof("SSP_MAX_RECVS"));
+	zend_hash_del(EG(zend_constants),zend_string_init("SSP_PIDFILE",sizeof("SSP_PIDFILE")-1,1));
+	zend_hash_del(EG(zend_constants),zend_string_init("SSP_USER",sizeof("SSP_USER")-1,1));
+	zend_hash_del(EG(zend_constants),zend_string_init("SSP_HOST",sizeof("SSP_HOST")-1,1));
+	zend_hash_del(EG(zend_constants),zend_string_init("SSP_PORT",sizeof("SSP_PORT")-1,1));
+	zend_hash_del(EG(zend_constants),zend_string_init("SSP_MAX_CLIENTS",sizeof("SSP_MAX_CLIENTS")-1,1));
+	zend_hash_del(EG(zend_constants),zend_string_init("SSP_MAX_RECVS",sizeof("SSP_MAX_RECVS")-1,1));
 
-	zend_hash_del(EG(zend_constants),"STD_CHARSET",sizeof("STD_CHARSET"));
+	zend_hash_del(EG(zend_constants),zend_string_init("STD_CHARSET",sizeof("STD_CHARSET")-1,1));
 }
 
 void ssp_module_shutdown(){

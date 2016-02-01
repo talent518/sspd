@@ -228,15 +228,7 @@ if [ ! -f "$INST_DIR/lib/libssl.a" ]; then
     fi
     pushd /tmp/openssl-1.0.2e
     
-	if [ `uname -p` = "x86_64" ]; then
-		./Configure -fPIC --prefix=$INST_DIR \
-		&& make \
-		&& make install
-	else
-		./config --prefix=$INST_DIR \
-		&& make \
-		&& make install
-	fi
+    ./config -fPIC --prefix=$INST_DIR && make && make install
     
     if [ "$?" = "0" ]; then
         popd
@@ -376,12 +368,12 @@ if [ ! -d "$INST_DIR/lib64" -a `uname -p` = "x86_64" ]; then
 fi
 
 #php
-if [ ! -f "$INST_DIR/lib/libphp5.so" ]; then
+if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
     echo Installing php ...
-    if [ ! -d "/tmp/php-5.6.13" ]; then
-        tar -xvf php-5.6.13.tar.bz2 -C /tmp/
+    if [ ! -d "/tmp/php-7.0.2" ]; then
+        tar -xvf php-7.0.2.tar.bz2 -C /tmp/
     fi
-    pushd /tmp/php-5.6.13
+    pushd /tmp/php-7.0.2
 
 	if [ `uname -p` = "x86_64" ]; then
 		OPT_MAK="--prefix=$INST_DIR -bindir=$INST_DIR/bin --sbindir=$INST_DIR/sbin --sysconfdir=$INST_DIR/etc --datadir=$INST_DIR/share --includedir=$INST_DIR/include --libdir=$INST_DIR/lib --libexecdir=$INST_DIR/libexec --localstatedir=$INST_DIR/var --sharedstatedir=$INST_DIR/var/lib --mandir=$INST_DIR/share/man --infodir=$INST_DIR/share/info --with-libdir=lib64 --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-shared"
@@ -398,7 +390,7 @@ if [ ! -f "$INST_DIR/lib/libphp5.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf /tmp/php-5.6.13
+        rm -rf /tmp/php-7.0.2
         echo Installed php Success.
     else
         popd

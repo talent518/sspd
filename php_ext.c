@@ -13,12 +13,6 @@
 	#include <glibtop/mem.h>
 	#include <glibtop/proctime.h>
 	#include <glibtop/procmem.h>
-#elif defined(HAVE_WIN32_PROCESS_STAT)
-	#include <windows.h>
-	#include <psapi.h>
-
-	typedef long long           int64_t;
-	typedef unsigned long long	uint64_t;
 #endif
 
 static pthread_mutex_t unique_lock;
@@ -95,28 +89,28 @@ zend_module_entry ssp_module_entry = {
 	STANDARD_MODULE_HEADER,
 	"ssp",
 	ssp_functions,
-	PHP_MINIT(ssp),
-	PHP_MSHUTDOWN(ssp),
-	PHP_RINIT(ssp),
-	PHP_RSHUTDOWN(ssp),
-	PHP_MINFO(ssp),
+	PHP_MINIT(ssp), // module_startup_func
+	PHP_MSHUTDOWN(ssp), // module_shutdown_func
+	PHP_RINIT(ssp), // request_startup_func
+	PHP_RSHUTDOWN(ssp), // request_shutdown_func
+	PHP_MINFO(ssp), // info_func
 	PHP_SSP_VERSION,
-	PHP_MODULE_GLOBALS(ssp),
-	PHP_GINIT(ssp),
-	PHP_GSHUTDOWN(ssp),
-	NULL,
+	PHP_MODULE_GLOBALS(ssp), // globals_id_ptr / globals_ptr
+	PHP_GINIT(ssp), // globals_ctor
+	PHP_GSHUTDOWN(ssp), // globals_dtor
+	NULL, // post_deactivate_func
 	STANDARD_MODULE_PROPERTIES_EX
 };
 /* }}} */
 
-static void php_destroy_ssp(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
+static void php_destroy_ssp(zend_resource *rsrc) /* {{{ */
 {
 	conn_t *ptr = (conn_t *) rsrc->ptr;
 
 	conn_info(ptr);
 }
 
-static void php_destroy_ssp_ref(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
+static void php_destroy_ssp_ref(zend_resource *rsrc) /* {{{ */
 {
 	conn_t *ptr = (conn_t *) rsrc->ptr;
 
@@ -137,11 +131,11 @@ static PHP_MINIT_FUNCTION(ssp)
 
 	pthread_mutex_init(&unique_lock, NULL);
 
-	zend_register_auto_global("_SSP", sizeof("_SSP")-1, 0, NULL TSRMLS_CC);
+	zend_register_auto_global(zend_string_init("_SSP", sizeof("_SSP") - 1, 1), 0, NULL);
 
 #ifdef SSP_DEBUG_EXT
-	printf("ssp module init\n");
-#endif	
+	printf("module startup function for %s\n", __func__);
+#endif
 
 	return SUCCESS;
 }
@@ -152,14 +146,15 @@ static PHP_MINIT_FUNCTION(ssp)
 static PHP_MSHUTDOWN_FUNCTION(ssp)
 {
 	ts_free_id(ssp_globals_id);
-	
+
 	pthread_mutex_destroy(&unique_lock);
 
-	zend_delete_global_variable("_SSP", sizeof("_SSP")-1 TSRMLS_CC);
+	zend_delete_global_variable(zend_string_init("_SSP", sizeof("_SSP") - 1, 1));
 
 #ifdef SSP_DEBUG_EXT
-	printf("ssp module shutdown\n");
+	printf("module shutdown function for %s\n", __func__);
 #endif
+
 	return SUCCESS;
 }
 /* }}} */
@@ -168,8 +163,14 @@ static PHP_MSHUTDOWN_FUNCTION(ssp)
 */
 PHP_RINIT_FUNCTION(ssp)
 {
-	SSP_G(ssp_vars) = NULL;
-	ssp_auto_globals_recreate(TSRMLS_C);
+	ZVAL_UNDEF(&SSP_G(ssp_vars));
+	ssp_auto_globals_recreate();
+
+#ifdef SSP_DEBUG_EXT
+	printf("request startup function for %s\n", __func__);
+#endif
+
+	return SUCCESS;
 }
 /* }}} */
 
@@ -177,11 +178,15 @@ PHP_RINIT_FUNCTION(ssp)
 */
 PHP_RSHUTDOWN_FUNCTION(ssp)
 {
-	if (SSP_G(ssp_vars)) {
+	if (!Z_ISUNDEF(SSP_G(ssp_vars))) {
 		zval_ptr_dtor(&SSP_G(ssp_vars));
-		SSP_G(ssp_vars) = NULL;
 	}
 	
+#ifdef SSP_DEBUG_EXT
+	printf("request shutdown function for %s\n", __func__);
+#endif
+
+	return SUCCESS;
 }
 /* }}} */
 
@@ -192,7 +197,7 @@ static PHP_GINIT_FUNCTION(ssp)
 	SSP_G(trigger_count)=0;
 
 #ifdef SSP_DEBUG_EXT
-	printf("ssp_globals init\n");
+	printf("globals constructor function for %s\n", __func__);
 #endif
 }
 /* }}} */
@@ -201,7 +206,7 @@ static PHP_GINIT_FUNCTION(ssp)
 static PHP_GSHUTDOWN_FUNCTION(ssp)
 {
 #ifdef SSP_DEBUG_EXT
-	printf("ssp_globals shutdown\n");
+	printf("globals destructor function for %s\n", __func__);
 #endif
 }
 /* }}} */
@@ -216,60 +221,38 @@ static PHP_MINFO_FUNCTION(ssp)
 	php_info_print_table_end();
 }
 
-void ssp_auto_globals_recreate(TSRMLS_D)
+void ssp_auto_globals_recreate()
 {
-	zend_delete_global_variable("_SSP", sizeof("_SSP")-1 TSRMLS_CC);
+	zend_string *var_name = zend_string_init("_SSP", sizeof("_SSP") - 1, 0);
 
-	zval *vars;
-	
-	if (SSP_G(ssp_vars)) {
-		zval_ptr_dtor(&SSP_G(ssp_vars));
-	}
+	zend_delete_global_variable(var_name);
 
-	MAKE_STD_ZVAL(vars);
-	array_init_size(vars, ssp_vars_length);
+	ZVAL_NULL(&SSP_G(ssp_vars));
 
-	SSP_G(ssp_vars) = vars;
-	ZEND_SET_GLOBAL_VAR_WITH_LENGTH("_SSP", sizeof("_SSP"), SSP_G(ssp_vars), 2, 1);
+	array_init_size(&SSP_G(ssp_vars), ssp_vars_length);
+
+	Z_ADDREF_P(&SSP_G(ssp_vars));
+
+	zend_hash_update_ind(&EG(symbol_table), var_name, &SSP_G(ssp_vars));
+	zend_string_release(var_name);
 }
 
-static zval *_ssp_resource_zval(conn_t *value TSRMLS_DC)
-{
-	zval *ret;
-	MAKE_STD_ZVAL(ret);
-	ZEND_REGISTER_RESOURCE(ret,value,le_ssp_descriptor);
-	return ret;
-}
-
-static zval *_ssp_string_zval(const char *str,int len TSRMLS_DC)
-{
-	zval *ret;
-	MAKE_STD_ZVAL(ret);
-
-	Z_TYPE_P(ret) = IS_STRING;
-	Z_STRLEN_P(ret) = len;
-	Z_STRVAL_P(ret) = estrndup(str, len);
-	return ret;
-}
-
-bool trigger_ex(TSRMLS_DE unsigned short type,...){
+bool trigger(unsigned short type,...) {
 	TRIGGER_STARTUP();
 	if(trigger_handlers[type]==NULL){
 		TRIGGER_SHUTDOWN();
 		return FAILURE;
 	}
-	zval *zval_ptr,*zval_data,*pfunc;
-	zval ***params,*retval=NULL;
+	zval pfunc,retval;
+	zval *params = NULL;
 	int i,param_count,ret;
 	bool retbool=true;
-	char *call_func_name;
 	va_list args;
 	conn_t *ptr;
 	char **data=NULL;
 	int *data_len;
 
-	call_func_name=strdup(trigger_handlers[type]);
-	pfunc=_ssp_string_zval(call_func_name,strlen(call_func_name) TSRMLS_CC);
+	ZVAL_STRINGL(&pfunc, trigger_handlers[type], strlen(trigger_handlers[type]));
 
 	va_start(args,type);
 	switch(type){
@@ -283,9 +266,8 @@ bool trigger_ex(TSRMLS_DE unsigned short type,...){
 		case PHP_SSP_CLOSE:
 			param_count=1;
 			ptr=va_arg(args,conn_t*);
-			params=(zval ***) emalloc(sizeof(zval **)*param_count);
-			zval_ptr=_ssp_resource_zval(ptr TSRMLS_CC);
-			params[0]=&zval_ptr;
+			params=(zval *) emalloc(sizeof(zval)*param_count);
+			ZEND_REGISTER_RESOURCE(&params[0],ptr,le_ssp_descriptor);
 			break;
 		case PHP_SSP_RECEIVE:
 		case PHP_SSP_SEND:
@@ -293,11 +275,9 @@ bool trigger_ex(TSRMLS_DE unsigned short type,...){
 			ptr=va_arg(args,conn_t*);
 			data=va_arg(args,char**);
 			data_len=va_arg(args,int*);
-			params=(zval ***) emalloc(sizeof(zval **)*param_count);
-			zval_ptr=_ssp_resource_zval(ptr TSRMLS_CC);
-			zval_data=_ssp_string_zval(*data,*data_len TSRMLS_CC);
-			params[0]=&zval_ptr;
-			params[1]=&zval_data;
+			params=(zval *) emalloc(sizeof(zval)*param_count);
+			ZEND_REGISTER_RESOURCE(&params[0],ptr,le_ssp_descriptor);
+			ZVAL_STRINGL(&params[1], *data, *data_len);
 			break;
 		default:
 			perror("Trigger type not exists!");
@@ -305,46 +285,51 @@ bool trigger_ex(TSRMLS_DE unsigned short type,...){
 	}
 	va_end(args);
 
-	ret=call_user_function_ex(CG(function_table), NULL, pfunc, &retval, param_count, params,1,NULL TSRMLS_CC);
+	ret=call_user_function(EG(function_table), NULL, &pfunc, &retval, param_count, params);
 	if(ret==SUCCESS){
-		if(Z_TYPE_P(retval) == IS_BOOL) {
-			retbool=Z_LVAL_P(retval);
+		if(Z_TYPE_P(&retval) == IS_FALSE) {
+			retbool=false;
+		} else if(Z_TYPE_P(&retval) == IS_TRUE) {
+			retbool=true;
 		}
 		if(param_count>1){
 			convert_to_string_ex(&retval);
 			free(*data);
-			if(Z_STRLEN_P(retval)>0){
-				char *_data=strndup(Z_STRVAL_P(retval),Z_STRLEN_P(retval));
+			if(Z_STRLEN_P(&retval)>0){
+				char *_data=strndup(Z_STRVAL_P(&retval),Z_STRLEN_P(&retval));
 				*data=_data;
-				*data_len=Z_STRLEN_P(retval);
+				*data_len=Z_STRLEN_P(&retval);
 			}else{
 				*data=NULL;
 				*data_len=0;
 			}
 		}
 	}else{
-		php_printf("\nUnable to call handler(%s)", call_func_name);
-	}
-	if(retval) {
-		zval_ptr_dtor(&retval);
+		php_printf("\nUnable to call handler(%s)", trigger_handlers[type]);
 	}
 	if(param_count>0){
 		int i;
 		for(i=0;i<param_count;i++){
-			zval_ptr_dtor(params[i]);
+			zval_ptr_dtor(&params[i]);
 		}
 		efree(params);
 	}
+
+	zval_ptr_dtor(&retval);
+	ZVAL_UNDEF(&retval);
+
 	zval_ptr_dtor(&pfunc);
-	free(call_func_name);
+	ZVAL_UNDEF(&pfunc);
+
 	TRIGGER_SHUTDOWN();
+
 	return retbool;
 }
 
 static PHP_FUNCTION(ssp_resource){
 	long var,type;
 	conn_t *ptr=NULL;
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &var) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l", &var) == FAILURE) {
 		RETURN_FALSE;
 	}
 
@@ -362,18 +347,18 @@ static PHP_FUNCTION(ssp_info){
 	conn_t *ptr=NULL;
 	char *key=NULL;
 	int key_len=0;
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r|s", &res,&key,&key_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "r|s", &res,&key,&key_len) == FAILURE) {
 		RETURN_FALSE;
 	}
-	ZEND_FETCH_RESOURCE_NO_RETURN(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
+	ptr = (conn_t *) zend_fetch_resource(Z_RES_P(res), PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
 	if(!ptr) {
-		ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
+		ptr = (conn_t *) zend_fetch_resource(Z_RES_P(res), PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
 	}
 	if(key_len==0){
 		array_init_size(return_value,5);
 		add_assoc_long(return_value,"index",ptr->index);
 		add_assoc_long(return_value,"sockfd",ptr->sockfd);
-		add_assoc_string(return_value,"host",ptr->host,1); /* cast to avoid gcc-warning */
+		add_assoc_string(return_value,"host",ptr->host);
 		add_assoc_long(return_value,"port",ptr->port);
 		add_assoc_long(return_value,"tid",ptr->thread->id);
 	}else{
@@ -382,7 +367,7 @@ static PHP_FUNCTION(ssp_info){
 		}else if(!strcasecmp(key,"sockfd")){
 			RETURN_LONG(ptr->sockfd);
 		}else if(!strcasecmp(key,"host")){
-			RETURN_STRING(strdup(ptr->host),strlen(ptr->host));
+			RETVAL_STRINGL(ptr->host,strlen(ptr->host));
 		}else if(!strcasecmp(key,"port")){
 			RETURN_LONG(ptr->port);
 		}else if(!strcasecmp(key,"tid")){
@@ -399,12 +384,12 @@ static PHP_FUNCTION(ssp_send)
 	long data_len;
 	zval *res;
 	conn_t *ptr=NULL;
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs", &res, &data, &data_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "rs", &res, &data, &data_len) == FAILURE) {
 		RETURN_FALSE;
 	}
-	ZEND_FETCH_RESOURCE_NO_RETURN(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
+	ptr = (conn_t *) zend_fetch_resource(Z_RES_P(res), PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
 	if(!ptr) {
-		ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
+		ptr = (conn_t *) zend_fetch_resource(Z_RES_P(res), PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
 	}
 	if(ptr) {
 		int ret=0;
@@ -422,13 +407,13 @@ static PHP_FUNCTION(ssp_destroy)
 {
 	zval *res;
 	conn_t *ptr=NULL;
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &res) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "r", &res) == FAILURE) {
 		RETURN_FALSE;
 	}
-	ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
 
+	ptr = (conn_t *) zend_fetch_resource(Z_RES_P(res), PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
 	if(ptr) {
-		zend_list_delete(Z_LVAL_P(res));
+		zend_list_delete(Z_RES_P(res));
 		RETURN_TRUE;
 	} else {
 		RETURN_FALSE;
@@ -439,15 +424,15 @@ static PHP_FUNCTION(ssp_close)
 {
 	zval *res;
 	conn_t *ptr=NULL;
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &res) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "r", &res) == FAILURE) {
 		RETURN_FALSE;
 	}
-	ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
 
+	ptr = (conn_t *) zend_fetch_resource(Z_RES_P(res), PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
 	if(ptr) {
 		socket_close(ptr);
 
-		zend_list_delete(Z_LVAL_P(res));
+		zend_list_delete(Z_RES_P(res));
 
 		RETURN_TRUE;
 	} else {
@@ -464,24 +449,11 @@ static PHP_FUNCTION(ssp_unlock)
 	pthread_mutex_unlock(&unique_lock);
 }
 
-#ifdef HAVE_WIN32_PROCESS_STAT
-static uint64_t file_time_2_utc(const FILETIME* ftime)
-{
-	LARGE_INTEGER li;
-
-	assert(ftime);
-	li.LowPart = ftime->dwLowDateTime;
-	li.HighPart = ftime->dwHighDateTime;
-	return li.QuadPart;
-}
-#define CompareFileTimeEx(time1,time2) (file_time_2_utc(time2) - file_time_2_utc(time1))
-#endif
-
 static PHP_FUNCTION(ssp_stats)
 {
 	long sleep_time=100000;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|lb", &sleep_time) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "|lb", &sleep_time) == FAILURE) {
 		RETURN_FALSE;
 	}
 	if(sleep_time<=0) {
@@ -505,9 +477,9 @@ static PHP_FUNCTION(ssp_stats)
 
 	glibtop_get_cpu (&cpu_begin);
 	glibtop_get_proc_time(&proctime_begin,pid);
-	
+
 	usleep(sleep_time); // 1s=1000000
-	
+
 	glibtop_get_cpu (&cpu_end);
 	glibtop_get_proc_time(&proctime_end,pid);
 
@@ -515,12 +487,12 @@ static PHP_FUNCTION(ssp_stats)
 	ni = cpu_end.nice - cpu_begin.nice;
 	sy = cpu_end.sys - cpu_begin.sys;
 	id = cpu_end.idle - cpu_begin.idle;
-	
+
 	dpu = proctime_end.utime -  proctime_begin.utime;
 	dps = proctime_end.stime - proctime_begin.stime;
 
 	scale = 100.0/(cpu_end.total - cpu_begin.total);
-	
+
 	glibtop_get_mem(&memory);
 	glibtop_get_proc_mem(&procmem,pid);
 
@@ -558,78 +530,6 @@ static PHP_FUNCTION(ssp_stats)
 	add_assoc_long(procinfo,"share",procmem.share);			/* number of pages of shared (mmap'd) memory */
 	add_assoc_long(procinfo,"rss",procmem.rss);				/* resident set size */
 	add_assoc_long(procinfo,"rss_rlim",procmem.rss_rlim);	/* current limit (in bytes) of the rss of the process; usually 2,147,483,647 */
-
-	add_assoc_zval(return_value, "procinfo", procinfo);
-#elif defined(HAVE_WIN32_PROCESS_STAT)
-	MEMORYSTATUS status;
-	PROCESS_MEMORY_COUNTERS pmc;
-
-	FILETIME preidleTime, idleTime;
-	FILETIME prekernelTime, kernelTime;
-	FILETIME preuserTime, userTime;
-
-	FILETIME ignoreTime;
-	FILETIME preprocKernelTime, procKernelTime;
-	FILETIME preprocUserTime, procUserTime;
-
-	int idle,kernel,user,procKernel, procUser;
-	double scale;
-	HANDLE hProcess = GetCurrentProcess();
-
-	GlobalMemoryStatus(&status);
-	GetProcessMemoryInfo(hProcess, &pmc, sizeof(pmc));
-
-	GetSystemTimes( &preidleTime, &prekernelTime, &preuserTime );
-	GetProcessTimes(hProcess, &ignoreTime, &ignoreTime, &preprocKernelTime, &preprocUserTime);
-	
-	usleep(sleep_time); // 1s=1000000
-
-	GetSystemTimes( &idleTime, &kernelTime, &userTime );
-	GetProcessTimes(hProcess, &ignoreTime, &ignoreTime, &procKernelTime, &procUserTime);
-
-	idle = CompareFileTimeEx(&preidleTime, &idleTime);
-	kernel = CompareFileTimeEx(&prekernelTime, &kernelTime);
-	user = CompareFileTimeEx(&preuserTime, &userTime);
-	procKernel = CompareFileTimeEx(&preprocKernelTime, &procKernelTime);
-	procUser = CompareFileTimeEx(&preprocUserTime, &procUserTime);
-
-	scale = 100.0/(double)(kernel+user);
-
-	dprintf("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
-	dprintf("idle: %d\n", idle);
-	dprintf("kernel: %d\n", kernel);
-	dprintf("user: %d\n", user);
-	dprintf("procKernel: %d\n", procKernel);
-	dprintf("procUser: %d\n", procUser);
-	dprintf("scale: %lf\n", scale);
-	dprintf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
-
-	array_init_size(return_value,2);
-
-	zval *sysinfo;
-	MAKE_STD_ZVAL(sysinfo);
-	array_init_size(sysinfo,27);
-
-	add_assoc_double(sysinfo,"us", (double)(user*scale));
-	add_assoc_double(sysinfo,"ni", 0);
-	add_assoc_double(sysinfo,"sy", (double)((kernel-idle)*scale));
-	add_assoc_double(sysinfo,"id", (double)(idle*scale));
-
-	add_assoc_long(sysinfo,"memTotal", (long)status.dwTotalPhys); // 物理内存总量
-	add_assoc_long(sysinfo,"memUsed", (long)(status.dwTotalPhys-status.dwAvailPhys)); // 已用物理内存
-	add_assoc_long(sysinfo,"memFree", (long)status.dwAvailPhys); // 可用物理内存
-
-	add_assoc_zval(return_value, "sysinfo", sysinfo);
-
-	zval *procinfo;
-	MAKE_STD_ZVAL(procinfo);
-	array_init_size(procinfo,74);
-
-	add_assoc_double(procinfo,"pcpu", (procKernel+procUser)*scale);
-
-	add_assoc_long(procinfo,"size",pmc.PeakPagefileUsage);		// Peak space allocated for the pagefile, in bytes.// 使用分页文件高峰
-	add_assoc_long(procinfo,"vsize",pmc.PagefileUsage);			// Current working set size, in bytes. // 当前使用的内存
-	add_assoc_long(procinfo,"rss",pmc.WorkingSetSize);			// Current working set size, in bytes. // 当前使用的内存
 
 	add_assoc_zval(return_value, "procinfo", procinfo);
 #else

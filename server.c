@@ -16,106 +16,96 @@
 #include "ssp.h"
 #include "data.h"
 #include "api.h"
-#include "event.h"
+#include "ssp_event.h"
 
 #define flush() fflush(stdout)
 
-unsigned int ssp_backlog=1024;
+unsigned int ssp_backlog = 1024;
 
-char *ssp_host="0.0.0.0";
-short int ssp_port=8083;
-char *ssp_pidfile="/var/run/ssp.pid";
+char *ssp_host = "0.0.0.0";
+short int ssp_port = 8083;
+char *ssp_pidfile = "/var/run/ssp.pid";
 
-char *ssp_user="daemon";
+char *ssp_user = "daemon";
 
-int ssp_maxclients=1000;
-int ssp_maxrecvs=2*1024*1024;
+int ssp_maxclients = 1000;
+int ssp_maxrecvs = 2 * 1024 * 1024;
 
-int server_start()
-{
+int server_start() {
 	struct sockaddr_in sin;
 	int listen_fd;
 	int ret;
 
-	int pid,i=19,cols=tput_cols();
+	int pid, i = 19, cols = tput_cols();
 
 	printf("Starting SSP server");
-	strnprint(".",cols-i-9);
+	strnprint(".", cols - i - 9);
 	flush();
 
-	listen_fd=socket(AF_INET,SOCK_STREAM,0);
-	if (listen_fd<0)
-	{
+	listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (listen_fd < 0) {
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
-		printf("Not on the host %s bind port %d\n",ssp_host,ssp_port);
+		printf("Not on the host %s bind port %d\n", ssp_host, ssp_port);
 		return 0;
 	}
-	int opt=1;
-	setsockopt(listen_fd,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(int));
-    setsockopt(listen_fd, SOL_SOCKET, SO_KEEPALIVE,&opt, sizeof(int));
+	int opt = 1;
+	setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int));
+	setsockopt(listen_fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(int));
 
-	int send_timeout=1000,recv_timeout=1000;
-	setsockopt(listen_fd,SOL_SOCKET,SO_SNDTIMEO,&send_timeout,sizeof(int));//·¢ËÍ³¬Ê±
-	setsockopt(listen_fd,SOL_SOCKET,SO_RCVTIMEO,&recv_timeout,sizeof(int));//½ÓÊÕ³¬Ê±
+	int send_timeout = 1000, recv_timeout = 1000;
+	setsockopt(listen_fd, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int));//ï¿½ï¿½ï¿½Í³ï¿½Ê±
+	setsockopt(listen_fd, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int));//ï¿½ï¿½ï¿½Õ³ï¿½Ê±
 
-	typedef struct
-	{
+	typedef struct {
 		u_short l_onoff;
 		u_short l_linger;
 	} linger;
 	linger m_sLinger;
-	m_sLinger.l_onoff=1;//(ÔÚclosesocket()µ÷ÓÃ,µ«ÊÇ»¹ÓÐÊý¾ÝÃ»·¢ËÍÍê±ÏµÄÊ±ºòÈÝÐí¶ºÁô)
-	// Èç¹ûm_sLinger.l_onoff=0;Ôò¹¦ÄÜºÍ2.)×÷ÓÃÏàÍ¬;
-	m_sLinger.l_linger=5;//(ÈÝÐí¶ºÁôµÄÊ±¼äÎª5Ãë)
-	setsockopt(listen_fd,SOL_SOCKET,SO_LINGER,&m_sLinger,sizeof(linger));
+	m_sLinger.l_onoff = 1;//(åœ¨closesocket()è°ƒç”¨,ä½†æ˜¯è¿˜æœ‰æ•°æ®æ²¡å‘é€å®Œæ¯•çš„æ—¶å€™å®¹è®¸é€—ç•™)
+	// å¦‚æžœm_sLinger.l_onoff=0;åˆ™åŠŸèƒ½å’Œ2.)ä½œç”¨ç›¸åŒ;
+	m_sLinger.l_linger = 5;//(å®¹è®¸é€—ç•™çš„æ—¶é—´ä¸º5ç§’)
+	setsockopt(listen_fd, SOL_SOCKET, SO_LINGER, &m_sLinger, sizeof(linger));
 
-	int send_buffer=0,recv_buffer=0;
-	setsockopt(listen_fd,SOL_SOCKET,SO_SNDBUF,&send_buffer,sizeof(int));//·¢ËÍ»º³åÇø´óÐ¡
-	setsockopt(listen_fd,SOL_SOCKET,SO_RCVBUF,&recv_buffer,sizeof(int));//½ÓÊÕ»º³åÇø´óÐ¡
+	int send_buffer = 0, recv_buffer = 0;
+	setsockopt(listen_fd, SOL_SOCKET, SO_SNDBUF, &send_buffer, sizeof(int));//å‘é€ç¼“å†²åŒºå¤§å°
+	setsockopt(listen_fd, SOL_SOCKET, SO_RCVBUF, &recv_buffer, sizeof(int));//æŽ¥æ”¶ç¼“å†²åŒºå¤§å°
 
-	bzero(&sin,sizeof(sin));
-	sin.sin_family=AF_INET;
-	sin.sin_addr.s_addr=inet_addr(ssp_host);
-	sin.sin_port=htons(ssp_port);
+	bzero(&sin, sizeof(sin));
+	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = inet_addr(ssp_host);
+	sin.sin_port = htons(ssp_port);
 
-	ret=bind(listen_fd,(struct sockaddr *)&sin,sizeof(sin));
-	if (ret<0)
-	{
+	ret = bind(listen_fd, (struct sockaddr *) &sin, sizeof(sin));
+	if (ret < 0) {
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
-		printf("Not on the host %s bind port %d\n",ssp_host,ssp_port);
+		printf("Not on the host %s bind port %d\n", ssp_host, ssp_port);
 		return 0;
 	}
 
-	ret=listen(listen_fd, ssp_backlog);
-	if (ret<0)
-	{
+	ret = listen(listen_fd, ssp_backlog);
+	if (ret < 0) {
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
 		return 0;
 	}
 
-	pid=fork();
+	pid = fork();
 
-	if (pid==-1)
-	{
+	if (pid == -1) {
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
 		printf("fork failure!\n");
 		return 0;
 	}
-	if (pid>0)
-	{
+	if (pid > 0) {
 		FILE *fp;
-		fp=fopen(ssp_pidfile,"w+");
-		if (fp==NULL)
-		{
-			printf("file '%s' open fail.\n",ssp_pidfile);
-		}
-		else
-		{
-			fprintf(fp,"%d",pid);
+		fp = fopen(ssp_pidfile, "w+");
+		if (fp == NULL) {
+			printf("file '%s' open fail.\n", ssp_pidfile);
+		} else {
+			fprintf(fp, "%d", pid);
 			fclose(fp);
 		}
 		sleep(1);
@@ -125,8 +115,7 @@ int server_start()
 	struct passwd *pwnam;
 	pwnam = getpwnam(ssp_user);
 
-	if(!pwnam)
-	{
+	if (!pwnam) {
 		printf("Not found user %s.\n", ssp_user);
 		exit(1);
 	}
@@ -134,14 +123,11 @@ int server_start()
 	setuid(pwnam->pw_uid);
 	setgid(pwnam->pw_gid);
 
-	ret=setsid();
-	if (ret<1)
-	{
+	ret = setsid();
+	if (ret < 1) {
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
-	}
-	else
-	{
+	} else {
 		system("echo -e \"\\E[32m\"[Succeed]");
 		system("tput sgr0");
 	}
@@ -151,65 +137,57 @@ int server_start()
 	exit(0);
 }
 
-int server_stop()
-{
+int server_stop() {
 	FILE *fp;
-	int pid,i=19,cols=tput_cols();
+	int pid, i = 19, cols = tput_cols();
 
 	printf("Stopping SSP server");
 	flush();
 
-	fp=fopen(ssp_pidfile,"r+");
-	if (fp!=NULL)
-	{
-		fscanf(fp,"%d",&pid);
+	fp = fopen(ssp_pidfile, "r+");
+	if (fp != NULL) {
+		fscanf(fp, "%d", &pid);
 		fclose(fp);
 		unlink(ssp_pidfile);
-		if (pid==getsid(pid))
-		{
-			kill(pid,SIGINT);
-			while (pid==getsid(pid))
-			{
+		if (pid == getsid(pid)) {
+			kill(pid, SIGINT);
+			while (pid == getsid(pid)) {
 				printf(".");
 				flush();
 				i++;
 				sleep(1);
-				if (cols-i-9==0)
-				{
-					kill(pid,SIGKILL);
+				if (cols - i - 9 == 0) {
+					kill(pid, SIGKILL);
 					break;
 				}
 			}
-			strnprint(".",cols-i-9);
+			strnprint(".", cols - i - 9);
 			flush();
 			system("echo -e \"\\E[32m\"[Succeed]");
 			system("tput sgr0");
 			return 1;
 		}
 	}
-	strnprint(".",cols-i-8);
+	strnprint(".", cols - i - 8);
 	flush();
 	system("echo -e \"\\E[31m\"[Failed]");
 	system("tput sgr0");
 	return 0;
 }
 
-int server_status()
-{
+int server_status() {
 	FILE *fp;
-	int pid,i=17,cols=tput_cols();
+	int pid, i = 17, cols = tput_cols();
 
 	printf("SSP server status");
-	strnprint(".",cols-i-9);
+	strnprint(".", cols - i - 9);
 	flush();
 
-	fp=fopen(ssp_pidfile,"r+");
-	if (fp!=NULL)
-	{
-		fscanf(fp,"%d",&pid);
+	fp = fopen(ssp_pidfile, "r+");
+	if (fp != NULL) {
+		fscanf(fp, "%d", &pid);
 		fclose(fp);
-		if (pid==getsid(pid))
-		{
+		if (pid == getsid(pid)) {
 			system("echo -e \"\\E[32m\"[Running]");
 			system("tput sgr0");
 			return 1;

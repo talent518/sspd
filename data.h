@@ -7,12 +7,12 @@
 
 #include <event.h>
 
-#include "event.h"
+#include "ssp_event.h"
 #include "queue.h"
 
-typedef struct _conn_t{
+typedef struct _conn_t {
 	int index;
-	
+
 	int sockfd;
 	char host[15];
 	int port;
@@ -43,29 +43,29 @@ extern conn_t **iconns;
 
 #define CONN_NUM _conn_num()
 
-//¶ÁĞ´Ëø
+//è¯»å†™é”
 void begin_read_lock();
 void end_read_lock();
 void begin_write_lock();
 void end_write_lock();
 
-//Á¬½ÓÊı
+//è¿æ¥æ•°
 unsigned int _conn_num();
 
-//½Óµã¶Á
+//æ¥ç‚¹è¯»
 conn_t* index_conn(int index);
 #ifdef SSP_DATA_SOCKFD_PORT
 conn_t* sockfd_conn(int sockfd);
 conn_t* port_conn(int port);
 #else
-	#define sockfd_conn(a) (NULL)
-	#define port_conn(a) (NULL)
+#define sockfd_conn(a) (NULL)
+#define port_conn(a) (NULL)
 #endif
 
 void ref_conn(conn_t *ptr);
 void unref_conn(conn_t *ptr);
 
-//½ÓµãĞ´
+//æ¥ç‚¹å†™
 void attach_conn();
 void insert_conn(conn_t *ptr);
 void remove_conn(conn_t *ptr);

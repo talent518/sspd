@@ -11,7 +11,7 @@
 
 #include "ssp.h"
 #include "socket.h"
-#include "event.h"
+#include "ssp_event.h"
 
 int recv_data_len(conn_t *ptr)
 {
@@ -46,8 +46,8 @@ int recv_data_len(conn_t *ptr)
 	return len;
 }
 
-//½ÓÊÕÀ´×Ô¿Í»§¶ËÊý¾Ý
-//·µ»ØÖµ:0(¹Ø±ÕÁ¬½Ó),-1(½ÓÊÕµ½µÄÊý¾Ý³¤¶ÈÓëÊý¾Ý°ü³¤¶È²»Ò»ÖÂ),>0(½ÓÊÕ³É¹¦)
+//æŽ¥æ”¶æ¥è‡ªå®¢æˆ·ç«¯æ•°æ®
+//è¿”å›žå€¼:0(å…³é—­è¿žæŽ¥),-1(æŽ¥æ”¶åˆ°çš„æ•°æ®é•¿åº¦ä¸Žæ•°æ®åŒ…é•¿åº¦ä¸ä¸€è‡´),>0(æŽ¥æ”¶æˆåŠŸ)
 int socket_recv(conn_t *ptr,char **data,int *data_len)
 {
 	int ret;
@@ -117,7 +117,7 @@ int socket_send(conn_t *ptr,const char *data,int data_len)
 		package[i]=data_len>>((3-i)*8);
 	}
 
-	memcpy(package+4,data,data_len);//Êý¾Ý°üÄÚÈÝ
+	memcpy(package+4,data,data_len);//æ•°æ®åŒ…å†…å®¹
 
 	ret=send(ptr->sockfd,package,plen,MSG_WAITALL);
 	free(package);

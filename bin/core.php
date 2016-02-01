@@ -50,6 +50,7 @@ function &DB () {
 		$_SSP['DB']->host = DB_HOST;
 		$_SSP['DB']->user = DB_USER;
 		$_SSP['DB']->pwd = DB_PWD;
+		$_SSP['DB']->socket = DB_SOCKET;
 		$_SSP['DB']->name = DB_NAME;
 		$_SSP['DB']->pconnect = DB_PCONNECT;
 		$_SSP['DB']->tablepre = DB_TABLEPRE;

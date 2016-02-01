@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <main/SAPI.h>
+#include <php.h>
 
 extern sapi_module_struct ssp_sapi_module;
 
