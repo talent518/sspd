@@ -62,4 +62,4 @@ pidstat: retest
 bench:
 	@echo -e "\E[32m"$@"\E[m"
 	@tput sgr0
-	@$(BIN_DIR)/ssp -f $(PWD)/bin/bench.php -s script 127.0.0.1 8086 64 50 60000
+	@$(BIN_DIR)/ssp -f $(PWD)/bin/bench.php -s script 127.0.0.1 8086 200 20 60000
