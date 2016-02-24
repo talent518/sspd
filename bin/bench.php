@@ -17,9 +17,13 @@ if($ntimes === null) {
 	$ntimes = 1000;
 }
 
+$benchTimes = 10;
+$benchFile = dirname(__FILE__) . '/bench.lock';
+
+@unlink($benchFile);
+
 if($pid===null) {
 	$pipes = array();
-	$conns = $connErrors = $sendLoginErrors = $recvLoginErrors = $loginFails = $logins = $sendRequestErrors = $recvRequestErrors = $recvRequestFails = $requests = $closes = 0;
 
 	for($pid=0; $pid<$nthreads; $pid++) {
 		$cmdString = sprintf("/opt/ssp/bin/ssp -f %s -s script %s %s %s %s %s %s", __FILE__,$host,$port,$nthreads,$nconns,$ntimes,$pid);
@@ -28,10 +32,14 @@ if($pid===null) {
 		$pipes[] = $fp;
 	}
 
+	$conns = $connErrors = $sendLoginErrors = $recvLoginErrors = $loginFails = $logins = 0;
+	$logines = $pipes;
 	$beginTime=microtime(true);
-	while ( count($pipes) )
+	while ( count($logines) && count($pipes) )
 	{
-		$reads = $pipes;
+		sleep(1);
+		
+		$reads = $logines;
 		$writes = null;
 		$excepts = null;
 		$ret = stream_select($reads, $writes, $excepts, 0);
@@ -60,6 +68,55 @@ if($pid===null) {
 						case 'e':
 							$connErrors++;
 							break;
+						case 'W':
+							$id = array_search($fp, $logines);
+							unset($logines[$id]);
+							break;
+						case 'C':
+							$id = array_search($fp, $pipes);
+							unset($pipes[$id]);
+							@pclose($fp);
+							break;
+					}
+				}
+			}
+		}
+		
+		$tmpTime = microtime(true);
+		echo 'logins: ', $logins, ', avg logins: ', $logins/($tmpTime - $beginTime), PHP_EOL;
+	}
+	
+	echo 'conns: ', $conns, ', connErrors: ', $connErrors, ', logins: ', $logins, ', loginFails: ', $loginFails, ', sendLoginErrors: ', $sendLoginErrors, ', recvLoginErrors: ', $recvLoginErrors, PHP_EOL;
+	$loginBenchString = 'logins: ' . $logins . ', avg logins: ' . ($logins/($tmpTime - $beginTime));
+	
+	if(empty($pipes)) {
+		exit;
+	}
+	
+	touch($benchFile);
+	
+	$conns = $logins;
+	$sendRequestErrors = $recvRequestErrors = $recvRequestFails = $requests = 0;
+	$requestStack = $requestStackTime = array();
+	$requestStackIndex = 0;
+	$requestStackSum = 0;
+	$beginTime=microtime(true);
+	while ( count($pipes) )
+	{
+		$tmpTime = microtime(true);
+		sleep(1);
+		$_requests = $requests;
+		$reads = $pipes;
+		$writes = null;
+		$excepts = null;
+		$ret = stream_select($reads, $writes, $excepts, 0);
+		if ( $ret > 0 && count($reads) )
+		{
+			foreach ( $reads as $fp )
+			{
+				$buffer = fread($fp, 8192);
+				for($i=0; $i<strlen($buffer); $i++) {
+					switch($buffer{$i}) {
 						case 'S':
 							$sendRequestErrors++;
 							$conns--;
@@ -84,16 +141,31 @@ if($pid===null) {
 				}
 			}
 		}
-		//echo 'conns(',$conns,'), connErrors(',$connErrors,'), sendLoginErrors(',$sendLoginErrors,'), recvLoginErrors(',$recvLoginErrors,'), logins(',$logins,'), sendRequestErrors(',$sendRequestErrors,'), recvRequestErrors(',$recvRequestErrors,'), requests(',$requests,'), nthreads(',$nthreads,'), closeThreads(',$nthreads-count($pipes),')', PHP_EOL;
-		if($beginRequestTime) {
-			echo 'logins: ', $logins, ', avg logins(',$logins/($beginRequestTime - $beginTime),'), avg requests: ', $requests/(microtime(true) - $beginRequestTime), PHP_EOL;
-		}elseif($requests) {
-			$beginRequestTime = microtime(true);
-			echo 'logins: ', $logins, ', requests: ', $requests, PHP_EOL;
-		}else{
-			echo 'logins: ', $logins, ', avg logins: ', $logins/(microtime(true) - $beginTime), PHP_EOL;
+
+		echo $loginBenchString;
+		$tmpTime2 = microtime(true);
+		if(count($requestStack) == $benchTimes) {
+			if($requestStackIndex == $benchTimes-1) {
+				$requestStackIndex = 0;
+			} else {
+				$requestStackIndex++;
+			}
+			
+			$requestStackTime[$requestStackIndex] = $tmpTime;
+			$requestStackSum -= $requestStack[$requestStackIndex];
+			$requestStackSum += ($requestStack[$requestStackIndex] = ($requests - $_requests));
+			echo ', total avg requests: ', $requestStackSum/($tmpTime2 - ($requestStackIndex>0 ? $requestStackTime[$requestStackIndex-1] : $requestStackTime[$benchTimes-1]));
+		} else {
+			$requestStackTime[$requestStackIndex] = $tmpTime;
+			$requestStackSum += ($requestStack[$requestStackIndex] = ($requests - $_requests));
+			echo ', total avg requests: ', $requestStackSum/($tmpTime2 - $requestStackTime[0]);
+			$requestStackIndex++;
+			if($requestStackIndex == $benchTimes) {
+				$requestStackIndex--;
+			}
 		}
-		sleep(1);
+		
+		echo ', total avg requests: ', $requests/($tmpTime2 - $beginTime), PHP_EOL;
 	}
 
 	exit;
@@ -150,6 +222,12 @@ for($i=0; $i<$nconns; $i++) {
 	}else{
 		echo 'e'; // connection error
 	}
+}
+
+echo 'W';
+
+while(!file_exists($benchFile)) {
+	usleep(100);
 }
 
 $request=new XML_Element('request');
