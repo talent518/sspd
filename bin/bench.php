@@ -83,11 +83,11 @@ if($pid===null) {
 		}
 		
 		$tmpTime = microtime(true);
-		echo 'logins: ', $logins, ', avg logins: ', $logins/($tmpTime - $beginTime), PHP_EOL;
+		echo 'logins: ', $logins, ', avg logins: ', round($logins/($tmpTime - $beginTime), 3), '/s', PHP_EOL;
 	}
 	
 	echo 'conns: ', $conns, ', connErrors: ', $connErrors, ', logins: ', $logins, ', loginFails: ', $loginFails, ', sendLoginErrors: ', $sendLoginErrors, ', recvLoginErrors: ', $recvLoginErrors, PHP_EOL;
-	$loginBenchString = 'logins: ' . $logins . ', avg logins: ' . ($logins/($tmpTime - $beginTime));
+	$loginBenchString = 'logins: ' . $logins . ', avg logins: ' . round($logins/($tmpTime - $beginTime), 3) . '/s';
 	
 	if(empty($pipes)) {
 		exit;
@@ -142,30 +142,24 @@ if($pid===null) {
 			}
 		}
 
-		echo $loginBenchString;
 		$tmpTime2 = microtime(true);
+		echo $loginBenchString, ', total avg requests: ', round($requests/($tmpTime2 - $beginTime), 3), '/s';
 		if(count($requestStack) == $benchTimes) {
-			if($requestStackIndex == $benchTimes-1) {
-				$requestStackIndex = 0;
-			} else {
-				$requestStackIndex++;
-			}
+			$requestStackIndex = ($requestStackIndex + 1) % $benchTimes;
 			
 			$requestStackTime[$requestStackIndex] = $tmpTime;
 			$requestStackSum -= $requestStack[$requestStackIndex];
 			$requestStackSum += ($requestStack[$requestStackIndex] = ($requests - $_requests));
-			echo ', total avg requests: ', $requestStackSum/($tmpTime2 - ($requestStackIndex>0 ? $requestStackTime[$requestStackIndex-1] : $requestStackTime[$benchTimes-1]));
+			echo ', current requests: ', $requestStack[$requestStackIndex], ', avg requests: ', round($requestStackSum/($tmpTime2 - $requestStackTime[($requestStackIndex + 1) % $benchTimes]), 3), '/s', PHP_EOL;
 		} else {
 			$requestStackTime[$requestStackIndex] = $tmpTime;
 			$requestStackSum += ($requestStack[$requestStackIndex] = ($requests - $_requests));
-			echo ', total avg requests: ', $requestStackSum/($tmpTime2 - $requestStackTime[0]);
+			echo ', current requests: ', $requestStack[$requestStackIndex], ', avg requests: ', round($requestStackSum/($tmpTime2 - $requestStackTime[0]), 3), '/s', PHP_EOL;
 			$requestStackIndex++;
 			if($requestStackIndex == $benchTimes) {
 				$requestStackIndex--;
 			}
 		}
-		
-		echo ', total avg requests: ', $requests/($tmpTime2 - $beginTime), PHP_EOL;
 	}
 
 	exit;
