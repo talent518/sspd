@@ -14,7 +14,7 @@ class LibDbMysqli extends LibDbBase {
 
 	function connect ( $silent = FALSE ) {
 		list ( $host, $port ) = explode(':', $this->host);
-		if (  ! ( $this->link = @mysqli_connect($host, $this->user, $this->pwd, $silent ? null : $this->name, $port) ) &&  ! $silent )
+		if (  ! ( $this->link = @mysqli_connect($host, $this->user, $this->pwd, $silent ? null : $this->name, $port, $this->socket) ) &&  ! $silent )
 			$this->halt('Can not connect to MySQL server');
 		
 		if ( $this->version() > '4.1' ) {
@@ -24,6 +24,10 @@ class LibDbMysqli extends LibDbBase {
 			if ( $this->version() > '5.0.1' )
 				@mysqli_query($this->link, "SET sql_mode=''");
 		}
+		
+		if ( $this->name &&  ! $silent &&  ! $this->sdb($this->name) )
+			$this->halt('Database does not exist');
+			
 		return is_object($this->link) ? true : false;
 	}
 

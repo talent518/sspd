@@ -19,6 +19,7 @@ function UDB () {
 		$_SSP['UDB']->host = UC_HOST;
 		$_SSP['UDB']->user = UC_USER;
 		$_SSP['UDB']->pwd = UC_PWD;
+		$_SSP['UDB']->socket = UC_SOCKET;
 		$_SSP['UDB']->name = UC_NAME;
 		$_SSP['UDB']->pconnect = UC_PCONNECT;
 		$_SSP['UDB']->tablepre = UC_TABLEPRE;

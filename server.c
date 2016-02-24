@@ -31,7 +31,7 @@ char *ssp_user="daemon";
 int ssp_maxclients=1000;
 int ssp_maxrecvs=2*1024*1024;
 
-int server_start()
+void server_start()
 {
 	struct sockaddr_in sin;
 	int listen_fd;
@@ -49,7 +49,7 @@ int server_start()
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
 		printf("Not on the host %s bind port %d\n",ssp_host,ssp_port);
-		return 0;
+		return;
 	}
 	int opt=1;
 	setsockopt(listen_fd,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(int));
@@ -85,7 +85,7 @@ int server_start()
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
 		printf("Not on the host %s bind port %d\n",ssp_host,ssp_port);
-		return 0;
+		return;
 	}
 
 	ret=listen(listen_fd, ssp_backlog);
@@ -93,7 +93,7 @@ int server_start()
 	{
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
-		return 0;
+		return;
 	}
 
 	pid=fork();
@@ -103,7 +103,7 @@ int server_start()
 		system("echo -e \"\\E[31m\".[Failed]");
 		system("tput sgr0");
 		printf("fork failure!\n");
-		return 0;
+		return;
 	}
 	if (pid>0)
 	{
@@ -119,7 +119,7 @@ int server_start()
 			fclose(fp);
 		}
 		sleep(1);
-		return 1;
+		return;
 	}
 
 	struct passwd *pwnam;
@@ -147,11 +147,9 @@ int server_start()
 	}
 
 	loop_event(listen_fd);
-
-	exit(0);
 }
 
-int server_stop()
+void server_stop()
 {
 	FILE *fp;
 	int pid,i=19,cols=tput_cols();
@@ -184,17 +182,16 @@ int server_stop()
 			flush();
 			system("echo -e \"\\E[32m\"[Succeed]");
 			system("tput sgr0");
-			return 1;
+			return;
 		}
 	}
 	strnprint(".",cols-i-8);
 	flush();
 	system("echo -e \"\\E[31m\"[Failed]");
 	system("tput sgr0");
-	return 0;
 }
 
-int server_status()
+void server_status()
 {
 	FILE *fp;
 	int pid,i=17,cols=tput_cols();
@@ -212,11 +209,10 @@ int server_status()
 		{
 			system("echo -e \"\\E[32m\"[Running]");
 			system("tput sgr0");
-			return 1;
+			return;
 		}
 		unlink(ssp_pidfile);
 	}
 	system("echo -e \"\\E[31m\"[stopped]");
 	system("tput sgr0");
-	return 0;
 }

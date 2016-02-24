@@ -9,7 +9,7 @@ define('SQL_SELECT_STRING', 3);
 
 class LibDbBase {
 
-	var $host, $user, $pwd, $name, $pconnect, $tablepre, $charset;
+	var $host, $user, $pwd, $name, $socket, $pconnect, $tablepre, $charset;
 
 	function connect ( $silent = FALSE ) {
 		exit('connect method no define');
@@ -83,7 +83,7 @@ class LibDbBase {
 			case SQL_SELECT_LIST:
 				$q = $this->query($sql);
 				$return = array();
-				while ( ($v = $this->row($q) )!==false) {
+				while ($v = $this->row($q)) {
 					$value = ( $vkey ? $v[$vkey] : $v );
 					if ( $key )
 						$return[$v[$key]] = $value;

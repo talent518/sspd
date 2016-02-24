@@ -18,10 +18,10 @@ pushd reflib
 #php
 if [ ! -f "$INST_DIR/lib/libphp5.so" ]; then
     echo Installing php ...
-    if [ ! -d "/tmp/php-5.6.13" ]; then
-        tar -xvf php-5.6.13.tar.bz2 -C /tmp/
+    if [ ! -d "/tmp/php-5.6.18" ]; then
+        tar -xvf php-5.6.18.tar.bz2 -C /tmp/
     fi
-    pushd /tmp/php-5.6.13
+    pushd /tmp/php-5.6.18
 
 	OPT_MAK="--prefix=/opt/ssp --with-config-file-path=/opt/ssp/etc --with-config-file-scan-dir=/opt/ssp/etc/php.d --with-mysql=mysqlnd --enable-inline-optimization --disable-debug --enable-bcmath --enable-calendar --enable-ctype --enable-ftp --enable-gd-native-ttf --enable-shmop --disable-sigchild --enable-sysvsem --enable-sysvshm --enable-wddx --with-gdbm=/opt/lampp --with-jpeg-dir=/opt/lampp --with-png-dir=/opt/lampp --with-xpm-dir=/usr --with-freetype-dir=/opt/lampp --with-zlib=yes --with-zlib-dir=/opt/lampp --with-openssl=/opt/lampp --with-xsl=/opt/lampp --with-ldap=/opt/lampp --with-gd --with-imap=/opt/lampp/ --with-imap-ssl --with-gettext=/opt/lampp --with-mssql=/opt/lampp --with-sybase-ct=/opt/lampp --with-mysql-sock=/opt/lampp/var/mysql/mysql.sock --with-oci8=shared,instantclient,/opt/lampp/lib/instantclient --with-mcrypt=/opt/lampp --with-mhash=/opt/lampp --enable-sockets --enable-mbstring=all --with-curl=/opt/lampp --enable-mbregex --enable-exif --with-bz2=/opt/lampp --with-sqlite3=/opt/lampp --with-libxml-dir=/opt/lampp --enable-soap --enable-pcntl --with-mysqli=mysqlnd --with-iconv=/opt/lampp --with-pdo-mysql=mysqlnd --with-pdo-sqlite --with-icu-dir=/opt/lampp --enable-fileinfo --enable-phar --enable-zip --enable-intl"
     OPT_OTH="--enable-maintainer-zts  --with-tsrm-pthreads --enable-embed"
@@ -31,7 +31,7 @@ if [ ! -f "$INST_DIR/lib/libphp5.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf /tmp/php-5.6.13
+        rm -rf /tmp/php-5.6.18
         echo Installed php Success.
     else
         popd

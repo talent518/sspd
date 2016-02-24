@@ -499,58 +499,44 @@ int main(int argc, char *argv[])
 		}
 	} zend_end_try();
 
-	if (serv_opt==NULL)
-	{
-		exit_status=0;
-		goto err;
-	}
-	else if (strcmp(serv_opt,"script")==0)
-	{
-		SG(request_info).argc=argc-php_optind+1;
-		argv[php_optind-1] = request_init_file;
-		SG(request_info).argv=argv+php_optind-1;
-		
+	if (strcmp(serv_opt, "script") == 0) {
+		SG(request_info).argc = argc - php_optind + 1;
+		argv[php_optind - 1] = request_init_file;
+		SG(request_info).argv = argv + php_optind - 1;
+
 		ssp_request_startup();
 		ssp_request_shutdown();
-	}
-	else if (strcmp(serv_opt,"restart")==0)
-	{
+	} else if (strcmp(serv_opt, "restart") == 0) {
 		server_stop();
 		server_start();
-	}
-	else if (strcmp(serv_opt,"stop")==0)
-	{
+	} else if (strcmp(serv_opt, "stop") == 0) {
 		server_stop();
-	}
-	else if (strcmp(serv_opt,"start")==0)
-	{
+	} else if (strcmp(serv_opt, "start") == 0) {
 		server_start();
-	}
-	else if (strcmp(serv_opt,"status")==0)
-	{
+	} else if (strcmp(serv_opt, "status") == 0) {
 		server_stop();
-	}
-	else if (serv_opt)
-	{
+	} else if (serv_opt) {
 		php_ssp_usage(argv[0]);
 		php_output_end_all(TSRMLS_C);
-		exit_status=1;
-		goto out;
+		exit_status = 1;
+	} else {
+		exit_status = 0;
+		goto err;
 	}
+
 	free(serv_opt);
-	return 0;
 
 out:
-	if (request_started)
-	{
+	if (request_started) {
 		php_request_shutdown(NULL);
 	}
-	if (exit_status == 0)
-	{
+	if (exit_status == 0) {
 		exit_status = EG(exit_status);
 	}
+	
 err:
 	ssp_module_shutdown();
 	ssp_destroy();
+
 	exit(exit_status);
 }
