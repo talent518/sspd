@@ -132,16 +132,16 @@ for($i=0; $i<$nconns; $i++) {
 		$user = array_shift($list);
 		$request->params->username = $user['username'];
 		if($socket->write($request) === false) {
-			echo 's'; // send login request error and close connection
+			echo 'sC'; // send login request error and close connection
 			continue;
 		}
 		if(($recv=$socket->read()) === false) {
-			echo 'r'; // recv login response error and close connection
+			echo 'rC'; // recv login response error and close connection
 			continue;
 		}
 		if($recv->type === 'User.Login.Failed') {
 			UDB()->delete('members', 'username=\''.$user['username'].'\'');
-			echo 'f'; // recv login fail and close connection
+			echo 'fC'; // recv login fail and close connection
 			continue;
 		}
 		echo 'l'; // login success
@@ -158,17 +158,20 @@ $request->is_simple=true;
 $request->params=array_to_xml(array('page'=>1,'size'=>10,'isToday'=>0),'params');
 
 for($i=0; $i<$ntimes; $i++) {
+	if(empty($sockets)) {
+		exit;
+	}
 	$request->pid=$pid;
 	$request->i=$i;
 	foreach($sockets as $j=>$socket) {
 		if($socket->write($request) === false) {
 			unset($sockets[$j]);
-			echo 'S'; // send request error and close connection
+			echo 'SC'; // send request error and close connection
 			continue;
 		}
 		$response=$socket->read();
 		if($response === false) {
-			echo 'R'; // recv request error and close connection
+			echo 'RC'; // recv request error and close connection
 			unset($sockets[$j]);
 			continue;
 		}
