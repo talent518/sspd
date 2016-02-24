@@ -1,6 +1,6 @@
 #!/bin/sh
 
-INST_DIR=/opt/ssp
+INST_DIR=/opt/ssp7
 #export CPPFLAGS="-I$INST_DIR/include -I/usr/include -D_GNU_SOURCE $CPPFLAGS"
 #export LDFLAGS="-L$INST_DIR/lib -L/usr/lib64 -L/usr/lib $LDFLAGS"
 

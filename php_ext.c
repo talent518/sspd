@@ -149,8 +149,6 @@ static PHP_MSHUTDOWN_FUNCTION(ssp)
 
 	pthread_mutex_destroy(&unique_lock);
 
-	zend_delete_global_variable(zend_string_init("_SSP", sizeof("_SSP") - 1, 1));
-
 #ifdef SSP_DEBUG_EXT
 	printf("module shutdown function for %s\n", __func__);
 #endif
@@ -178,6 +176,8 @@ PHP_RINIT_FUNCTION(ssp)
 */
 PHP_RSHUTDOWN_FUNCTION(ssp)
 {
+	zend_delete_global_variable(zend_string_init("_SSP", sizeof("_SSP") - 1, 1));
+	
 	if (!Z_ISUNDEF(SSP_G(ssp_vars))) {
 		zval_ptr_dtor(&SSP_G(ssp_vars));
 	}

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-INST_DIR=/opt/ssp
+INST_DIR=/opt/ssp7
 
 if [ ! -d $INST_DIR/bin ]; then
     mkdir -p $INST_DIR/bin

@@ -439,10 +439,7 @@ int main(int argc, char *argv[])
 				}
 			}zend_end_try();
 
-	if (serv_opt == NULL) {
-		exit_status = 0;
-		goto err;
-	} else if (strcmp(serv_opt, "script") == 0) {
+	if (strcmp(serv_opt, "script") == 0) {
 		SG(request_info).argc = argc - php_optind + 1;
 		argv[php_optind - 1] = request_init_file;
 		SG(request_info).argv = argv + php_optind - 1;
@@ -462,18 +459,24 @@ int main(int argc, char *argv[])
 		php_ssp_usage(argv[0]);
 		php_output_end_all();
 		exit_status = 1;
-		goto out;
+	} else {
+		exit_status = 0;
+		goto err;
 	}
-	free(serv_opt);
-	return 0;
 
-	out: if (request_started) {
+	free(serv_opt);
+
+out:
+	if (request_started) {
 		php_request_shutdown(NULL);
 	}
 	if (exit_status == 0) {
 		exit_status = EG(exit_status);
 	}
-	err: ssp_module_shutdown();
+	
+err:
+	ssp_module_shutdown();
 	ssp_destroy();
+
 	exit(exit_status);
 }
