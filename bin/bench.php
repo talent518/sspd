@@ -40,8 +40,8 @@ if($pid===null) {
 		sleep(1);
 		
 		$reads = $logines;
-		$writes = null;
-		$excepts = null;
+		$writes = array();
+		$excepts = array();
 		$ret = stream_select($reads, $writes, $excepts, 0);
 		if ( $ret > 0 && count($reads) )
 		{
@@ -107,8 +107,8 @@ if($pid===null) {
 		sleep(1);
 		$_requests = $requests;
 		$reads = $pipes;
-		$writes = null;
-		$excepts = null;
+		$writes = array();
+		$excepts = array();
 		$ret = stream_select($reads, $writes, $excepts, 0);
 		if ( $ret > 0 && count($reads) )
 		{
