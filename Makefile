@@ -6,7 +6,7 @@ BIN_DIR  = $(INST_DIR)/bin
 BUILD_DIR=$(PWD)/build
 
 CFLAGS   = -O3 -I$(INC_DIR) -I$(INC_DIR)/php -I$(INC_DIR)/php/main -I$(INC_DIR)/php/Zend -I$(INC_DIR)/php/TSRM -I$(INC_DIR)/php/ext -DZTS -DHAVE_LIBGTOP `pkg-config --cflags libgtop-2.0`
-LFLAGS   = -lstdc++ -L$(INST_DIR)/lib -lphp7 -levent -Wl,-rpath,$(INST_DIR)/lib -Wl,-rpath,/opt/lampp/lib -Wl,-rpath,/usr/lib `pkg-config --libs libgtop-2.0`
+LFLAGS   = -lstdc++ -L$(INST_DIR)/lib -lm -lpthread -lphp7 -levent -Wl,-rpath,$(INST_DIR)/lib -Wl,-rpath,/opt/lampp/lib -Wl,-rpath,/usr/lib `pkg-config --libs libgtop-2.0`
 
 all: $(BIN_DIR) $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/daemon
 
