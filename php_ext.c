@@ -428,7 +428,10 @@ static PHP_FUNCTION(ssp_close)
 		RETURN_FALSE;
 	}
 
-	ptr = (conn_t *) zend_fetch_resource(Z_RES_P(res), PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
+	ptr = (conn_t *) zend_fetch_resource(Z_RES_P(res), PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
+	if(!ptr) {
+		ptr = (conn_t *) zend_fetch_resource(Z_RES_P(res), PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
+	}
 	if(ptr) {
 		socket_close(ptr);
 

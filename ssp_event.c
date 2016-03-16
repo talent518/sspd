@@ -178,7 +178,6 @@ static void notify_handler(const int fd, const short which, void *arg)
 				assert(ptr);
 
 				conn_info(ptr);
-				clean_conn(ptr);
 				trigger(PHP_SSP_CLOSE,ptr);
 				remove_conn(ptr);
 
