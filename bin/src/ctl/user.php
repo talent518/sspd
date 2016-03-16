@@ -109,16 +109,14 @@ class CtlUser extends CtlBase {
 			$list=MOD('user.online')->get_list_by_uid_not_id($uid,$index);
 			foreach($list as $exitId){
 				MOD('user.online')->edit($exitId,$exitData);
-			}
-			MOD('user.online')->edit($index, $data);
-			ssp_unlock();
-			
-			foreach($list as $exitId){
-				$exitRes=ssp_resource($exitId,SSP_RES_INDEX);
+
+				$exitRes=ssp_resource($exitId);
 				if($exitRes) {
 					ssp_send($exitRes,$exitStrng); ssp_close($exitRes);
 				}
 			}
+			MOD('user.online')->edit($index, $data);
+			ssp_unlock();
 
 			if ( UGK($uid, 'consult_reply') ) {
 				if (  !  ! ( $consults = ( string ) $params->consults ) ) {

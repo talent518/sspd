@@ -287,7 +287,7 @@ class CtlConsult extends CtlBase {
 					$sendXML->message->message = xml_to_object($message);
 					$sendXML->message->message->setTag('message');
 					$sendXML->message->dateline = udate('H:i:s', $data['dateline'], $tuid);
-					$res = ssp_resource($online['id'], SSP_RES_INDEX);
+					$res = ssp_resource($online['id']);
 					if ( ssp_send($res, ( string ) $sendXML) ) {
 						$isRecv = true;
 						$msg = '对方收到已消息！';
@@ -301,7 +301,7 @@ class CtlConsult extends CtlBase {
 				} else {
 					$remind = new XML_Element('response');
 					$remind->type = 'Remind.Consult';
-					$res = ssp_resource($online['id'], SSP_RES_INDEX);
+					$res = ssp_resource($online['id']);
 					if ( ssp_send($res, ( string ) $remind) ) {
 						$msg = '对方收到提醒！';
 					} else {
