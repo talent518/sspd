@@ -1,10 +1,6 @@
 <?php
 define('SSP_VERSION');
 
-define('SSP_RES_INDEX', 0);
-define('SSP_RES_SOCKFD', 1);
-define('SSP_RES_PORT', 2);
-
 define('SSP_PIDFILE', '/var/run/ssp.pid');
 define('SSP_USER', 'daemon');
 define('SSP_HOST', '0.0.0.0');
