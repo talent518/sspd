@@ -132,9 +132,6 @@ int socket_send(conn_t *ptr,const char *data,int data_len)
 
 void socket_close(conn_t *ptr)
 {
-	char buf[1];
-	buf[0] = '\0';
-
 	BEGIN_READ_LOCK
 	{
 		if (ptr->refable)
@@ -145,11 +142,11 @@ void socket_close(conn_t *ptr)
 
 			queue_push(ptr->thread->close_queue, ptr);
 
-			buf[0] = 'x';
+			char buf = 'x';
+
+			clean_conn(ptr);
+
+			write(ptr->thread->write_fd, &buf, 1);
 		}
 	} END_READ_LOCK;
-
-	if(buf[0]) {
-		write(ptr->thread->write_fd, buf, 1);
-	}
 }

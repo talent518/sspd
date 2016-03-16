@@ -449,7 +449,10 @@ static PHP_FUNCTION(ssp_close)
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &res) == FAILURE) {
 		RETURN_FALSE;
 	}
-	ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
+	ZEND_FETCH_RESOURCE_NO_RETURN(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_RES_NAME,le_ssp_descriptor);
+	if(!ptr) {
+		ZEND_FETCH_RESOURCE(ptr,conn_t*, &res, -1, PHP_SSP_DESCRIPTOR_REF_RES_NAME,le_ssp_descriptor_ref);
+	}
 
 	if(ptr) {
 		socket_close(ptr);
