@@ -38,12 +38,11 @@ char *fsize(int size)
 
 char *gad(const char *argv0)
 {
-	char *bpath;
-	bpath=(char *)malloc(255);
+	register char *bpath=(char *)malloc(255);
 	strncpy(bpath,argv0,strrchr(argv0,'/')-argv0);
 	if (*bpath=='.')
 	{
-		char *path,*q,*p,c;
+		register char *path,*q,*p,c;
 
 		path=(char *)malloc(255);
 		getcwd(path,255);
@@ -107,10 +106,10 @@ int execi(const char *cmd)
 	return ret;
 }
 
-char *str_repeat(const char *str,size_t str_len,size_t repeat)
+char *str_repeat(const char *str,register size_t str_len,register size_t repeat)
 {
-	char *ret=(char *)malloc(str_len*repeat);
-	size_t i;
+	register char *ret=(char *)malloc(str_len*repeat);
+	register size_t i;
 	for (i=0;i<repeat;i++)
 	{
 		strncpy(ret+i*str_len,str,str_len);
@@ -118,9 +117,9 @@ char *str_repeat(const char *str,size_t str_len,size_t repeat)
 	return ret;
 }
 
-void strnprint(const char *str,size_t repeat)
+void strnprint(const char *str,register size_t repeat)
 {
-	size_t i;
+	register size_t i;
 	for (i=0;i<repeat;i++)
 	{
 		printf(str);

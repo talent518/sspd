@@ -80,7 +80,7 @@ static inline int sapi_ssp_select(int fd TSRMLS_DC)
 static inline size_t sapi_ssp_single_write(const char *str, uint str_length TSRMLS_DC) /* {{{ */
 {
 #ifdef PHP_WRITE_STDOUT
-	long ret;
+	register long ret;
 
 	do {
 		ret = write(STDOUT_FILENO, str, str_length);
@@ -102,9 +102,9 @@ static inline size_t sapi_ssp_single_write(const char *str, uint str_length TSRM
 
 static int sapi_ssp_ub_write(const char *str, uint str_length TSRMLS_DC) /* {{{ */
 {
-	const char *ptr = str;
-	uint remaining = str_length;
-	size_t ret;
+	register const char *ptr = str;
+	register uint remaining = str_length;
+	register size_t ret;
 
 	while (remaining > 0)
 	{
