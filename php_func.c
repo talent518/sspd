@@ -71,7 +71,7 @@ static inline int sapi_ssp_select(int fd)
 static inline size_t sapi_ssp_single_write(const char *str, uint str_length) /* {{{ */
 {
 #ifdef PHP_WRITE_STDOUT
-	zend_long ret;
+	register zend_long ret;
 #else
 	size_t ret;
 #endif
@@ -95,9 +95,9 @@ static inline size_t sapi_ssp_single_write(const char *str, uint str_length) /* 
 
 static size_t sapi_ssp_ub_write(const char *str, size_t str_length) /* {{{ */
 {
-	const char *ptr = str;
-	size_t remaining = str_length;
-	size_t ret;
+	register const char *ptr = str;
+	register size_t remaining = str_length;
+	register size_t ret;
 
 	if (!str_length) {
 		return 0;
