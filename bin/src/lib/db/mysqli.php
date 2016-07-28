@@ -63,7 +63,10 @@ class LibDbMysqli extends LibDbBase {
 		if ( is_string($query) ) {
 			$query = $this->query($query);
 		}
-		return @mysqli_fetch_assoc($query);
+		
+		$row = @mysqli_fetch_assoc($query);
+
+		return $row === NULL ? false : $row;
 	}
 
 	function arows () {
