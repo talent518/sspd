@@ -120,6 +120,7 @@ static void read_handler(int sock, short event,	void* arg)
 	if(ret<0) { //已放入缓冲区
 	} else if(ret==0) { // 关闭连接
 		event_del(&ptr->event);
+		clean_conn(ptr);
 		trigger(PHP_SSP_CLOSE,ptr);
 		remove_conn(ptr);
 
@@ -179,6 +180,7 @@ static void notify_handler(const int fd, const short which, void *arg)
 				assert(ptr);
 
 				conn_info(ptr);
+				clean_conn(ptr);
 				trigger(PHP_SSP_CLOSE,ptr);
 				remove_conn(ptr);
 
