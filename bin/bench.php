@@ -1,4 +1,6 @@
 <?php
+error_reporting(E_ALL &  ~ E_WARNING &  ~ E_NOTICE & ~ E_STRICT);
+
 @list(,$host,$port,$nthreads,$nconns,$ntimes,$pid) = $_SERVER['argv'];
 
 if($host === null) {
