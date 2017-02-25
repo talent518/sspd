@@ -372,10 +372,10 @@ fi
 #php
 if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
     echo Installing php ...
-    if [ ! -d "/tmp/php-7.0.5" ]; then
-        tar -xvf php-7.0.5.tar.bz2 -C /tmp/
+    if [ ! -d "/tmp/php-7.1.2" ]; then
+        tar -xvf php-7.1.2.tar.bz2 -C /tmp/
     fi
-    pushd /tmp/php-7.0.5
+    pushd /tmp/php-7.1.2
 
 	if [ `uname -p` = "x86_64" ]; then
 		OPT_MAK="--prefix=$INST_DIR -bindir=$INST_DIR/bin --sbindir=$INST_DIR/sbin --sysconfdir=$INST_DIR/etc --datadir=$INST_DIR/share --includedir=$INST_DIR/include --libdir=$INST_DIR/lib --libexecdir=$INST_DIR/libexec --localstatedir=$INST_DIR/var --sharedstatedir=$INST_DIR/var/lib --mandir=$INST_DIR/share/man --infodir=$INST_DIR/share/info --with-libdir=lib64 --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-shared"
@@ -393,7 +393,7 @@ if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
 		LDAP_DIR="/usr"
 	fi
 
-	OPT_EXT="--disable-rpath --without-pear --with-ldap=shared,$LDAP_DIR --with-bz2=shared --enable-zip=shared --with-freetype-dir=$INST_DIR --with-png-dir=$INST_DIR --with-xpm-dir=$INST_DIR --enable-gd-native-ttf --with-jpeg-dir=$INST_DIR --with-gd=shared,$INST_DIR --without-gdbm --with-iconv --with-openssl=shared,$SSL_DIR --with-zlib=shared --with-layout=GNU --enable-exif=shared --enable-sockets --enable-shmop --with-sqlite3=shared --with-xsl=shared,$INST_DIR --with-libxml-dir=$INST_DIR --enable-xml --disable-simplexml --disable-dba --without-unixODBC --enable-xmlreader=shared, --enable-xmlwriter=shared --enable-json=shared --without-pspell --with-curl=shared,$INST_DIR --enable-bcmath=shared --with-mcrypt=shared,$INST_DIR --with-mhash=shared,$INST_DIR --enable-mbstring=all --enable-mbregex --with-mysql --with-mysqli --with-pdo-mysql --with-pdo-sqlite=shared --enable-posix --enable-pcntl --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-maintainer-zts  --with-tsrm-pthreads --enable-inline-optimization --disable-ctype --disable-tokenizer --disable-session --disable-phar --disable-fileinfo"
+	OPT_EXT="--disable-rpath --without-pear --with-ldap=shared,$LDAP_DIR --with-bz2=shared --enable-zip=shared --with-freetype-dir=$INST_DIR --with-png-dir=$INST_DIR --with-xpm-dir=$INST_DIR --enable-gd-native-ttf --with-jpeg-dir=$INST_DIR --with-gd=shared,$INST_DIR --without-gdbm --with-iconv --with-openssl=shared,$SSL_DIR --with-zlib=shared --with-layout=GNU --enable-exif=shared --enable-sockets --enable-shmop --with-sqlite3=shared --with-xsl=shared,$INST_DIR --with-libxml-dir=$INST_DIR --enable-xml --disable-simplexml --disable-dba --without-unixODBC --enable-xmlreader=shared, --enable-xmlwriter=shared --enable-json=shared --without-pspell --with-curl=shared,$INST_DIR --enable-bcmath=shared --with-mcrypt=shared,$INST_DIR --with-mhash=shared,$INST_DIR --enable-mbstring=all --enable-mbregex --with-mysqli --with-pdo-mysql --with-pdo-sqlite=shared --enable-posix --enable-pcntl --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-maintainer-zts  --with-tsrm-pthreads --enable-inline-optimization --disable-ctype --disable-tokenizer --disable-session --disable-phar --disable-fileinfo --disable-zend-signals"
 
     OPT_OTH="--enable-embed"
 
@@ -402,7 +402,7 @@ if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf /tmp/php-7.0.5
+        rm -rf /tmp/php-7.1.2
         echo Installed php Success.
     else
         popd
