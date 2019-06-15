@@ -1,4 +1,4 @@
-<?PHP
+<?php
 require dirname(__FILE__) . DIRECTORY_SEPARATOR . 'core.php';
 
 import('lib.xml');

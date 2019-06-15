@@ -38,24 +38,24 @@ static char *php_optarg = NULL;
 static int php_optind = 1;
 
 static const opt_struct OPTIONS[] = { { 'c', 1, "php-ini" },
-		{ 'd', 1, "define" }, { 'f', 1, "file" }, { 'h', 0, "help" }, { 'i', 0,
-				"info" }, { 'm', 0, "modules" }, { 'n', 0, "no-php-ini" }, {
-				'H', 0, "hide-args" }, { '?', 0, "usage" },/* help alias (both '?' and 'usage') */
-		{ 'v', 0, "version" }, { 'z', 1, "zend-extension" }, { 'b', 1,
-				"backlog" }, { 's', 1, "service" },
+	{ 'd', 1, "define" }, { 'f', 1, "file" }, { 'h', 0, "help" }, { 'i', 0,
+		"info" }, { 'm', 0, "modules" }, { 'n', 0, "no-php-ini" }, {
+		'H', 0, "hide-args" }, { '?', 0, "usage" },/* help alias (both '?' and 'usage') */
+	{ 'v', 0, "version" }, { 'z', 1, "zend-extension" }, { 'b', 1,
+		"backlog" }, { 's', 1, "service" },
 
-		{ OPT_HOST, 1, "host" }, { OPT_PORT, 1, "port" }, { OPT_PIDFILE, 1,
-				"pidfile" },
+	{ OPT_HOST, 1, "host" }, { OPT_PORT, 1, "port" }, { OPT_PIDFILE, 1,
+		"pidfile" },
 
-		{ OPT_USER, 1, "user" }, { OPT_NTHREADS, 1, "nthreads" }, {
-				OPT_MAX_CLIENTS, 1, "max-clients" }, { OPT_MAX_RECVS, 1,
-				"max-recvs" },
+	{ OPT_USER, 1, "user" }, { OPT_NTHREADS, 1, "nthreads" }, {
+	OPT_MAX_CLIENTS, 1, "max-clients" }, { OPT_MAX_RECVS, 1,
+		"max-recvs" },
 
-		{ OPT_TIMEOUT, 1, "timeout" }, { OPT_TIMEOUT_GLOBAL, 1, "gtimeout" },
+	{ OPT_TIMEOUT, 1, "timeout" }, { OPT_TIMEOUT_GLOBAL, 1, "gtimeout" },
 
-		{ OPT_SSP_VARS, 1, "sspvars" },
+	{ OPT_SSP_VARS, 1, "sspvars" },
 
-		{ '-', 0, NULL } /* end of args */
+	{ '-', 0, NULL } /* end of args */
 };
 
 /* {{{ php_ssp_usage
@@ -75,55 +75,55 @@ static void php_ssp_usage(char *argv0) {
 	maxrecvs = (char*) fsize(ssp_maxrecvs);
 
 	php_printf(
-			"Usage: %s [options] [args]\n"
-				"\n"
-				"  options:\n"
-				"  -c <path>|<file>        Look for php.ini file in this directory\n"
-				"  -n                      No php.ini file will be used\n"
-				"  -d foo[=bar]            Define INI entry foo with value 'bar'\n"
-				"  -h,-?                   This help\n"
-				"  -i                      PHP information\n"
-				"  -m                      Show compiled in modules\n"
-				"  -H                      Hide any passed arguments from external tools.\n"
-				"  -v                      Version number\n"
-				"  -z <file>               Load Zend extension <file>.\n"
-				"\n"
-				"  -f <file>               Parse and execute <file>.\n"
-				"  --host <IP>             Listen host (default: %s)\n"
-				"  --port <port>           Listen port (default: %d)\n"
-				"  --pidfile <file>        Service pidfile (default: %s)\n"
-				"  --user <username>       Run for user (default: %s)\n"
-				"  --nthreads <number>     LibEvent thread number (default: %d)\n"
-				"  --max-clients <number>  Max client connect number (default: %d)\n"
-				"  --max-recvs <size>      Max recv data size (default: %s)\n"
-				"  -b <backlog>            Set the backlog queue limit (default: %d)\n"
-				"  --sspvars <sspvars>     Set the global php variable _SSP init array length (default: %ds)\n"
-#ifdef SSP_CODE_TIMEOUT
-			"  --timeout <timeout>     Set the timeout php cache timeout (default: %ds)\n"
-#ifdef SSP_CODE_TIMEOUT_GLOBAL
-			"  --gtimeout <gtimeout>     Set the gtimeout global php variable _SSP timeout (default: %ds)\n"
-#endif
-#endif
+		"Usage: %s [options] [args]\n"
 			"\n"
-			"  -s <option>             socket service option\n"
-			"  option:\n"
-			"       script             run script\n"
-			"       start              start ssp service\n"
-			"       stop               stop ssp service\n"
-			"       restart            restart ssp service\n"
-			"       status             ssp service status\n"
-			"\n", prog, ssp_host, ssp_port, ssp_pidfile, ssp_user,
-			ssp_nthreads, ssp_maxclients, maxrecvs, ssp_backlog
+			"  options:\n"
+			"  -c <path>|<file>        Look for php.ini file in this directory\n"
+			"  -n                      No php.ini file will be used\n"
+			"  -d foo[=bar]            Define INI entry foo with value 'bar'\n"
+			"  -h,-?                   This help\n"
+			"  -i                      PHP information\n"
+			"  -m                      Show compiled in modules\n"
+			"  -H                      Hide any passed arguments from external tools.\n"
+			"  -v                      Version number\n"
+			"  -z <file>               Load Zend extension <file>.\n"
+			"\n"
+			"  -f <file>               Parse and execute <file>.\n"
+			"  --host <IP>             Listen host (default: %s)\n"
+			"  --port <port>           Listen port (default: %d)\n"
+			"  --pidfile <file>        Service pidfile (default: %s)\n"
+			"  --user <username>       Run for user (default: %s)\n"
+			"  --nthreads <number>     LibEvent thread number (default: %d)\n"
+			"  --max-clients <number>  Max client connect number (default: %d)\n"
+			"  --max-recvs <size>      Max recv data size (default: %s)\n"
+			"  -b <backlog>            Set the backlog queue limit (default: %d)\n"
+			"  --sspvars <sspvars>     Set the global php variable _SSP init array length (default: %ds)\n"
+#ifdef SSP_CODE_TIMEOUT
+		"  --timeout <timeout>     Set the timeout php cache timeout (default: %ds)\n"
 #ifdef SSP_CODE_TIMEOUT_GLOBAL
-			, ssp_global_timeout
+		"  --gtimeout <gtimeout>     Set the gtimeout global php variable _SSP timeout (default: %ds)\n"
+#endif
+#endif
+		"\n"
+		"  -s <option>             socket service option\n"
+		"  option:\n"
+		"       script             run script\n"
+		"       start              start ssp service\n"
+		"       stop               stop ssp service\n"
+		"       restart            restart ssp service\n"
+		"       status             ssp service status\n"
+		"\n", prog, ssp_host, ssp_port, ssp_pidfile, ssp_user,
+		ssp_nthreads, ssp_maxclients, maxrecvs, ssp_backlog
+		#ifdef SSP_CODE_TIMEOUT_GLOBAL
+		, ssp_global_timeout
 #endif
 #ifdef SSP_CODE_TIMEOUT
-			, ssp_timeout
+		, ssp_timeout
 #ifdef SSP_CODE_TIMEOUT_GLOBAL
-			, ssp_global_timeout
+		, ssp_global_timeout
 #endif
 #endif
-	);
+		);
 
 	free(maxrecvs);
 }
@@ -143,7 +143,7 @@ static int module_name_cmp(const void *a, const void *b) /* {{{ */
 	Bucket *s = (Bucket *) b;
 
 	return strcasecmp(((zend_module_entry *) Z_PTR(f->val))->name,
-			((zend_module_entry *) Z_PTR(s->val))->name);
+		((zend_module_entry *) Z_PTR(s->val))->name);
 }
 /* }}} */
 
@@ -160,10 +160,10 @@ static void print_modules() /* {{{ */
 /* }}} */
 
 static int extension_name_cmp(const zend_llist_element **f,
-		const zend_llist_element **s) /* {{{ */
+	const zend_llist_element **s) /* {{{ */
 {
 	return strcmp(((zend_extension *) (*f)->data)->name,
-			((zend_extension *) (*s)->data)->name);
+		((zend_extension *) (*s)->data)->name);
 }
 /* }}} */
 
@@ -188,7 +188,6 @@ static void print_extensions() /* {{{ */
 
 int main(int argc, char *argv[])
 {
-
 
 #ifdef HAVE_SIGNAL_H
 #if defined(SIGPIPE) && defined(SIG_IGN)
@@ -218,43 +217,43 @@ int main(int argc, char *argv[])
 	}
 
 	while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 0, 2))
-			!= -1) {
+		!= -1) {
 		switch (c) {
-		case OPT_HOST:
-			ssp_host = strdup(php_optarg);
-			break;
-		case OPT_PORT:
-			ssp_port = atoi(php_optarg);
-			break;
-		case OPT_PIDFILE:
-			ssp_pidfile = strdup(php_optarg);
-			break;
+			case OPT_HOST:
+				ssp_host = strdup(php_optarg);
+				break;
+			case OPT_PORT:
+				ssp_port = atoi(php_optarg);
+				break;
+			case OPT_PIDFILE:
+				ssp_pidfile = strdup(php_optarg);
+				break;
 
-		case OPT_USER:
-			ssp_user = strdup(php_optarg);
-			break;
-		case OPT_MAX_CLIENTS:
-			ssp_maxclients = atoi(php_optarg);
-			break;
-		case OPT_MAX_RECVS:
-			ssp_maxrecvs = zend_atoi(php_optarg, strlen(php_optarg));
-			break;
-		case OPT_NTHREADS:
-			ssp_nthreads = atoi(php_optarg);
-			break;
-		case 'b':
-			ssp_backlog = atoi(php_optarg);
-			break;
-		case OPT_SSP_VARS:
-			ssp_vars_length = atoi(php_optarg);
-			break;
+			case OPT_USER:
+				ssp_user = strdup(php_optarg);
+				break;
+			case OPT_MAX_CLIENTS:
+				ssp_maxclients = atoi(php_optarg);
+				break;
+			case OPT_MAX_RECVS:
+				ssp_maxrecvs = zend_atoi(php_optarg, strlen(php_optarg));
+				break;
+			case OPT_NTHREADS:
+				ssp_nthreads = atoi(php_optarg);
+				break;
+			case 'b':
+				ssp_backlog = atoi(php_optarg);
+				break;
+			case OPT_SSP_VARS:
+				ssp_vars_length = atoi(php_optarg);
+				break;
 #ifdef SSP_CODE_TIMEOUT
-		case OPT_TIMEOUT:
-			ssp_timeout = atoi(php_optarg);
-			break;
-		case OPT_TIMEOUT_GLOBAL:
-			ssp_global_timeout = atoi(php_optarg);
-			break;
+				case OPT_TIMEOUT:
+				ssp_timeout = atoi(php_optarg);
+				break;
+				case OPT_TIMEOUT_GLOBAL:
+				ssp_global_timeout = atoi(php_optarg);
+				break;
 #endif
 		}
 	}
@@ -267,57 +266,57 @@ int main(int argc, char *argv[])
 	CSM(executable_location) = strdup(argv[0]);
 
 	while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 0, 2))
-			!= -1) {
+		!= -1) {
 		switch (c) {
-		case 'c':
-			if (CSM(php_ini_path_override)) {
-				free(CSM(php_ini_path_override));
-			}
-			CSM(php_ini_path_override) = strdup(php_optarg);
-			break;
-		case 'n':
-			CSM(php_ini_ignore) = 1;
-			break;
-		case 'd': {
-			/* define ini entries on command line */
-			int len = strlen(php_optarg);
-			char *val;
+			case 'c':
+				if (CSM(php_ini_path_override)) {
+					free(CSM(php_ini_path_override));
+				}
+				CSM(php_ini_path_override) = strdup(php_optarg);
+				break;
+			case 'n':
+				CSM(php_ini_ignore) = 1;
+				break;
+			case 'd': {
+				/* define ini entries on command line */
+				int len = strlen(php_optarg);
+				char *val;
 
-			if ((val = strchr(php_optarg, '='))) {
-				val++;
-				if (!isalnum(*val) && *val != '"' && *val != '\'' && *val
+				if ((val = strchr(php_optarg, '='))) {
+					val++;
+					if (!isalnum(*val) && *val != '"' && *val != '\'' && *val
 						!= '\0') {
-					CSM(ini_entries) = realloc(CSM(ini_entries),
+						CSM(ini_entries) = realloc(CSM(ini_entries),
 							ini_entries_len + len + sizeof("\"\"\n\0"));
-					memcpy(CSM(ini_entries) + ini_entries_len, php_optarg, (val
+						memcpy(CSM(ini_entries) + ini_entries_len, php_optarg, (val
 							- php_optarg));
-					ini_entries_len += (val - php_optarg);
-					memcpy(CSM(ini_entries) + ini_entries_len, "\"", 1);
-					ini_entries_len++;
-					memcpy(CSM(ini_entries) + ini_entries_len, val, len - (val
+						ini_entries_len += (val - php_optarg);
+						memcpy(CSM(ini_entries) + ini_entries_len, "\"", 1);
+						ini_entries_len++;
+						memcpy(CSM(ini_entries) + ini_entries_len, val, len - (val
 							- php_optarg));
-					ini_entries_len += len - (val - php_optarg);
-					memcpy(CSM(ini_entries) + ini_entries_len, "\"\n\0",
+						ini_entries_len += len - (val - php_optarg);
+						memcpy(CSM(ini_entries) + ini_entries_len, "\"\n\0",
 							sizeof("\"\n\0"));
-					ini_entries_len += sizeof("\n\0\"") - 2;
+						ini_entries_len += sizeof("\n\0\"") - 2;
+					} else {
+						CSM(ini_entries) = realloc(CSM(ini_entries),
+							ini_entries_len + len + sizeof("\n\0"));
+						memcpy(CSM(ini_entries) + ini_entries_len, php_optarg, len);
+						memcpy(CSM(ini_entries) + ini_entries_len + len, "\n\0",
+							sizeof("\n\0"));
+						ini_entries_len += len + sizeof("\n\0") - 2;
+					}
 				} else {
 					CSM(ini_entries) = realloc(CSM(ini_entries),
-							ini_entries_len + len + sizeof("\n\0"));
-					memcpy(CSM(ini_entries) + ini_entries_len, php_optarg, len);
-					memcpy(CSM(ini_entries) + ini_entries_len + len, "\n\0",
-							sizeof("\n\0"));
-					ini_entries_len += len + sizeof("\n\0") - 2;
-				}
-			} else {
-				CSM(ini_entries) = realloc(CSM(ini_entries),
 						ini_entries_len + len + sizeof("=1\n\0"));
-				memcpy(CSM(ini_entries) + ini_entries_len, php_optarg, len);
-				memcpy(CSM(ini_entries) + ini_entries_len + len, "=1\n\0",
+					memcpy(CSM(ini_entries) + ini_entries_len, php_optarg, len);
+					memcpy(CSM(ini_entries) + ini_entries_len + len, "=1\n\0",
 						sizeof("=1\n\0"));
-				ini_entries_len += len + sizeof("=1\n\0") - 2;
+					ini_entries_len += len + sizeof("=1\n\0") - 2;
+				}
+				break;
 			}
-			break;
-		}
 		}
 	}
 	php_optind = orig_optind;
@@ -325,58 +324,59 @@ int main(int argc, char *argv[])
 
 	ssp_module_startup();
 
-	zend_first_try {
+	zend_first_try
+			{
 				CG(in_compilation) = 0; /* not initialized but needed for several options */
 
 				while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg,
-						&php_optind, 0, 2)) != -1) {
+					&php_optind, 0, 2)) != -1) {
 					switch (c) {
-					case 'h': /* help & quit */
-					case '?':
-						if (php_request_startup() == FAILURE) {
-							goto err;
-						}
-						request_started = 1;
-						php_ssp_usage(argv[0]);
-						php_output_end_all();
-						exit_status = 0;
-						goto out;
+						case 'h': /* help & quit */
+						case '?':
+							if (php_request_startup() == FAILURE) {
+								goto err;
+							}
+							request_started = 1;
+							php_ssp_usage(argv[0]);
+							php_output_end_all();
+							exit_status = 0;
+							goto out;
 
-					case 'i': /* php info & quit */
-						if (php_request_startup() == FAILURE) {
-							goto err;
-						}
-						request_started = 1;
-						php_print_info(0xFFFFFFFF);
-						php_output_end_all();
-						exit_status = 0;
-						goto out;
+						case 'i': /* php info & quit */
+							if (php_request_startup() == FAILURE) {
+								goto err;
+							}
+							request_started = 1;
+							php_print_info(0xFFFFFFFF);
+							php_output_end_all();
+							exit_status = 0;
+							goto out;
 
-					case 'm': /* list compiled in modules */
-						if (php_request_startup() == FAILURE) {
-							goto err;
-						}
-						request_started = 1;
-						php_printf("[PHP Modules]\n");
-						print_modules();
-						php_printf("\n[Zend Modules]\n");
-						print_extensions();
-						php_printf("\n");
-						php_output_end_all();
-						exit_status = 0;
-						goto out;
+						case 'm': /* list compiled in modules */
+							if (php_request_startup() == FAILURE) {
+								goto err;
+							}
+							request_started = 1;
+							php_printf("[PHP Modules]\n");
+							print_modules();
+							php_printf("\n[Zend Modules]\n");
+							print_extensions();
+							php_printf("\n");
+							php_output_end_all();
+							exit_status = 0;
+							goto out;
 
-					case 'v': /* show php version & quit */
-						if (php_request_startup() == FAILURE) {
-							goto err;
-						}
+						case 'v': /* show php version & quit */
+							if (php_request_startup() == FAILURE) {
+								goto err;
+							}
 
-						request_started = 1;
-						php_printf(
+							request_started = 1;
+							php_printf(
 								"PHP %s (%s %s) (built: %s %s) %s\nCopyright (c) 1997-2012 The Abao\n%s",
 								PHP_VERSION, sapi_module.name, PHP_SSP_VERSION,
 								__DATE__, __TIME__,
-#if ZEND_DEBUG && defined(HAVE_GCOV)
+								#if ZEND_DEBUG && defined(HAVE_GCOV)
 								"(DEBUG GCOV)",
 #elif ZEND_DEBUG
 								"(DEBUG)",
@@ -384,14 +384,14 @@ int main(int argc, char *argv[])
 								"(GCOV)",
 #else
 								"",
-#endif
+								#endif
 								get_zend_version());
-						php_output_end_all();
-						exit_status = 0;
-						goto out;
+							php_output_end_all();
+							exit_status = 0;
+							goto out;
 
-					default:
-						break;
+						default:
+							break;
 					}
 				}
 
@@ -401,27 +401,26 @@ int main(int argc, char *argv[])
 				php_optind = orig_optind;
 				php_optarg = orig_optarg;
 				while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg,
-						&php_optind, 0, 2)) != -1) {
+					&php_optind, 0, 2)) != -1) {
 					switch (c) {
+						case 'f': /* parse file */
+							request_init_file = strdup(php_optarg);
+							break;
 
-					case 'f': /* parse file */
-						request_init_file = strdup(php_optarg);
-						break;
+						case 'z': /* load extension file */
+							zend_load_extension(php_optarg);
+							break;
 
-					case 'z': /* load extension file */
-						zend_load_extension(php_optarg);
-						break;
+						case 's': /* service control */
+							serv_opt = strdup(php_optarg);
+							break;
 
-					case 's': /* service control */
-						serv_opt = strdup(php_optarg);
-						break;
+						case 'H':
+							hide_argv = 1;
+							break;
 
-					case 'H':
-						hide_argv = 1;
-						break;
-
-					default:
-						break;
+						default:
+							break;
 					}
 				}
 
@@ -466,7 +465,7 @@ int main(int argc, char *argv[])
 
 	free(serv_opt);
 
-out:
+	out:
 	if (request_started) {
 		php_request_shutdown(NULL);
 	}
@@ -474,7 +473,7 @@ out:
 		exit_status = EG(exit_status);
 	}
 	
-err:
+	err:
 	ssp_module_shutdown();
 	ssp_destroy();
 

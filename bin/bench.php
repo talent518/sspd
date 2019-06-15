@@ -28,7 +28,7 @@ if($pid===null) {
 	$pipes = array();
 
 	for($pid=0; $pid<$nthreads; $pid++) {
-		$cmdString = sprintf("/opt/ssp/bin/ssp -f %s -s script %s %s %s %s %s %s", __FILE__,$host,$port,$nthreads,$nconns,$ntimes,$pid);
+		$cmdString = sprintf("/opt/ssp7/bin/ssp -f %s -s script %s %s %s %s %s %s", __FILE__,$host,$port,$nthreads,$nconns,$ntimes,$pid);
 		$fp = popen($cmdString, 'r');
 		stream_set_blocking($fp, 1);
 		$pipes[] = $fp;

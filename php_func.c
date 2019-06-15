@@ -47,8 +47,6 @@ const char HARDCODED_INI[] =
 	"max_execution_time=0\n"
 	"max_input_time=-1\n\0";
 
-static php_stream *s_in_process = NULL;
-
 static inline int sapi_ssp_select(int fd)
 {
 	fd_set wfd, dfd;
@@ -138,6 +136,8 @@ static void sapi_ssp_register_variables(zval *track_vars_array) /* {{{ */
 	 * variables
 	 */
 	php_import_environment_variables(track_vars_array);
+	
+	if(request_init_file == NULL) return;
 
 	/* Build the special-case PHP_SELF variable for the CLI version */
 	len = strlen(request_init_file);
@@ -363,12 +363,12 @@ void ssp_module_shutdown(){
 }
 
 void ssp_destroy(){
-	if (CSM(php_ini_path_override)) {
-		free(CSM(php_ini_path_override));
-	}
-	if (CSM(ini_entries)) {
-		free(CSM(ini_entries));
-	}
+//	if (CSM(php_ini_path_override)) {
+//		free(CSM(php_ini_path_override));
+//	}
+//	if (CSM(ini_entries)) {
+//		free(CSM(ini_entries));
+//	}
 
 	sapi_shutdown();
 	tsrm_shutdown();

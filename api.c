@@ -122,6 +122,6 @@ void strnprint(const char *str,register size_t repeat)
 	register size_t i;
 	for (i=0;i<repeat;i++)
 	{
-		printf(str);
+		printf("%s", str);
 	}
 }

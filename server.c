@@ -18,8 +18,6 @@
 #include "api.h"
 #include "ssp_event.h"
 
-#define flush() fflush(stdout)
-
 unsigned int ssp_backlog = 1024;
 
 char *ssp_host = "0.0.0.0";
@@ -40,12 +38,11 @@ void server_start() {
 
 	printf("Starting SSP server");
 	strnprint(".", cols - i - 9);
-	flush();
+	fflush(stdout);
 
 	listen_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (listen_fd < 0) {
-		system("echo -e \"\\E[31m\".[Failed]");
-		system("tput sgr0");
+		printf("\033[31m[Failed]\033[m\n");
 		printf("Not on the host %s bind port %d\n", ssp_host, ssp_port);
 		return;
 	}
@@ -78,24 +75,21 @@ void server_start() {
 
 	ret = bind(listen_fd, (struct sockaddr *) &sin, sizeof(sin));
 	if (ret < 0) {
-		system("echo -e \"\\E[31m\".[Failed]");
-		system("tput sgr0");
+		printf("\033[31m[Failed]\033[m\n");
 		printf("Not on the host %s bind port %d\n", ssp_host, ssp_port);
 		return;
 	}
 
 	ret = listen(listen_fd, ssp_backlog);
 	if (ret < 0) {
-		system("echo -e \"\\E[31m\".[Failed]");
-		system("tput sgr0");
+		printf("\033[31m[Failed]\033[m\n");
 		return;
 	}
 
 	pid = fork();
 
 	if (pid == -1) {
-		system("echo -e \"\\E[31m\".[Failed]");
-		system("tput sgr0");
+		printf("\033[31m[stopped]\033[m\n");
 		printf("fork failure!\n");
 		return;
 	}
@@ -124,12 +118,10 @@ void server_start() {
 	setgid(pwnam->pw_gid);
 
 	ret = setsid();
-	if (ret < 1) {
-		system("echo -e \"\\E[31m\".[Failed]");
-		system("tput sgr0");
+	if (ret < 0) {
+		printf("\033[31m[Failed]\033[m\n");
 	} else {
-		system("echo -e \"\\E[32m\"[Succeed]");
-		system("tput sgr0");
+		printf("\033[32m[Succeed]\033[m\n");
 	}
 
 	loop_event(listen_fd);
@@ -140,7 +132,6 @@ void server_stop() {
 	int pid, i = 19, cols = tput_cols();
 
 	printf("Stopping SSP server");
-	flush();
 
 	fp = fopen(ssp_pidfile, "r+");
 	if (fp != NULL) {
@@ -151,7 +142,6 @@ void server_stop() {
 			kill(pid, SIGINT);
 			while (pid == getsid(pid)) {
 				printf(".");
-				flush();
 				i++;
 				sleep(1);
 				if (cols - i - 9 == 0) {
@@ -160,16 +150,12 @@ void server_stop() {
 				}
 			}
 			strnprint(".", cols - i - 9);
-			flush();
-			system("echo -e \"\\E[32m\"[Succeed]");
-			system("tput sgr0");
+			printf("\033[32m[Succeed]\033[m\n");
 			return;
 		}
 	}
-	strnprint(".", cols - i - 8);
-	flush();
-	system("echo -e \"\\E[31m\"[Failed]");
-	system("tput sgr0");
+	strnprint(".", cols - i - 9);
+	printf("\033[31m[stopped]\033[m\n");
 }
 
 void server_status() {
@@ -178,19 +164,16 @@ void server_status() {
 
 	printf("SSP server status");
 	strnprint(".", cols - i - 9);
-	flush();
 
 	fp = fopen(ssp_pidfile, "r+");
 	if (fp != NULL) {
 		fscanf(fp, "%d", &pid);
 		fclose(fp);
 		if (pid == getsid(pid)) {
-			system("echo -e \"\\E[32m\"[Running]");
-			system("tput sgr0");
+			printf("\033[32m[Running]\033[m\n");
 			return;
 		}
 		unlink(ssp_pidfile);
 	}
-	system("echo -e \"\\E[31m\"[stopped]");
-	system("tput sgr0");
+	printf("\033[31m[stopped]\033[m\n");
 }

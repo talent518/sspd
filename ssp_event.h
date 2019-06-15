@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <event.h>
 #include "queue.h"
+#include "config.h"
 
 typedef struct {
 	pthread_t tid;

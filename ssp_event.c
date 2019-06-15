@@ -12,6 +12,7 @@
 #include "php_ext.h"
 #include "php_func.h"
 #include "ssp_event.h"
+#include "socket.h"
 
 static pthread_mutex_t init_lock, conn_lock;
 static pthread_cond_t init_cond;
@@ -72,21 +73,21 @@ static void *worker_thread_handler(void *arg)
 
  	THREAD_STARTUP();
 
-   pthread_mutex_lock(&init_lock);
+	pthread_mutex_lock(&init_lock);
 
-   listen_thread.nthreads++;
+	listen_thread.nthreads++;
 	pthread_cond_signal(&init_cond);
-   pthread_mutex_unlock(&init_lock);
+	pthread_mutex_unlock(&init_lock);
 
 	event_base_loop(me->base, 0);
 
 	THREAD_SHUTDOWN();
 
 	dprintf("thread %d exited\n", me->id);
-   pthread_mutex_lock(&init_lock);
-   listen_thread.nthreads--;
-   pthread_cond_signal(&init_cond);
-   pthread_mutex_unlock(&init_lock);
+	pthread_mutex_lock(&init_lock);
+	listen_thread.nthreads--;
+	pthread_cond_signal(&init_cond);
+	pthread_mutex_unlock(&init_lock);
 
 	pthread_detach(me->tid);
 	pthread_exit(NULL);
@@ -428,7 +429,7 @@ static void signal_handler(const int fd, short event, void *arg) {
 		write(worker_threads[i].write_fd, &chr, 1);
 	}
 
-	dprintf("%s: wait worker thread %d\n", __func__);
+	dprintf("%s: wait worker thread %d\n", __func__, listen_thread.nthreads);
     pthread_mutex_lock(&init_lock);
     while (listen_thread.nthreads > 0) {
         pthread_cond_wait(&init_cond, &init_lock);
