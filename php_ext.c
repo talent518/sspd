@@ -225,7 +225,7 @@ static PHP_MINFO_FUNCTION(ssp)
 
 void ssp_auto_globals_recreate()
 {
-	zend_string *var_name = zend_string_init("_SSP", sizeof("_SSP") - 1, 0);
+	zend_string *var_name = zend_string_init("_SSP", sizeof("_SSP") - 1, 1);
 
 	if (!Z_ISUNDEF(SSP_G(ssp_vars))) {
 		zval_ptr_dtor(&SSP_G(ssp_vars));
@@ -425,7 +425,6 @@ static PHP_FUNCTION(ssp_destroy)
 
 	ptr = (conn_t *) zend_fetch_resource(Z_RES_P(res), PHP_SSP_DESCRIPTOR_REF_RES_NAME, le_ssp_descriptor_ref);
 	if (ptr) {
-		zend_list_delete(Z_RES_P(res));
 		RETURN_TRUE;
 	} else {
 		RETURN_FALSE;
@@ -446,8 +445,6 @@ static PHP_FUNCTION(ssp_close)
 	}
 	if (ptr) {
 		socket_close(ptr);
-
-		zend_list_delete(Z_RES_P(res));
 
 		RETURN_TRUE;
 	} else {

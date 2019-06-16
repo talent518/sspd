@@ -2,6 +2,8 @@
 if (  ! defined('IN_SERVER') )
 	exit('Access Denied');
 
+import('mod.base');
+
 class ModUserGroup extends ModBase {
 
 	protected $table = 'user_group';

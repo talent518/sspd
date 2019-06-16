@@ -35,6 +35,7 @@ typedef struct {
 	struct event event;
 
 	queue_t *accept_queue;
+	queue_t *write_queue;
 	queue_t *close_queue;
 
 	short id;

@@ -92,6 +92,10 @@ static void *worker_thread_handler(void *arg)
 	pthread_detach(me->tid);
 	pthread_exit(NULL);
 
+	queue_free(me->accept_queue);
+	queue_free(me->write_queue);
+	queue_free(me->close_queue);
+
 	return NULL;
 }
 
@@ -145,6 +149,37 @@ static void read_handler(int sock, short event,	void* arg)
 	}
 }
 
+static void write_handler(int sock, short event, void* arg)
+{
+	conn_t *ptr = (conn_t *) arg;
+	int ret = 1;
+
+	conn_info(ptr);
+
+	pthread_mutex_lock(&ptr->lock);
+	ret = send(ptr->sockfd, ptr->wbuf+ptr->wbytes, ptr->wsize - ptr->wbytes, MSG_WAITALL);
+	if(ret > 0) {
+		ptr->wbytes += ret;
+		if(ptr->wsize == ptr->wbytes) {
+			free(ptr->wbuf);
+			ptr->wbuf = NULL;
+			ptr->wbytes = ptr->wsize = 0;
+			event_del(&ptr->wevent);
+		}
+		pthread_cond_signal(&ptr->cond);
+		pthread_mutex_unlock(&ptr->lock);
+	} else {
+		pthread_cond_signal(&ptr->cond);
+		pthread_mutex_unlock(&ptr->lock);
+
+		event_del(&ptr->wevent);
+		clean_conn(ptr);
+		trigger(PHP_SSP_CLOSE,ptr);
+		remove_conn(ptr);
+
+		is_accept_conn(true);
+	}
+}
 static void notify_handler(const int fd, const short which, void *arg)
 {
 #ifdef SSP_CODE_TIMEOUT
@@ -175,10 +210,17 @@ static void notify_handler(const int fd, const short which, void *arg)
 		dprintf("notify_handler: notify(%c) threadId(%d)\n", chr, me->id);
 
 		switch(chr) {
+			case 'w':
+				ptr=queue_pop(me->write_queue);
+				if(!ptr) break;
+
+				event_set(&ptr->wevent, ptr->sockfd, EV_WRITE|EV_PERSIST, write_handler, ptr);
+				event_base_set(me->base, &ptr->wevent);
+				event_add(&ptr->wevent, NULL);
+				break;
 			case 'x': // 处理连接关闭对列
 				ptr=queue_pop(me->close_queue);
-
-				assert(ptr);
+				if(!ptr) break;
 
 				conn_info(ptr);
 				clean_conn(ptr);
@@ -194,8 +236,8 @@ static void notify_handler(const int fd, const short which, void *arg)
 				break;
 			case 'l':
 				ptr=queue_pop(me->accept_queue);
+				if(!ptr) break;
 
-				assert(ptr);
 				assert(ptr->thread == me);
 
 				conn_info(ptr);
@@ -284,6 +326,7 @@ void thread_init() {
 		}
 
 		worker_threads[i].accept_queue=queue_init();
+		worker_threads[i].write_queue=queue_init();
 		worker_threads[i].close_queue=queue_init();
 		worker_threads[i].conn_num = 0;
 		worker_threads[i].clean_times = 0;

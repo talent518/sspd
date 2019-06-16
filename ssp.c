@@ -1,6 +1,7 @@
 #include "php_func.h"
 #include "ssp.h"
 #include "php_ext.h"
+#include "server.h"
 
 #include <php.h>
 #include <php_ini.h>

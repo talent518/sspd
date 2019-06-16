@@ -52,6 +52,34 @@ void *queue_pop(queue_t *queue) {
 	return data;
 }
 
+void queue_clean(queue_t *queue, void* data) {
+	pthread_mutex_lock(&queue->lock);
+
+	queue_item_t *ptr = queue->head;
+	queue_item_t *tmp, *prev = NULL;
+
+	while(ptr) {
+		if(ptr->data == data) {
+			tmp = ptr->next;
+			free(ptr);
+			if(prev) {
+				prev->next = tmp;
+			} else {
+				queue->head = tmp;
+			}
+			if(tmp == NULL) {
+				queue->tail = prev;
+			}
+			ptr = tmp;
+		} else {
+			prev = ptr;
+			ptr = ptr->next;
+		}
+	}
+
+	pthread_mutex_unlock(&queue->lock);
+}
+
 bool queue_free(queue_t *queue) {
 	queue_item_t *ptr = queue->head, *tmp;
 	while (ptr) {

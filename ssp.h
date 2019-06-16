@@ -42,8 +42,4 @@ extern int ssp_nthreads;
 extern int ssp_maxclients;
 extern int ssp_maxrecvs;
 
-void server_start();
-void server_stop();
-void server_status();
-
 #endif

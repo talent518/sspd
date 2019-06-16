@@ -24,12 +24,17 @@ typedef struct _conn_t {
 	int rbytes;
 	int rsize;
 
+	char *wbuf;
+	int wbytes;
+	int wsize;
+
 	worker_thread_t *thread;
 
 	pthread_mutex_t lock;
 	pthread_cond_t cond;
 
 	struct event event;
+	struct event wevent;
 } conn_t;
 
 extern queue_t *iqueue;

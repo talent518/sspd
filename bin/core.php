@@ -1,6 +1,6 @@
 <?PHP
 define('IN_SERVER', TRUE);
-defined('IS_DEBUG') or define('IS_DEBUG', 0);
+defined('IS_DEBUG') or define('IS_DEBUG', 1);
 
 error_reporting(E_ALL &  ~ E_WARNING &  ~ E_NOTICE & ~ E_STRICT);
 
@@ -76,7 +76,7 @@ function import ( $lib ) {
 	include_once ( SRC_DIR . GD($lib) . '.php' );
 }
 
-function &LIB ( $lib ) {
+function LIB ( $lib ) {
 	if (  ! isset($_SSP['LIB'][$lib]) ) {
 		import('lib.' . $lib);
 		$class = 'Lib' . GN($lib);
@@ -85,7 +85,7 @@ function &LIB ( $lib ) {
 	return $_SSP['LIB'][$lib];
 }
 
-function &MOD ( $mod ) {
+function MOD ( $mod ) {
 	if (  ! isset($_SSP['MOD'][$mod]) ) {
 		import('mod.' . $mod);
 		$class = 'Mod' . GN($mod);
@@ -94,7 +94,7 @@ function &MOD ( $mod ) {
 	return $_SSP['MOD'][$mod];
 }
 
-function &CTL ( $ctl ) {
+function CTL ( $ctl ) {
 	if (  ! isset($_SSP['CTL'][$ctl]) ) {
 		import('ctl.' . $ctl);
 		$class = 'Ctl' . GN($ctl);

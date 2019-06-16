@@ -1,4 +1,5 @@
 #include "api.h"
+#include "daemon.h"
 
 #include <stdio.h>
 #include <stdlib.h>

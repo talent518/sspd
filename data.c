@@ -82,6 +82,11 @@ void clean_conn(conn_t *ptr){
 	if(ptr->event.ev_base) {
 		event_del(&ptr->event);
 	}
+	if(ptr->wevent.ev_base) {
+		event_del(&ptr->wevent);
+	}
+	queue_clean(ptr->thread->write_queue, ptr);
+	queue_clean(ptr->thread->close_queue, ptr);
 
 	shutdown(ptr->sockfd,SHUT_RDWR);
 	close(ptr->sockfd);
@@ -91,6 +96,12 @@ void clean_conn(conn_t *ptr){
 	}
 	ptr->rbytes = 0;
 	ptr->rsize = 0;
+	if(ptr->wbuf) {
+		free(ptr->wbuf);
+		ptr->wbuf = NULL;
+	}
+	ptr->wbytes = 0;
+	ptr->wsize = 0;
 }
 
 unsigned int _conn_num(){

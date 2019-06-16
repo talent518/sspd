@@ -127,9 +127,8 @@ if($pid===null) {
 							$recvRequestErrors++;
 							$conns--;
 							break;
-						case 'F':
+						case 'Q':
 							$recvRequestFails++;
-							$conns--;
 							break;
 						case 'q':
 							$requests++;
@@ -249,8 +248,8 @@ for($i=0; $i<$ntimes; $i++) {
 			unset($sockets[$j]);
 			continue;
 		}
-		if($response->type === 'Gold.State.Failed') {
-			echo 'F'; // fail request
+		if($response->type === 'Gold.State.Failed' || $response->type === 'User.Login') {
+			echo 'Q'; // fail request
 		}
 		echo 'q'; // ok request
 	}
