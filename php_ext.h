@@ -16,7 +16,7 @@
 
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp conn_t"
 #define PHP_SSP_DESCRIPTOR_REF_RES_NAME "ssp ref conn_t"
-#define PHP_SSP_VERSION "v2.1.0"
+#define PHP_SSP_VERSION "v2.2.0"
 
 #define PHP_SSP_START 0
 #define PHP_SSP_CONNECT 1
@@ -39,7 +39,6 @@ extern unsigned int ssp_vars_length;
 	#endif
 #endif
 
-extern zend_function_entry ssp_functions[];
 extern zend_module_entry ssp_module_entry;
 
 ZEND_BEGIN_MODULE_GLOBALS(ssp)

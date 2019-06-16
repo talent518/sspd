@@ -113,10 +113,7 @@ static void php_ssp_usage(char *argv0) {
 		"       restart            restart ssp service\n"
 		"       status             ssp service status\n"
 		"\n", prog, ssp_host, ssp_port, ssp_pidfile, ssp_user,
-		ssp_nthreads, ssp_maxclients, maxrecvs, ssp_backlog
-		#ifdef SSP_CODE_TIMEOUT_GLOBAL
-		, ssp_global_timeout
-#endif
+		ssp_nthreads, ssp_maxclients, maxrecvs, ssp_backlog, ssp_vars_length
 #ifdef SSP_CODE_TIMEOUT
 		, ssp_timeout
 #ifdef SSP_CODE_TIMEOUT_GLOBAL

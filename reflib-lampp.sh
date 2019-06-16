@@ -18,12 +18,12 @@ pushd reflib
 #php
 if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
     echo Installing php ...
-    if [ ! -d "/tmp/php-7.1.2" ]; then
-        tar -xvf php-7.1.2.tar.bz2 -C /tmp/
+    if [ ! -d "/tmp/php-7.2.19" ]; then
+        tar -xvf php-7.2.19.tar.bz2 -C /tmp/
     fi
-    pushd /tmp/php-7.1.2
+    pushd /tmp/php-7.2.19
 
-	OPT_MAK="--prefix=$INST_DIR --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-inline-optimization --disable-debug --enable-bcmath --enable-calendar --enable-ctype --enable-ftp --enable-gd-native-ttf --enable-shmop --disable-sigchild --enable-sysvsem --enable-sysvshm --enable-wddx --with-gdbm=/opt/lampp --with-jpeg-dir=/opt/lampp --with-png-dir=/opt/lampp --with-xpm-dir=/usr --with-freetype-dir=/opt/lampp --with-zlib=yes --with-zlib-dir=/opt/lampp --with-openssl=/opt/lampp --with-xsl=/opt/lampp --with-ldap=/opt/lampp --with-gd --with-imap=/opt/lampp/ --with-imap-ssl --with-gettext=/opt/lampp --with-mysql-sock=/opt/lampp/var/mysql/mysql.sock --without-oci8 --with-mcrypt=/opt/lampp --with-mhash=/opt/lampp --enable-sockets --enable-mbstring=all --with-curl=/opt/lampp --enable-mbregex --enable-exif --with-bz2=/opt/lampp --without-sqlite3 --with-libxml-dir=/opt/lampp --disable-soap --enable-pcntl --with-mysqli=mysqlnd --with-iconv=/opt/lampp --with-pdo-mysql=mysqlnd --without-pdo-sqlite --with-icu-dir=/opt/lampp --enable-fileinfo --enable-phar --enable-zip --enable-intl --disable-zend-signals"
+	OPT_MAK="--prefix=$INST_DIR --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-inline-optimization --enable-debug --enable-bcmath --enable-calendar --enable-ctype --enable-ftp --enable-gd-native-ttf --enable-shmop --disable-sigchild --enable-sysvsem --enable-sysvshm --enable-wddx --with-gdbm=/opt/lampp --with-jpeg-dir=/opt/lampp --with-png-dir=/opt/lampp --with-xpm-dir=/usr --with-freetype-dir=/opt/lampp --with-zlib=yes --with-zlib-dir=/opt/lampp --with-openssl=/opt/lampp --with-xsl=/opt/lampp --with-ldap=/opt/lampp --with-gd --with-imap=/opt/lampp/ --with-imap-ssl --with-gettext=/opt/lampp --with-mysql-sock=/opt/lampp/var/mysql/mysql.sock --without-oci8 --with-mcrypt=/opt/lampp --with-mhash=/opt/lampp --enable-sockets --enable-mbstring=all --with-curl=/opt/lampp --enable-mbregex --enable-exif --with-bz2=/opt/lampp --without-sqlite3 --with-libxml-dir=/opt/lampp --disable-soap --enable-pcntl --with-mysqli=mysqlnd --with-iconv=/opt/lampp --with-pdo-mysql=mysqlnd --without-pdo-sqlite --with-icu-dir=/opt/lampp --enable-fileinfo --enable-phar --enable-zip --enable-intl --disable-zend-signals"
 
     OPT_OTH="--enable-maintainer-zts  --with-tsrm-pthreads --enable-embed"
 
@@ -32,7 +32,7 @@ if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf /tmp/php-7.1.2
+        rm -rf /tmp/php-7.2.19
         echo Installed php Success.
     else
         popd

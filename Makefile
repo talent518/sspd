@@ -17,11 +17,11 @@ $(BUILD_DIR):
 	@mkdir $@
 
 $(BIN_DIR)/ssp: $(BUILD_DIR)/php_ext.o $(BUILD_DIR)/php_func.o $(BUILD_DIR)/socket.o $(BUILD_DIR)/queue.o $(BUILD_DIR)/ssp_event.o $(BUILD_DIR)/server.o $(BUILD_DIR)/data.o $(BUILD_DIR)/ssp.o $(BUILD_DIR)/api.o
-	@echo build ssp
+	@echo ssp
 	@$(CC) -o $@ $? $(LFLAGS)
 
 $(BIN_DIR)/daemon: $(BUILD_DIR)/daemon.o $(BUILD_DIR)/api.o
-	@echo build daemon
+	@echo daemon
 	@$(CC) -o $@ $? $(LFLAGS)
 
 $(BUILD_DIR)/%.o: %.c

@@ -287,7 +287,7 @@ void ssp_init(){
 	CSM(phpinfo_as_text) = 1;
 	CSM(php_ini_ignore_cwd) = 1;
 
-	tsrm_startup(ssp_nthreads+1, 1, 0, NULL);
+	tsrm_startup(1, 1, 0, NULL);
 	(void)ts_resource(0);
 
 #ifdef ZEND_SIGNALS
@@ -346,16 +346,20 @@ void ssp_request_startup(){
 }
 
 void ssp_request_shutdown(){
+	zend_hash_del(EG(zend_constants), zend_string_init("SSP_PIDFILE", sizeof("SSP_PIDFILE") - 1, 1));
+	zend_hash_del(EG(zend_constants), zend_string_init("SSP_USER", sizeof("SSP_USER") - 1, 1));
+	zend_hash_del(EG(zend_constants), zend_string_init("SSP_HOST", sizeof("SSP_HOST") - 1, 1));
+	zend_hash_del(EG(zend_constants), zend_string_init("SSP_PORT", sizeof("SSP_PORT") - 1, 1));
+	zend_hash_del(EG(zend_constants), zend_string_init("SSP_MAX_CLIENTS", sizeof("SSP_MAX_CLIENTS") - 1, 1));
+	zend_hash_del(EG(zend_constants), zend_string_init("SSP_MAX_RECVS", sizeof("SSP_MAX_RECVS") - 1, 1));
+	zend_hash_del(EG(zend_constants), zend_string_init("SSP_NTHREADS", sizeof("SSP_NTHREADS") - 1, 1));
+	zend_hash_del(EG(zend_constants), zend_string_init("SSP_BACKLOG", sizeof("SSP_BACKLOG") - 1, 1));
+
+#ifdef SSP_CODE_TIMEOUT
+	zend_hash_del(EG(zend_constants),zend_string_init("SSP_TIMEOUT",sizeof("SSP_TIMEOUT")-1,1));
+#endif
+
 	php_request_shutdown(NULL);
-
-	zend_hash_del(EG(zend_constants),zend_string_init("SSP_PIDFILE",sizeof("SSP_PIDFILE")-1,1));
-	zend_hash_del(EG(zend_constants),zend_string_init("SSP_USER",sizeof("SSP_USER")-1,1));
-	zend_hash_del(EG(zend_constants),zend_string_init("SSP_HOST",sizeof("SSP_HOST")-1,1));
-	zend_hash_del(EG(zend_constants),zend_string_init("SSP_PORT",sizeof("SSP_PORT")-1,1));
-	zend_hash_del(EG(zend_constants),zend_string_init("SSP_MAX_CLIENTS",sizeof("SSP_MAX_CLIENTS")-1,1));
-	zend_hash_del(EG(zend_constants),zend_string_init("SSP_MAX_RECVS",sizeof("SSP_MAX_RECVS")-1,1));
-
-	zend_hash_del(EG(zend_constants),zend_string_init("STD_CHARSET",sizeof("STD_CHARSET")-1,1));
 }
 
 void ssp_module_shutdown(){
@@ -363,12 +367,12 @@ void ssp_module_shutdown(){
 }
 
 void ssp_destroy(){
-//	if (CSM(php_ini_path_override)) {
-//		free(CSM(php_ini_path_override));
-//	}
-//	if (CSM(ini_entries)) {
-//		free(CSM(ini_entries));
-//	}
+	if (CSM(php_ini_path_override)) {
+		free(CSM(php_ini_path_override));
+	}
+	if (CSM(ini_entries)) {
+		free(CSM(ini_entries));
+	}
 
 	sapi_shutdown();
 	tsrm_shutdown();

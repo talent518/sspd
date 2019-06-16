@@ -7,6 +7,8 @@
 #include <signal.h>
 #include <math.h>
 
+#include <zend_constants.h>
+
 #ifdef HAVE_LIBGTOP
 #include <glibtop.h>
 #include <glibtop/cpu.h>
@@ -70,23 +72,23 @@ ZEND_END_ARG_INFO()
 /* }}} */
 
 /* {{{ ssp_functions[] */
-zend_function_entry ssp_functions[] = {
-PHP_FE(ssp_resource, arginfo_ssp_resource)
-PHP_FE(ssp_info, arginfo_ssp_info)
-PHP_FE(ssp_send, arginfo_ssp_send)
-PHP_FE(ssp_close, arginfo_ssp_close)
-PHP_FE(ssp_destroy, arginfo_ssp_destroy)
-PHP_FE(ssp_lock, arginfo_ssp_lock)
-PHP_FE(ssp_unlock, arginfo_ssp_unlock)
-PHP_FE(ssp_stats, arginfo_ssp_stats)
-PHP_FE_END
+static const zend_function_entry ssp_functions[] = {
+	PHP_FE(ssp_resource, arginfo_ssp_resource)
+	PHP_FE(ssp_info, arginfo_ssp_info)
+	PHP_FE(ssp_send, arginfo_ssp_send)
+	PHP_FE(ssp_close, arginfo_ssp_close)
+	PHP_FE(ssp_destroy, arginfo_ssp_destroy)
+	PHP_FE(ssp_lock, arginfo_ssp_lock)
+	PHP_FE(ssp_unlock, arginfo_ssp_unlock)
+	PHP_FE(ssp_stats, arginfo_ssp_stats)
+	PHP_FE_END
 };
 /* }}} */
 
 /* {{{ ssp_module_entry
  */
 zend_module_entry ssp_module_entry = {
-STANDARD_MODULE_HEADER,
+	STANDARD_MODULE_HEADER,
 	"ssp",
 	ssp_functions,
 	PHP_MINIT(ssp), // module_startup_func
@@ -145,6 +147,11 @@ static PHP_MINIT_FUNCTION(ssp)
  */
 static PHP_MSHUTDOWN_FUNCTION(ssp)
 {
+	zend_hash_del(EG(zend_constants), zend_string_init("SSP_VERSION", sizeof("SSP_VERSION") - 1, 1));
+	zend_hash_del(EG(zend_constants), zend_string_init("SSP_RES_INDEX", sizeof("SSP_RES_INDEX") - 1, 1));
+	zend_hash_del(EG(zend_constants), zend_string_init("SSP_RES_SOCKFD", sizeof("SSP_RES_SOCKFD") - 1, 1));
+	zend_hash_del(EG(zend_constants), zend_string_init("SSP_RES_PORT", sizeof("SSP_RES_PORT") - 1, 1));
+
 	pthread_mutex_destroy(&unique_lock);
 
 #ifdef SSP_DEBUG_EXT
@@ -218,16 +225,14 @@ static PHP_MINFO_FUNCTION(ssp)
 
 void ssp_auto_globals_recreate()
 {
-	zval vars;
-	zend_string *var_name = zend_string_init("_SSP", sizeof("_SSP") - 1, 1);
+	zend_string *var_name = zend_string_init("_SSP", sizeof("_SSP") - 1, 0);
 
 	if (!Z_ISUNDEF(SSP_G(ssp_vars))) {
 		zval_ptr_dtor(&SSP_G(ssp_vars));
 		ZVAL_UNDEF(&SSP_G(ssp_vars));
 	}
 
-	array_init_size(&vars, ssp_vars_length);
-	ZVAL_NEW_REF(&SSP_G(ssp_vars), &vars);
+	array_init_size(&SSP_G(ssp_vars), ssp_vars_length);
 	Z_ADDREF_P(&SSP_G(ssp_vars));
 	zend_hash_update_ind(&EG(symbol_table), var_name, &SSP_G(ssp_vars));
 	zend_string_release(var_name);
