@@ -154,7 +154,7 @@ if [ ! -f "$INST_DIR/lib/libcurl.so" ]; then
 fi
 
 #libxml
-if [ ! -f "$INST_DIR/lib/libxml2.so" ]; then
+if [ ! -f "$INST_DIR/lib/libxml2.so" -a ! -d "/usr/include/libxml2" ]; then
     echo Installing libxml ...
     if [ ! -d "/tmp/libxml2-2.6.30" ]; then
         tar -jxvf libxml2-2.6.30.tar.bz2 -C /tmp/
@@ -177,7 +177,7 @@ if [ ! -f "$INST_DIR/lib/libxml2.so" ]; then
 fi
 
 #libgcrypt
-if [ ! -f "/usr/include/gcrypt.h" ]; then
+if [ ! -f "/usr/include/gcrypt.h" -a ! -f "/usr/include/gcrypt.h" ]; then
     echo Installing libgcrypt ...
     if [ ! -d "/tmp/libgcrypt-1.4.5" ]; then
         tar -jxvf libgcrypt-1.4.5.tar.bz2 -C /tmp/
@@ -200,7 +200,7 @@ if [ ! -f "/usr/include/gcrypt.h" ]; then
 fi
 
 #libxslt
-if [ ! -f "$INST_DIR/lib/libxslt.so" ]; then
+if [ ! -f "$INST_DIR/lib/libxslt.so" -a ! -d "/usr/include/libxml2" ]; then
     echo Installing libxslt ...
     if [ ! -d "/tmp/libxslt-1.1.22" ]; then
         tar -jxvf libxslt-1.1.22.tar.bz2 -C /tmp/
@@ -223,7 +223,7 @@ if [ ! -f "$INST_DIR/lib/libxslt.so" ]; then
 fi
 
 #openssl
-if [ ! -f "$INST_DIR/include/openssl/ssl.h" ] && [ ! -f "/usr/include/openssl/ssl.h" ]; then
+if [ ! -f "$INST_DIR/include/openssl/ssl.h" -a ! -f "/usr/include/openssl/ssl.h" ]; then
     echo Installing openssl ...
     if [ ! -d "/tmp/openssl-1.0.2e" ]; then
         tar -zxvf openssl-1.0.2e.tar.gz -C /tmp/
@@ -239,33 +239,6 @@ if [ ! -f "$INST_DIR/include/openssl/ssl.h" ] && [ ! -f "/usr/include/openssl/ss
     else
         popd
         echo Installed openssl error.
-        exit 1
-    fi
-fi
-
-#imap
-#alter files /etc/inetd.conf and /etc/services exclude pop3 and imap front # number:
-if [ ! -f "$INST_DIR/lib/libc-client.a" ]; then
-    echo Installing imap ...
-    if [ ! -d "/tmp/imap-2007a" ]; then
-        tar -zxvf imap-2007a1.tar.gz -C /tmp/
-    fi
-    pushd /tmp/imap-2007a
-    
-    make lr5 \
-    && cp -u c-client/c-client.a $INST_DIR/lib/libc-client.a \
-    && cp -u c-client/*.h $INST_DIR/include \
-    && cp -u ipopd/ipop2d $INST_DIR/bin \
-    && cp -u ipopd/ipop3d $INST_DIR/bin \
-    && cp -u imapd/imapd $INST_DIR/bin
-    
-    if [ "$?" = "0" ]; then
-        popd
-        rm -rf /tmp/imap-2007a
-        echo Installed imap Success.
-    else
-        popd
-        echo Installed imap error.
         exit 1
     fi
 fi
@@ -384,21 +357,21 @@ if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
 	fi
 
 	SSL_DIR=$INST_DIR
-	if [ -f "/usr/include/openssl/ssl.h" ]; then
+	if [ ! -f "$INST_DIR/include/openssl/ssl.h" -a -f "/usr/include/openssl/ssl.h" ]; then
 		SSL_DIR="/usr"
 	fi
 
 	LDAP_DIR=$INST_DIR
-	if [ -f "/usr/include/ldap.h" ]; then
+	if [ ! -f "$INST_DIR/include/ldap.h" -a -f "/usr/include/ldap.h" ]; then
 		LDAP_DIR="/usr"
 	fi
 
-	OPT_EXT="--disable-rpath --without-pear --with-ldap=shared,$LDAP_DIR --with-bz2=shared --enable-zip=shared --with-freetype-dir=$INST_DIR --with-png-dir=$INST_DIR --with-xpm-dir=$INST_DIR --enable-gd-native-ttf --with-jpeg-dir=$INST_DIR --with-gd=shared,$INST_DIR --without-gdbm --with-iconv --with-openssl=shared,$SSL_DIR --with-zlib=shared --with-layout=GNU --enable-exif=shared --enable-sockets --enable-shmop --with-sqlite3=shared --with-xsl=shared,$INST_DIR --with-libxml-dir=$INST_DIR --enable-xml --disable-simplexml --disable-dba --without-unixODBC --enable-xmlreader=shared, --enable-xmlwriter=shared --enable-json=shared --without-pspell --with-curl=shared,$INST_DIR --enable-bcmath=shared --with-mcrypt=shared,$INST_DIR --with-mhash=shared,$INST_DIR --enable-mbstring=all --enable-mbregex --with-mysqli --with-pdo-mysql --with-pdo-sqlite=shared --enable-posix --enable-pcntl --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-maintainer-zts  --with-tsrm-pthreads --enable-inline-optimization --disable-ctype --disable-tokenizer --disable-session --disable-phar --disable-fileinfo --disable-zend-signals"
+	OPT_EXT="--disable-rpath --without-pear --with-bz2=shared --enable-zip=shared --with-freetype-dir=$INST_DIR --with-png-dir=$INST_DIR --with-xpm-dir=$INST_DIR --enable-gd-native-ttf --with-jpeg-dir=$INST_DIR --with-gd=shared,$INST_DIR --without-gdbm --with-iconv --with-openssl=shared --with-zlib=shared --with-layout=GNU --enable-exif=shared --enable-sockets --enable-shmop --with-sqlite3=shared --with-xsl=shared,$INST_DIR --with-libxml-dir=$INST_DIR --enable-xml --disable-simplexml --disable-dba --without-unixODBC --enable-xmlreader=shared, --enable-xmlwriter=shared --enable-json=shared --without-pspell --with-curl=shared,$INST_DIR --enable-bcmath=shared --with-mcrypt=shared,$INST_DIR --with-mhash=shared,$INST_DIR --enable-mbstring=all --enable-mbregex --with-mysqli --with-pdo-mysql --with-pdo-sqlite=shared --enable-posix --enable-pcntl --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-maintainer-zts  --with-tsrm-pthreads --enable-inline-optimization --disable-ctype --disable-tokenizer --disable-session --disable-phar --disable-fileinfo --disable-zend-signals --disable-mysqlnd-compression-support"
 
     OPT_OTH="--enable-embed"
 
     export EXTENSION_DIR=$INST_DIR/lib/extensions
-    ./configure ${OPT_MAK} ${OPT_EXT} ${OPT_OTH} && make && make install && cp -u php.ini-* $INST_DIR/etc/
+    CFLAGS="-I$INST_DIR/include" LDFLAGS="-L$SSL_DIR/lib -L$LDAP_DIR/lib -L$SSL_DIR/lib -lz" ./configure ${OPT_MAK} ${OPT_EXT} ${OPT_OTH} && make && make install && cp -u php.ini-* $INST_DIR/etc/
     
     if [ "$?" = "0" ]; then
         popd

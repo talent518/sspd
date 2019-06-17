@@ -163,9 +163,6 @@ void socket_close(conn_t *ptr)
 		queue_push(ptr->thread->close_queue, ptr);
 
 		char buf = 'x';
-
-		clean_conn(ptr);
-
 		write(ptr->thread->write_fd, &buf, 1);
 	}
 	pthread_cond_signal(&ptr->cond);

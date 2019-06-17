@@ -47,7 +47,7 @@ rebuild: kill clean all
 
 retest: kill all
 	@echo $@
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 20 --max-clients 2000 --timeout 300 --pidfile $(PWD)/ssp.pid --user $(USER) -f $(PWD)/bin/init.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 128 --max-clients 10000 --timeout 300 --pidfile $(PWD)/ssp.pid --user $(USER) -f $(PWD)/bin/init.php -s start
 
 pidstat: retest
 	@echo $@
@@ -55,4 +55,4 @@ pidstat: retest
 
 bench: all
 	@echo $@
-	@$(BIN_DIR)/ssp -f $(PWD)/bin/bench.php -s script 127.0.0.1 8086 20 50 60000
+	@$(BIN_DIR)/ssp -f $(PWD)/bin/bench.php -s script 127.0.0.1 8086 64 50 60000

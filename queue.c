@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include "queue.h"
 
@@ -52,7 +53,7 @@ void *queue_pop(queue_t *queue) {
 	return data;
 }
 
-void queue_clean(queue_t *queue, void* data) {
+void queue_clean(queue_t *queue, void *data) {
 	pthread_mutex_lock(&queue->lock);
 
 	queue_item_t *ptr = queue->head;
@@ -62,14 +63,17 @@ void queue_clean(queue_t *queue, void* data) {
 		if(ptr->data == data) {
 			tmp = ptr->next;
 			free(ptr);
+
 			if(prev) {
 				prev->next = tmp;
 			} else {
 				queue->head = tmp;
 			}
+
 			if(tmp == NULL) {
 				queue->tail = prev;
 			}
+
 			ptr = tmp;
 		} else {
 			prev = ptr;

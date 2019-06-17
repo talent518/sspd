@@ -124,7 +124,6 @@ static void read_handler(int sock, short event,	void* arg)
 	ret=socket_recv(ptr,&data,&data_len);
 	if(ret<0) { //已放入缓冲区
 	} else if(ret==0) { // 关闭连接
-		event_del(&ptr->event);
 		clean_conn(ptr);
 		trigger(PHP_SSP_CLOSE,ptr);
 		remove_conn(ptr);
@@ -164,7 +163,8 @@ static void write_handler(int sock, short event, void* arg)
 			free(ptr->wbuf);
 			ptr->wbuf = NULL;
 			ptr->wbytes = ptr->wsize = 0;
-			event_del(&ptr->wevent);
+
+			if (event_del(&ptr->wevent) != -1) ptr->wevent.ev_base = NULL;
 		}
 		pthread_cond_signal(&ptr->cond);
 		pthread_mutex_unlock(&ptr->lock);
@@ -172,7 +172,6 @@ static void write_handler(int sock, short event, void* arg)
 		pthread_cond_signal(&ptr->cond);
 		pthread_mutex_unlock(&ptr->lock);
 
-		event_del(&ptr->wevent);
 		clean_conn(ptr);
 		trigger(PHP_SSP_CLOSE,ptr);
 		remove_conn(ptr);

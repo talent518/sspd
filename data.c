@@ -96,12 +96,17 @@ void clean_conn(conn_t *ptr){
 	}
 	ptr->rbytes = 0;
 	ptr->rsize = 0;
+
+	pthread_mutex_lock(&ptr->lock);
+	ptr->refable = false;
 	if(ptr->wbuf) {
 		free(ptr->wbuf);
 		ptr->wbuf = NULL;
 	}
 	ptr->wbytes = 0;
 	ptr->wsize = 0;
+	pthread_cond_signal(&ptr->cond);
+	pthread_mutex_unlock(&ptr->lock);
 }
 
 unsigned int _conn_num(){

@@ -19,6 +19,7 @@ typedef struct _queue_t {
 queue_t *queue_init();
 void queue_push(queue_t *queue, void *data);
 void *queue_pop(queue_t *queue);
+void queue_clean(queue_t *queue, void* data);
 bool queue_free(queue_t *queue);
 
 #endif
