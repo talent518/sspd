@@ -1,7 +1,4 @@
-<?
-if (  ! defined('IN_SITE') )
-	exit('Access Denied');
-
+<?php
 import('lib.image.base');
 
 /**

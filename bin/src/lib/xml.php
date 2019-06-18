@@ -1,8 +1,5 @@
 <?php
-if (  ! defined('IN_SERVER') )
-	exit('Access Denied');
-	
-	/*
+/*
  * XML和php对象的相互转换 @version 1.3 @author ABao <talent518@live.cn> 2个函数2个类，如下： @function xml_to_object @function object_to_xml @function array_to_xml @class XML_Element
  */
 

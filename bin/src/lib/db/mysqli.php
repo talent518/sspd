@@ -1,7 +1,4 @@
 <?php
-if (  ! defined('IN_SERVER') )
-	exit('Access Denied');
-
 import('lib.db.base');
 
 class LibDbMysqli extends LibDbBase {

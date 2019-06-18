@@ -1,7 +1,5 @@
 <?php
-if (  ! defined('IN_SERVER') )
-	exit('Access Denied');
-	/*
+/*
  * @desc 批量数据验证 $datas=array( 'email'=>'ss-_32.s@ss.cn', 'age'=>'-16', 'ip'=>'120.0.0.1', 'password'=>'dsfdfsdsddddddddd', 'idcard'=>'342529198605293018', 'url'=>'https://sdfsd.com?夺夺',
  * 'date'=>'1950-2-28', 'currency'=>'-12.45131', ); $rules=array( 'email'=>array( 'required'=>true, 'email'=>true, ), 'age'=>array( 'integer'=>true, 'range'=>'-100,100', ), 'ip'=>array(
  * 'required'=>true, 'ip'=>true ), 'password'=>array( 'required'=>true, 'equal'=>$datas['password'], 'rangelength'=>'6,20', ), 'moblie'=>array( 'required'=>true, 'uinteger'=>true, 'length'=>11, ),

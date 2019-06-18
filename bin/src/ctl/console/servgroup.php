@@ -1,7 +1,4 @@
 <?php
-if (  ! defined('IN_SERVER') )
-	exit('Access Denied');
-
 import('ctl.base');
 import('lib.xml');
 

@@ -1,7 +1,4 @@
 <?php
-if (  ! defined('IN_SERVER') )
-	exit('Access Denied');
-
 class LibIoDir {
 
 	function __construct () {
@@ -11,7 +8,6 @@ class LibIoDir {
 	function LibIoDir () {
 	}
 	
-	// ��ȡĿ¼
 	function gets ( $pdir, $exts = array(), $nots = array() ) {
 		$dirs = array();
 		if ( ( $dh = @opendir($pdir) ) !== false ) {

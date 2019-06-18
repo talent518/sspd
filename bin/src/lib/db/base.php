@@ -1,7 +1,4 @@
 <?php
-if (  ! defined('IN_SERVER') )
-	exit('Access Denied');
-
 define('SQL_SELECT_QUERY', 0);
 define('SQL_SELECT_ONLY', 1);
 define('SQL_SELECT_LIST', 2);

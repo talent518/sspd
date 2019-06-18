@@ -1,7 +1,4 @@
 <?php
-if (  ! defined('IN_SERVER') )
-	exit('Access Denied');
-
 define('STRING_RAND_EN', 1);
 define('STRING_RAND_NUM', 2);
 define('STRING_RAND_BOTH', 3);

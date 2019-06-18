@@ -1,7 +1,4 @@
 <?PHP
-if (  ! defined('IN_SERVER') )
-	exit('Access Denied');
-
 define('SOCKET_CLIENT_NAME', 'SocketClient');
 define('SOCKET_CLIENT_VERSION', '1.0.0');
 define('SOCKET_CLIENT_AUTHOR', 'ABao <talent518@live.cn>');

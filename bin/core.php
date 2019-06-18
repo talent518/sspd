@@ -1,8 +1,7 @@
-<?PHP
-define('IN_SERVER', TRUE);
-defined('IS_DEBUG') or define('IS_DEBUG', 0);
+<?php
+defined('IS_DEBUG') or define('IS_DEBUG', 1);
 
-error_reporting(E_ALL &  ~ E_WARNING &  ~ E_NOTICE & ~ E_STRICT);
+error_reporting(E_ALL & ~ E_WARNING &  ~ E_NOTICE & ~ E_STRICT);
 
 date_default_timezone_set('PRC');
 

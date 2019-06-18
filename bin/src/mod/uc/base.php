@@ -1,7 +1,4 @@
 <?php
-if (  ! defined('IN_SERVER') )
-	exit('Access Denied');
-
 function UDB () {
 	if (  ! isset($_SSP['UDB']) ) {
 		$isConn = true;

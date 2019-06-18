@@ -1,7 +1,4 @@
 <?php
-if (  ! defined('IN_SERVER') )
-	exit('Access Denied');
-
 class LibCrypt {
 
 	function encode ( $str, $key, $expiry = 0 ) {
