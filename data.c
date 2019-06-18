@@ -89,18 +89,17 @@ static bool send_cmp(send_t *s, conn_t *ptr) {
 	}
 }
 
-void clean_conn(conn_t *ptr){
-	if(ptr->event.ev_base) {
-		event_del(&ptr->event);
-	}
-	if(ptr->wevent.ev_base) {
-		event_del(&ptr->wevent);
-	}
-	queue_clean_ex(ptr->thread->write_queue, ptr, (queue_cmp_t) send_cmp);
-	queue_clean(ptr->thread->close_queue, ptr);
-
-	shutdown(ptr->sockfd,SHUT_RDWR);
+void clean_conn(conn_t *ptr) {
+	shutdown(ptr->sockfd, SHUT_RDWR);
 	close(ptr->sockfd);
+
+	if(ptr->event.ev_base) event_del(&ptr->event);
+
+	if(ptr->thread) {
+		queue_clean_ex(ptr->thread->write_queue, ptr, (queue_cmp_t) send_cmp);
+		queue_clean(ptr->thread->close_queue, ptr);
+	}
+
 	if(ptr->rbuf) {
 		free(ptr->rbuf);
 		ptr->rbuf = NULL;
@@ -110,15 +109,13 @@ void clean_conn(conn_t *ptr){
 
 	ptr->refable = false;
 
-	pthread_mutex_lock(&ptr->lock);
 	if(ptr->wbuf) {
 		free(ptr->wbuf);
 		ptr->wbuf = NULL;
+		if(ptr->wevent.ev_base) event_del(&ptr->wevent);
 	}
 	ptr->wbytes = 0;
 	ptr->wsize = 0;
-	pthread_cond_signal(&ptr->cond);
-	pthread_mutex_unlock(&ptr->lock);
 }
 
 unsigned int _conn_num(){
@@ -174,10 +171,6 @@ void remove_conn(conn_t *ptr){
 
 		pthread_mutex_destroy(&ptr->lock);
 		pthread_cond_destroy(&ptr->cond);
-
-		if(ptr->rbuf) {
-			free(ptr->rbuf);
-		}
 
 		free(ptr);
 	} END_WRITE_LOCK;

@@ -165,7 +165,7 @@ static void write_handler(int sock, short event, void* arg)
 			ptr->wbuf = NULL;
 			ptr->wbytes = ptr->wsize = 0;
 
-			if (event_del(&ptr->wevent) != -1) ptr->wevent.ev_base = NULL;
+			event_del(&ptr->wevent);
 		}
 	} else {
 		ptr->thread->conn_num--;
@@ -205,8 +205,8 @@ static void notify_handler(const int fd, const short which, void *arg)
 	bool isglobal=false;
 #endif
 #endif
-	register int buffer_len,i;
-	register char chr;
+	int buffer_len,i;
+	char chr;
 	char buffer[1024];
 	worker_thread_t *me = arg;
 	conn_t *ptr;
@@ -227,22 +227,34 @@ static void notify_handler(const int fd, const short which, void *arg)
 		dprintf("notify_handler: notify(%c) threadId(%d)\n", chr, me->id);
 
 		switch(chr) {
-			case 'w':
-				{
-					send_t *s = queue_pop(me->write_queue);
-					if(!s) break;
-					socket_send_buf(s->ptr, s->str, s->len);
-					ptr = s->ptr;
-					free(s);
-				}
+			case 'w': {
+				send_t *s = queue_pop(me->write_queue);
+				if(!s) break;
+				chr = s->ptr->wbuf == NULL;
+				socket_send_buf(s->ptr, s->str, s->len);
+				ptr = s->ptr;
+				free(s);
 
-				event_set(&ptr->wevent, ptr->sockfd, EV_WRITE|EV_PERSIST, write_handler, ptr);
-				event_base_set(me->base, &ptr->wevent);
-				event_add(&ptr->wevent, NULL);
+				if(chr) {
+					event_set(&ptr->wevent, ptr->sockfd, EV_WRITE|EV_PERSIST, write_handler, ptr);
+					event_base_set(me->base, &ptr->wevent);
+					event_add(&ptr->wevent, NULL);
+				}
 				break;
+			}
 			case 'x': // 处理连接关闭对列
 				ptr = queue_pop(me->close_queue);
 				if(!ptr) break;
+
+				if(ptr->wbuf) {
+					if(event_del(&ptr->event) != -1) {
+						ptr->event.ev_base = NULL;
+						shutdown(ptr->sockfd, SHUT_RD);
+					}
+					queue_push(me->close_queue, ptr);
+					write(me->write_fd, &chr, 1);
+					break;
+				}
 
 				conn_info(ptr);
 				clean_conn(ptr);
@@ -514,6 +526,8 @@ static void signal_handler(const int fd, short event, void *arg) {
 
 		conn_info(ptr);
 
+		ptr->event.ev_base = NULL;
+		ptr->wevent.ev_base = NULL;
 		clean_conn(ptr);
 
 		trigger(PHP_SSP_CLOSE, ptr);
@@ -649,7 +663,7 @@ void loop_event (int sockfd) {
 
 	THREAD_SHUTDOWN();
 
-	shutdown(sockfd, 2);
+	shutdown(sockfd, SHUT_RDWR);
 	close(sockfd);
 
 	detach_conn();

@@ -86,6 +86,7 @@ void server_start() {
 		return;
 	}
 
+#if 1
 	pid = fork();
 
 	if (pid == -1) {
@@ -123,6 +124,9 @@ void server_start() {
 	} else {
 		printf("\033[32m[Succeed]\033[m\n");
 	}
+#else
+	printf("\033[32m[Succeed]\033[m\n");
+#endif
 
 	loop_event(listen_fd);
 }
