@@ -7,5 +7,5 @@
 	#define SSP_CODE_TIMEOUT 10
 	#define SSP_CODE_TIMEOUT_GLOBAL
 	// #define SSP_RUNTIME
-	#define ASYNC_SEND 0 // equal 1 is async send socket data
+	#define ASYNC_SEND 1 // equal 1 is async send socket data
 #endif

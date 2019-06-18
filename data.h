@@ -28,6 +28,7 @@ typedef struct _conn_t {
 	char *wbuf;
 	int wbytes;
 	int wsize;
+	short evflags;
 #endif // ASYNC_SEND
 
 	worker_thread_t *thread;
@@ -36,7 +37,6 @@ typedef struct _conn_t {
 	pthread_cond_t cond;
 
 	struct event event;
-	struct event wevent;
 } conn_t;
 
 extern queue_t *iqueue;

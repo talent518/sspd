@@ -113,14 +113,54 @@ void worker_create(void *(*func)(void *), void *arg)
 	}
 }
 
-static void read_handler(int sock, short event,	void* arg)
+#if ASYNC_SEND
+static void read_write_handler(int sock, short event, void* arg);
+
+void is_writable_conn(conn_t *ptr, bool iswrite) {
+	dprintf("%s: %4d, %d, begin\n", __func__, ptr->index, iswrite);
+	if(event_del(&ptr->event) == -1) perror("event_del");
+
+	if(iswrite) ptr->evflags |= EV_WRITE;
+	else ptr->evflags &= ~EV_WRITE;
+
+	event_set(&ptr->event, ptr->sockfd, ptr->evflags, read_write_handler, ptr);
+	event_base_set(ptr->thread->base, &ptr->event);
+	event_add(&ptr->event, NULL);
+	dprintf("%s: %4d, %d, end\n", __func__, ptr->index, iswrite);
+}
+#endif
+
+static void read_write_handler(int sock, short event, void* arg)
 {
+	conn_t *ptr = (conn_t *) arg;
 	int data_len=0,ret;
 	char *data=NULL;
-	conn_t *ptr = (conn_t *) arg;
 
 	conn_info(ptr);
 
+#if ASYNC_SEND
+	if(event & EV_WRITE) {
+		ret = send(ptr->sockfd, ptr->wbuf+ptr->wbytes, ptr->wsize - ptr->wbytes, MSG_DONTWAIT);
+		if(ret > 0) {
+			ptr->wbytes += ret;
+			if(ptr->wsize == ptr->wbytes) {
+				free(ptr->wbuf);
+				ptr->wbuf = NULL;
+				ptr->wbytes = ptr->wsize = 0;
+
+				is_writable_conn(ptr, false);
+			}
+		} else {
+			ptr->thread->conn_num--;
+
+			clean_conn(ptr);
+			trigger(PHP_SSP_CLOSE,ptr);
+			remove_conn(ptr);
+
+			is_accept_conn(true);
+		}
+	} else {
+#endif
 	ret=socket_recv(ptr,&data,&data_len);
 	if(ret<0) { //已放入缓冲区
 	} else if(ret==0) { // 关闭连接
@@ -148,37 +188,12 @@ static void read_handler(int sock, short event,	void* arg)
 	if(data) {
 		free(data);
 	}
+#if ASYNC_SEND
+	}
+#endif
 }
 
 #if ASYNC_SEND
-static void write_handler(int sock, short event, void* arg)
-{
-	conn_t *ptr = (conn_t *) arg;
-	int ret = 1;
-
-	conn_info(ptr);
-
-	ret = send(ptr->sockfd, ptr->wbuf+ptr->wbytes, ptr->wsize - ptr->wbytes, MSG_DONTWAIT);
-	if(ret > 0) {
-		ptr->wbytes += ret;
-		if(ptr->wsize == ptr->wbytes) {
-			free(ptr->wbuf);
-			ptr->wbuf = NULL;
-			ptr->wbytes = ptr->wsize = 0;
-
-			event_del(&ptr->wevent);
-		}
-	} else {
-		ptr->thread->conn_num--;
-
-		clean_conn(ptr);
-		trigger(PHP_SSP_CLOSE,ptr);
-		remove_conn(ptr);
-
-		is_accept_conn(true);
-	}
-}
-
 static void socket_send_buf(conn_t *ptr, char *package, int plen) {
 	if(ptr->wbuf) {
 		int bn = ptr->wsize - ptr->wbytes;
@@ -242,11 +257,7 @@ static void notify_handler(const int fd, const short which, void *arg)
 				socket_send_buf(ptr, s->str, s->len);
 				free(s);
 
-				if(chr) {
-					event_set(&ptr->wevent, ptr->sockfd, EV_WRITE|EV_PERSIST, write_handler, ptr);
-					event_base_set(me->base, &ptr->wevent);
-					event_add(&ptr->wevent, NULL);
-				}
+				if(chr) is_writable_conn(ptr, true);
 				break;
 			}
 		#endif // ASYNC_SEND
@@ -256,17 +267,16 @@ static void notify_handler(const int fd, const short which, void *arg)
 
 				assert(ptr->thread == me);
 
-		#if ASYNC_SEND
+			#if ASYNC_SEND
 				if(ptr->wbuf) {
-					if(ptr->event.ev_base && event_del(&ptr->event) != -1) {
-						ptr->event.ev_base = NULL;
-						// shutdown(ptr->sockfd, SHUT_RD);
-					}
+					printf("close: %4d,1\n", ptr->index);
 					queue_push(me->close_queue, ptr);
 					write(me->write_fd, &chr, 1);
 					break;
 				}
-		#endif // ASYNC_SEND
+			#endif // ASYNC_SEND
+
+				dprintf("close: %4d,2\n", ptr->index);
 
 				conn_info(ptr);
 				clean_conn(ptr);
@@ -291,7 +301,11 @@ static void notify_handler(const int fd, const short which, void *arg)
 				me->conn_num++;
 				me->clean_times = 0;
 
-				event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_handler, ptr);
+			#if ASYNC_SEND
+				ptr->evflags = EV_READ|EV_PERSIST;
+			#endif
+
+				event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_write_handler, ptr);
 				event_base_set(me->base, &ptr->event);
 				event_add(&ptr->event, NULL);
 				break;
@@ -539,7 +553,6 @@ static void signal_handler(const int fd, short event, void *arg) {
 		conn_info(ptr);
 
 		ptr->event.ev_base = NULL;
-		ptr->wevent.ev_base = NULL;
 		clean_conn(ptr);
 
 		trigger(PHP_SSP_CLOSE, ptr);
@@ -590,6 +603,10 @@ static void signal_handler(const int fd, short event, void *arg) {
 #endif
 
 void loop_event (int sockfd) {
+	signal(SIGPIPE, SIG_IGN);
+	signal(SIGURG, SIG_IGN);
+	signal(SIGALRM, SIG_IGN);
+
 	// init main thread
 	listen_thread.sockfd = sockfd;
 	listen_thread.base = event_init();

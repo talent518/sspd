@@ -113,7 +113,6 @@ void clean_conn(conn_t *ptr) {
 	if(ptr->wbuf) {
 		free(ptr->wbuf);
 		ptr->wbuf = NULL;
-		if(ptr->wevent.ev_base) event_del(&ptr->wevent);
 	}
 	ptr->wbytes = 0;
 	ptr->wsize = 0;
