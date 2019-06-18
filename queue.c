@@ -54,13 +54,17 @@ void *queue_pop(queue_t *queue) {
 }
 
 void queue_clean(queue_t *queue, void *data) {
+	return queue_clean_ex(queue, data, NULL);
+}
+
+void queue_clean_ex(queue_t *queue, void *data, queue_cmp_t cmp) {
 	pthread_mutex_lock(&queue->lock);
 
 	queue_item_t *ptr = queue->head;
 	queue_item_t *tmp, *prev = NULL;
 
 	while(ptr) {
-		if(ptr->data == data) {
+		if((cmp == NULL && ptr->data == data) || (cmp && cmp(ptr->data, data))) {
 			tmp = ptr->next;
 			free(ptr);
 

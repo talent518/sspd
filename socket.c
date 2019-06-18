@@ -105,51 +105,22 @@ int socket_send(conn_t *ptr, char *data, int data_len) {
 
 	memcpy(package + 4, data, data_len); //数据包内容
 
-	pthread_mutex_lock(&ptr->lock);
-	if (ptr->refable) {
-		if (ptr->wbuf) {
-			i = plen + ptr->wsize - ptr->wbytes;
-			data = (char*) malloc(i);
-			memcpy(data, ptr->wbuf + ptr->wbytes, ptr->wsize - ptr->wbytes);
-			memcpy(data + ptr->wsize - ptr->wbytes, package, plen);
-			free(package);
-			free(ptr->wbuf);
-			ptr->wbuf = data;
-			ptr->wbytes = 0;
-			ptr->wsize = plen;
-		} else {
-			ptr->wbuf = package;
-			ptr->wbytes = 0;
-			ptr->wsize = plen;
+	send_t *s = (send_t*)malloc(sizeof(send_t));
+	s->ptr = ptr;
+	s->str = package;
+	s->len = plen;
 
-			conn_info(ptr);
+	queue_push(ptr->thread->write_queue, s);
 
-			queue_push(ptr->thread->write_queue, ptr);
-
-			char buf = 'w';
-			write(ptr->thread->write_fd, &buf, 1);
-		}
-	} else {
-		free(package);
-	}
-	pthread_cond_signal(&ptr->cond);
-	pthread_mutex_unlock(&ptr->lock);
+	char buf = 'w';
+	write(ptr->thread->write_fd, &buf, 1);
 
 	return plen;
 }
 
 void socket_close(conn_t *ptr) {
-	pthread_mutex_lock(&ptr->lock);
-	if (ptr->refable) {
-		ptr->refable = false;
+	queue_push(ptr->thread->close_queue, ptr);
 
-		conn_info(ptr);
-
-		queue_push(ptr->thread->close_queue, ptr);
-
-		char buf = 'x';
-		write(ptr->thread->write_fd, &buf, 1);
-	}
-	pthread_cond_signal(&ptr->cond);
-	pthread_mutex_unlock(&ptr->lock);
+	char buf = 'x';
+	write(ptr->thread->write_fd, &buf, 1);
 }

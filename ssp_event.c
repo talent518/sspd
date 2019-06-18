@@ -157,7 +157,6 @@ static void write_handler(int sock, short event, void* arg)
 
 	conn_info(ptr);
 
-	pthread_mutex_lock(&ptr->lock);
 	ret = send(ptr->sockfd, ptr->wbuf+ptr->wbytes, ptr->wsize - ptr->wbytes, MSG_DONTWAIT);
 	if(ret > 0) {
 		ptr->wbytes += ret;
@@ -168,12 +167,7 @@ static void write_handler(int sock, short event, void* arg)
 
 			if (event_del(&ptr->wevent) != -1) ptr->wevent.ev_base = NULL;
 		}
-		pthread_cond_signal(&ptr->cond);
-		pthread_mutex_unlock(&ptr->lock);
 	} else {
-		pthread_cond_signal(&ptr->cond);
-		pthread_mutex_unlock(&ptr->lock);
-
 		ptr->thread->conn_num--;
 
 		clean_conn(ptr);
@@ -183,6 +177,26 @@ static void write_handler(int sock, short event, void* arg)
 		is_accept_conn(true);
 	}
 }
+
+static void socket_send_buf(conn_t *ptr, char *package, int plen) {
+	if(ptr->wbuf) {
+		int bn = ptr->wsize - ptr->wbytes;
+		int n = plen + bn;
+		char *data = (char*) malloc(n);
+		memcpy(data, ptr->wbuf + ptr->wbytes, bn);
+		memcpy(data + bn, package, plen);
+		free(package);
+		free(ptr->wbuf);
+		ptr->wbuf = data;
+		ptr->wbytes = 0;
+		ptr->wsize = n;
+	} else {
+		ptr->wbuf = package;
+		ptr->wbytes = 0;
+		ptr->wsize = plen;
+	}
+}
+
 static void notify_handler(const int fd, const short which, void *arg)
 {
 #ifdef SSP_CODE_TIMEOUT
@@ -214,15 +228,20 @@ static void notify_handler(const int fd, const short which, void *arg)
 
 		switch(chr) {
 			case 'w':
-				ptr=queue_pop(me->write_queue);
-				if(!ptr) break;
+				{
+					send_t *s = queue_pop(me->write_queue);
+					if(!s) break;
+					socket_send_buf(s->ptr, s->str, s->len);
+					ptr = s->ptr;
+					free(s);
+				}
 
 				event_set(&ptr->wevent, ptr->sockfd, EV_WRITE|EV_PERSIST, write_handler, ptr);
 				event_base_set(me->base, &ptr->wevent);
 				event_add(&ptr->wevent, NULL);
 				break;
 			case 'x': // 处理连接关闭对列
-				ptr=queue_pop(me->close_queue);
+				ptr = queue_pop(me->close_queue);
 				if(!ptr) break;
 
 				conn_info(ptr);

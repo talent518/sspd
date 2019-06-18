@@ -5,6 +5,7 @@
 
 #include "data.h"
 #include "ssp.h"
+#include "socket.h"
 
 queue_t *iqueue=NULL;
 
@@ -78,6 +79,16 @@ void unref_conn(conn_t *ptr) {
 	pthread_mutex_unlock(&ptr->lock);
 }
 
+static bool send_cmp(send_t *s, conn_t *ptr) {
+	if(s->ptr == ptr) {
+		free(s->str);
+		free(s);
+		return true;
+	} else {
+		return false;
+	}
+}
+
 void clean_conn(conn_t *ptr){
 	if(ptr->event.ev_base) {
 		event_del(&ptr->event);
@@ -85,7 +96,7 @@ void clean_conn(conn_t *ptr){
 	if(ptr->wevent.ev_base) {
 		event_del(&ptr->wevent);
 	}
-	queue_clean(ptr->thread->write_queue, ptr);
+	queue_clean_ex(ptr->thread->write_queue, ptr, (queue_cmp_t) send_cmp);
 	queue_clean(ptr->thread->close_queue, ptr);
 
 	shutdown(ptr->sockfd,SHUT_RDWR);
@@ -97,8 +108,9 @@ void clean_conn(conn_t *ptr){
 	ptr->rbytes = 0;
 	ptr->rsize = 0;
 
-	pthread_mutex_lock(&ptr->lock);
 	ptr->refable = false;
+
+	pthread_mutex_lock(&ptr->lock);
 	if(ptr->wbuf) {
 		free(ptr->wbuf);
 		ptr->wbuf = NULL;
