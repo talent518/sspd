@@ -24,9 +24,11 @@ typedef struct _conn_t {
 	int rbytes;
 	int rsize;
 
+#if ASYNC_SEND
 	char *wbuf;
 	int wbytes;
 	int wsize;
+#endif // ASYNC_SEND
 
 	worker_thread_t *thread;
 

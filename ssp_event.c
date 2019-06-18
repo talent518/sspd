@@ -150,6 +150,7 @@ static void read_handler(int sock, short event,	void* arg)
 	}
 }
 
+#if ASYNC_SEND
 static void write_handler(int sock, short event, void* arg)
 {
 	conn_t *ptr = (conn_t *) arg;
@@ -196,6 +197,7 @@ static void socket_send_buf(conn_t *ptr, char *package, int plen) {
 		ptr->wsize = plen;
 	}
 }
+#endif // ASYNC_SEND
 
 static void notify_handler(const int fd, const short which, void *arg)
 {
@@ -227,12 +229,17 @@ static void notify_handler(const int fd, const short which, void *arg)
 		dprintf("notify_handler: notify(%c) threadId(%d)\n", chr, me->id);
 
 		switch(chr) {
+		#if ASYNC_SEND
 			case 'w': {
 				send_t *s = queue_pop(me->write_queue);
 				if(!s) break;
-				chr = s->ptr->wbuf == NULL;
-				socket_send_buf(s->ptr, s->str, s->len);
+
 				ptr = s->ptr;
+
+				assert(ptr->thread == me);
+
+				chr = ptr->wbuf == NULL;
+				socket_send_buf(ptr, s->str, s->len);
 				free(s);
 
 				if(chr) {
@@ -242,19 +249,24 @@ static void notify_handler(const int fd, const short which, void *arg)
 				}
 				break;
 			}
+		#endif // ASYNC_SEND
 			case 'x': // 处理连接关闭对列
 				ptr = queue_pop(me->close_queue);
 				if(!ptr) break;
 
+				assert(ptr->thread == me);
+
+		#if ASYNC_SEND
 				if(ptr->wbuf) {
-					if(event_del(&ptr->event) != -1) {
+					if(ptr->event.ev_base && event_del(&ptr->event) != -1) {
 						ptr->event.ev_base = NULL;
-						shutdown(ptr->sockfd, SHUT_RD);
+						// shutdown(ptr->sockfd, SHUT_RD);
 					}
 					queue_push(me->close_queue, ptr);
 					write(me->write_fd, &chr, 1);
 					break;
 				}
+		#endif // ASYNC_SEND
 
 				conn_info(ptr);
 				clean_conn(ptr);

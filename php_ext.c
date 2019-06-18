@@ -246,10 +246,10 @@ bool trigger(unsigned short type, ...) {
 	}
 	zval pfunc, retval;
 	zval *params = NULL;
-	int i, param_count, ret;
+	int i, param_count = 0, ret;
 	bool retbool = true;
 	va_list args;
-	conn_t *ptr;
+	conn_t *ptr = NULL;
 	char **data = NULL;
 	int *data_len;
 
@@ -259,8 +259,6 @@ bool trigger(unsigned short type, ...) {
 	switch (type) {
 		case PHP_SSP_START:
 		case PHP_SSP_STOP:
-			param_count = 0;
-			params = NULL;
 			break;
 		case PHP_SSP_CONNECT:
 		case PHP_SSP_CONNECT_DENIED:

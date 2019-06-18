@@ -109,6 +109,7 @@ void clean_conn(conn_t *ptr) {
 
 	ptr->refable = false;
 
+#if ASYNC_SEND
 	if(ptr->wbuf) {
 		free(ptr->wbuf);
 		ptr->wbuf = NULL;
@@ -116,6 +117,7 @@ void clean_conn(conn_t *ptr) {
 	}
 	ptr->wbytes = 0;
 	ptr->wsize = 0;
+#endif // ASYNC_SEND
 }
 
 unsigned int _conn_num(){
@@ -146,12 +148,17 @@ void insert_conn(conn_t *ptr){
 		pthread_cond_init(&ptr->cond, NULL);
 
 		ptr->refable=true;
-
 	} END_WRITE_LOCK;
 }
 
 void remove_conn(conn_t *ptr){
 	assert(iqueue);
+
+	pthread_mutex_lock(&ptr->lock);
+	while (ptr->ref_count > 0) {
+		pthread_cond_wait(&ptr->cond, &ptr->lock);
+	}
+	pthread_mutex_unlock(&ptr->lock);
 
 	BEGIN_WRITE_LOCK {
 		conn_num--;
@@ -162,12 +169,6 @@ void remove_conn(conn_t *ptr){
 		*index=ptr->index;
 
 		queue_push(iqueue,(void *)index);
-
-		pthread_mutex_lock(&ptr->lock);
-		while (ptr->ref_count > 0) {
-			pthread_cond_wait(&ptr->cond, &ptr->lock);
-		}
-		pthread_mutex_unlock(&ptr->lock);
 
 		pthread_mutex_destroy(&ptr->lock);
 		pthread_cond_destroy(&ptr->cond);

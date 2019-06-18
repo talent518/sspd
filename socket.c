@@ -105,6 +105,7 @@ int socket_send(conn_t *ptr, char *data, int data_len) {
 
 	memcpy(package + 4, data, data_len); //数据包内容
 
+#if ASYNC_SEND
 	send_t *s = (send_t*)malloc(sizeof(send_t));
 	s->ptr = ptr;
 	s->str = package;
@@ -116,6 +117,11 @@ int socket_send(conn_t *ptr, char *data, int data_len) {
 	write(ptr->thread->write_fd, &buf, 1);
 
 	return plen;
+#else
+	i = send(ptr->sockfd, package, plen, MSG_WAITALL);
+	free(package);
+	return i;
+#endif // ASYNC_SEND
 }
 
 void socket_close(conn_t *ptr) {

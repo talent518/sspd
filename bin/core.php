@@ -1,6 +1,6 @@
 <?PHP
 define('IN_SERVER', TRUE);
-defined('IS_DEBUG') or define('IS_DEBUG', 1);
+defined('IS_DEBUG') or define('IS_DEBUG', 0);
 
 error_reporting(E_ALL &  ~ E_WARNING &  ~ E_NOTICE & ~ E_STRICT);
 
