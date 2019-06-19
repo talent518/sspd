@@ -53,10 +53,6 @@ class LibSocketClient {
 		extension_loaded('sockets') or die('sockets:Extension does not exist!');
 		import('lib.xml');
 	}
-
-	public function is_connect () {
-		return ( is_resource($this->socket) && $this->connected );
-	}
 	
 	/*
 	 * connect to server_host and port @access public @param integer $server_host @param integer $server_port
@@ -69,12 +65,7 @@ class LibSocketClient {
 			$this->error = 'Couldn\'t create socket: ' . @socket_strerror($this->socket);
 			return false;
 		}
-		$i = 0;
-		while (  ! $this->is_connect() && $i < 100 ) {
-			$this->connected = @socket_connect($this->socket, $server_host, $server_port);
-			usleep(100000);
-			$i ++ ;
-		}
+		$this->connected = @socket_connect($this->socket, $server_host, $server_port);
 		if (  ! $this->connected ) {
 			$errorcode = socket_last_error();
 			$errormsg = socket_strerror($errorcode);
@@ -105,6 +96,10 @@ class LibSocketClient {
 		}
 		return $this->connected;
 	}
+	
+	function isconnected() {
+		return $this->connected;
+	}
 
 	function randstr ( $len = 6 ) {
 		$chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -133,11 +128,20 @@ class LibSocketClient {
 		return $num;
 	}
 	
+	function isreadable($timeout=0) {
+		if(!$this->connected) return false;
+	
+		$reads = [$this->socket];
+		$writes = null;
+		$excepts = null;
+		return socket_select($reads, $writes, $excepts, $timeout, 100) > 0;
+	}
+	
 	/*
 	 * read to socket @access public @return string
 	 */
 	function read () {
-		if (  ! $this->is_connect() ) {
+		if (  ! $this->connected ) {
 			$this->error = 'Could not read from server!';
 			return false;
 		}
@@ -171,12 +175,21 @@ class LibSocketClient {
 			return $response;
 		}
 	}
+
+	public function iswritable($timeout=0) {
+		if(!$this->connected) return false;
+		
+		$writes = [$this->socket];
+		$excepts = null;
+
+		return $this->connected = socket_select($reads, $writes, $excepts, $timeout, 100) > 0;
+	}
 	
 	/*
 	 * write to socket @access public @param string $in
 	 */
 	function write ( XML_Element $in ) {
-		if (  ! $this->is_connect() ) {
+		if (! $this->iswritable()) {
 			$this->error = 'Could not write to server!';
 			return false;
 		}
@@ -204,6 +217,7 @@ class LibSocketClient {
 	function close () {
 		@socket_close($this->socket);
 		$this->socket = null;
+		$this->connected = false;
 	}
 
 	function __destruct () {

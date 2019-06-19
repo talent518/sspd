@@ -190,7 +190,7 @@ for($i=0; $i<$nconns; $i++) {
 	$socket=clone LIB('socket.client');
 	$socket->connect($host, $port);
 
-	if($socket->is_connect()){
+	if($socket->isconnected()){
 		echo 'c'; // connect
 
 		$request->pid=$pid;
@@ -212,6 +212,7 @@ for($i=0; $i<$nconns; $i++) {
 			continue;
 		}
 		echo 'l'; // login success
+		if($socket->isreadable()) $socket->read();
 
 		$sockets[$i]=$socket;
 	}else{
@@ -232,7 +233,7 @@ $request->params=array_to_xml(array('page'=>1,'size'=>10,'isToday'=>0),'params')
 
 for($i=0; $i<$ntimes; $i++) {
 	if(empty($sockets)) {
-		exit;
+		exit('C');
 	}
 	$request->pid=$pid;
 	$request->i=$i;
@@ -252,11 +253,13 @@ for($i=0; $i<$ntimes; $i++) {
 			echo 'Q'; // fail request
 		}
 		echo 'q'; // ok request
+		if($socket->isreadable()) $socket->read();
 	}
 }
 
 foreach($sockets as $socket) {
 	$socket->close();
-	echo 'C'; // close connection
 }
+
+echo 'C'; // close connection
 ?>
