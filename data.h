@@ -14,7 +14,7 @@ typedef struct _conn_t {
 	int index;
 
 	int sockfd;
-	char host[15];
+	char host[16];
 	int port;
 
 	bool refable;
@@ -38,10 +38,6 @@ typedef struct _conn_t {
 
 	struct event event;
 } conn_t;
-
-extern queue_t *iqueue;
-
-extern conn_t **iconns;
 
 #define BEGIN_READ_LOCK		begin_read_lock();
 #define END_READ_LOCK		end_read_lock();
@@ -74,7 +70,7 @@ void unref_conn(conn_t *ptr);
 
 //接点写
 void attach_conn();
-void insert_conn(conn_t *ptr);
+conn_t *insert_conn();
 void remove_conn(conn_t *ptr);
 void clean_conn(conn_t *ptr);
 void detach_conn();

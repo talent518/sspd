@@ -269,7 +269,7 @@ static void notify_handler(const int fd, const short which, void *arg)
 
 			#if ASYNC_SEND
 				if(ptr->wbuf) {
-					printf("close: %4d,1\n", ptr->index);
+					dprintf("close: %4d,1\n", ptr->index);
 					queue_push(me->close_queue, ptr);
 					write(me->write_fd, &chr, 1);
 					break;
@@ -300,6 +300,14 @@ static void notify_handler(const int fd, const short which, void *arg)
 
 				me->conn_num++;
 				me->clean_times = 0;
+				if(!trigger(PHP_SSP_CONNECT, ptr)) {
+					me->conn_num--;
+					conn_info(ptr);
+					clean_conn(ptr);
+					trigger(PHP_SSP_CLOSE,ptr);
+					remove_conn(ptr);
+					break;
+				}
 
 			#if ASYNC_SEND
 				ptr->evflags = EV_READ|EV_PERSIST;
@@ -476,48 +484,45 @@ static void listen_handler(const int fd, const short which, void *arg)
 	setsockopt(conn_fd, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
 	setsockopt(conn_fd, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int)); // 接收超时
 
-	conn_t *ptr = (conn_t *)malloc(sizeof(conn_t));
-
-	bzero(ptr, sizeof(conn_t));
-
-	ptr->sockfd = conn_fd;
-	inet_ntop(AF_INET, &pin.sin_addr, ptr->host, sizeof(ptr->host));
-	ptr->port = ntohs(pin.sin_port);
+	conn_t *ptr;
 
 	if(CONN_NUM >= ssp_maxclients) {
+		conn_t conn;
 		is_accept_conn_ex(false);
+
+		ptr = &conn;
+
+		bzero(ptr, sizeof(conn_t));
+
+		ptr->sockfd = conn_fd;
+		inet_ntop(AF_INET, &pin.sin_addr, ptr->host, len);
+		ptr->port = ntohs(pin.sin_port);
 
 		conn_info(ptr);
 
 		trigger(PHP_SSP_CONNECT_DENIED, ptr);
+
 		clean_conn(ptr);
-
-		free(ptr);
 	} else {
-		insert_conn(ptr);
+		ptr = insert_conn();
+		ptr->sockfd = conn_fd;
+		inet_ntop(AF_INET, &pin.sin_addr, ptr->host, len);
+		ptr->port = ntohs(pin.sin_port);
 
-		worker_thread_t *thread = worker_threads + (ptr->index-1) % ssp_nthreads;
+		ptr->thread = worker_threads + ptr->index % ssp_nthreads;
 
-		ptr->thread = thread;
+		dprintf("notify thread %d\n", ptr->thread->id);
 
-		ret=trigger(PHP_SSP_CONNECT, ptr);
-		if(ret) {
-			dprintf("notify thread %d\n", thread->id);
+		queue_push(ptr->thread->accept_queue, ptr);
 
-			queue_push(thread->accept_queue, ptr);
+		conn_info(ptr);
 
-			conn_info(ptr);
-
-			char chr='l';
-			write(thread->write_fd, &chr, 1);
-		} else {
-			conn_info(ptr);
-			clean_conn(ptr);
-			remove_conn(ptr);
-		}
+		char chr='l';
+		write(ptr->thread->write_fd, &chr, 1);
 	}
 }
 
+conn_t *index_conn_signal(int i);
 static void signal_handler(const int fd, short event, void *arg) {
 	dprintf("%s: got signal %d\n", __func__, EVENT_SIGNAL(&listen_thread.signal_int));
 
@@ -544,9 +549,9 @@ static void signal_handler(const int fd, short event, void *arg) {
 	conn_t *ptr;
 
 	for(i=0; i<ssp_maxclients; i++) {
-		ptr = iconns[i];
+		ptr = index_conn_signal(i);
 
-		if(!ptr) {
+		if(!ptr->port) {
 			continue;
 		}
 

@@ -342,7 +342,7 @@ static PHP_FUNCTION(ssp_resource) {
 		return;
 	}
 
-	ptr = index_conn(var);
+	ptr = index_conn(var-1);
 
 	if (ptr != NULL) {
 		ZEND_REGISTER_RESOURCE(return_value, ptr, le_ssp_descriptor_ref);
@@ -366,14 +366,14 @@ static PHP_FUNCTION(ssp_info) {
 	if(!ptr) RETURN_NULL();
 	if (key_len == 0) {
 		array_init_size(return_value, 5);
-		add_assoc_long(return_value, "index", ptr->index);
+		add_assoc_long(return_value, "index", ptr->index+1);
 		add_assoc_long(return_value, "sockfd", ptr->sockfd);
 		add_assoc_string(return_value, "host", ptr->host);
 		add_assoc_long(return_value, "port", ptr->port);
 		add_assoc_long(return_value, "tid", ptr->thread->id);
 	} else {
 		if (!strcasecmp(key, "index")) {
-			RETURN_LONG(ptr->index);
+			RETURN_LONG(ptr->index+1);
 		} else if (!strcasecmp(key, "sockfd")) {
 			RETURN_LONG(ptr->sockfd);
 		} else if (!strcasecmp(key, "host")) {

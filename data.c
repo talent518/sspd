@@ -7,12 +7,11 @@
 #include "ssp.h"
 #include "socket.h"
 
-queue_t *iqueue=NULL;
-
-conn_t **iconns; // index table
-
-static unsigned int readers=0;
-static unsigned int conn_num=0;
+static int *indexs = NULL;
+volatile int iindex = -1;
+static conn_t *iconns = NULL;
+volatile unsigned int readers=0;
+volatile unsigned int conn_num=0;
 
 pthread_mutex_t mx_reader,mx_writer;
 
@@ -38,22 +37,26 @@ void end_write_lock(){
 }
 
 void attach_conn(){
-	assert(iqueue==NULL);
-
-	iqueue=queue_init();
+	assert(indexs==NULL);
+	assert(iconns==NULL);
 
 	pthread_mutex_init(&mx_reader, NULL);
 	pthread_mutex_init(&mx_writer, NULL);
 
-	iconns=(conn_t**)malloc(sizeof(conn_t)*ssp_maxclients);
-	memset(iconns, 0, sizeof(conn_t)*ssp_maxclients);
+	indexs = (int*)malloc(sizeof(int) * ssp_maxclients);
+	memset(indexs, 0, sizeof(int) * ssp_maxclients);
+
+	iconns=(conn_t*)malloc(sizeof(conn_t) * ssp_maxclients);
+	memset(iconns, 0, sizeof(conn_t) * ssp_maxclients);
 }
 
-conn_t *index_conn(int index){
+conn_t *index_conn(int i){
 	conn_t *ptr=NULL;
 
+	if(i < 0 || i >= ssp_maxclients) return NULL;
+
 	BEGIN_READ_LOCK {
-		ptr=iconns[index];
+		ptr=&iconns[i];
 
 		if(ptr && ptr->refable) {
 			ref_conn(ptr);
@@ -63,6 +66,10 @@ conn_t *index_conn(int index){
 	} END_READ_LOCK;
 
 	return ptr;
+}
+
+conn_t *index_conn_signal(int i) {
+	return &iconns[i];
 }
 
 void ref_conn(conn_t *ptr) {
@@ -127,31 +134,37 @@ unsigned int _conn_num(){
 	return ret;
 }
 
-void insert_conn(conn_t *ptr){
-	assert(iqueue);
+conn_t *insert_conn(){
+	conn_t *ptr = NULL;
+	assert(indexs);
+	assert(iconns);
+
 	BEGIN_WRITE_LOCK {
-		conn_num++;
+		if(conn_num < ssp_maxclients) {
+			if(iindex >= 0){
+				int i = indexs[iindex--];
+				ptr = &iconns[i];
+				ptr->index = i;
+			} else {
+				ptr = &iconns[conn_num];
+				ptr->index = conn_num;
+			}
 
-		int *index=(int*)queue_pop(iqueue);
+			conn_num++;
 
-		if(index){
-			ptr->index=*index;
-			free(index);
-		} else {
-			ptr->index = conn_num;
+			pthread_mutex_init(&ptr->lock, NULL);
+			pthread_cond_init(&ptr->cond, NULL);
+
+			ptr->refable = true;
 		}
-
-		iconns[ptr->index] = ptr;
-
-		pthread_mutex_init(&ptr->lock, NULL);
-		pthread_cond_init(&ptr->cond, NULL);
-
-		ptr->refable=true;
 	} END_WRITE_LOCK;
+
+	return ptr;
 }
 
 void remove_conn(conn_t *ptr){
-	assert(iqueue);
+	assert(indexs);
+	assert(iconns);
 
 	pthread_mutex_lock(&ptr->lock);
 	while (ptr->ref_count > 0) {
@@ -162,27 +175,25 @@ void remove_conn(conn_t *ptr){
 	BEGIN_WRITE_LOCK {
 		conn_num--;
 
-		iconns[ptr->index] = NULL;
-
-		int *index=(int *)malloc(sizeof(int));
-		*index=ptr->index;
-
-		queue_push(iqueue,(void *)index);
+		indexs[++iindex] = ptr->index;
 
 		pthread_mutex_destroy(&ptr->lock);
 		pthread_cond_destroy(&ptr->cond);
 
-		free(ptr);
+		memset(ptr, 0, sizeof(conn_t));
 	} END_WRITE_LOCK;
 }
 
 void detach_conn(){
-	assert(iqueue);
-	BEGIN_WRITE_LOCK {
-		queue_free(iqueue);
-		iqueue=NULL;
+	assert(indexs);
+	assert(iconns);
 
+	BEGIN_WRITE_LOCK {
+		free(indexs);
 		free(iconns);
+
+		indexs = NULL;
+		iconns = NULL;
 	} END_WRITE_LOCK;
 
 	pthread_mutex_destroy(&mx_reader);
