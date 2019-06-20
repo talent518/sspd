@@ -97,10 +97,10 @@ static bool send_cmp(send_t *s, conn_t *ptr) {
 }
 
 void clean_conn(conn_t *ptr) {
+	if(ptr->event.ev_base) event_del(&ptr->event);
+
 	shutdown(ptr->sockfd, SHUT_RDWR);
 	close(ptr->sockfd);
-
-	if(ptr->event.ev_base) event_del(&ptr->event);
 
 	if(ptr->thread) {
 		queue_clean_ex(ptr->thread->write_queue, ptr, (queue_cmp_t) send_cmp);
