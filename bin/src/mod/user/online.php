@@ -19,7 +19,7 @@ class ModUserOnline extends ModBase {
 	}
 
 	function get_by_user ( $id, $key = '' ) {
-		if (  ! array_key_exists($_SSP['UOR'], $id) ) {
+		if (  ! isset($_SSP['UOR'][$id]) ) {
 			$data = $this->get_by_where('uid=' . $id);
 			$_SSP['UO'][$data[$this->priKey]] = $data;
 			$_SSP['UOR'][$id] = $data[$this->priKey];
@@ -28,7 +28,7 @@ class ModUserOnline extends ModBase {
 	}
 
 	function get_by_client ( $id, $key = '' ) {
-		if (  ! array_key_exists($_SSP['UO'], $id) ) {
+		if (  ! isset($_SSP['UO'][$id]) ) {
 			$_SSP['UO'][$id] = $this->get($id);
 			$uid = $_SSP['UO'][$id]['uid'];
 			if ( $uid ) {
