@@ -492,17 +492,19 @@ static void listen_handler(const int fd, const short which, void *arg)
 
 		ptr = &conn;
 
-		bzero(ptr, sizeof(conn_t));
+		do {
+			bzero(ptr, sizeof(conn_t));
 
-		ptr->sockfd = conn_fd;
-		inet_ntop(AF_INET, &pin.sin_addr, ptr->host, len);
-		ptr->port = ntohs(pin.sin_port);
+			ptr->sockfd = conn_fd;
+			inet_ntop(AF_INET, &pin.sin_addr, ptr->host, len);
+			ptr->port = ntohs(pin.sin_port);
 
-		conn_info(ptr);
+			conn_info(ptr);
 
-		trigger(PHP_SSP_CONNECT_DENIED, ptr);
+			trigger(PHP_SSP_CONNECT_DENIED, ptr);
 
-		clean_conn(ptr);
+			clean_conn(ptr);
+		} while((conn_fd = accept(fd, (struct sockaddr *)&pin, &len))>0);
 	} else {
 		ptr = insert_conn();
 		ptr->sockfd = conn_fd;
