@@ -47,7 +47,7 @@ rebuild: kill clean all
 
 retest: kill all
 	@echo $@
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 64 --max-clients 1000 --timeout 300 --pidfile $(PWD)/ssp.pid --user $(USER) -f $(PWD)/bin/init.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 64 --max-clients 10000 --timeout 300 --pidfile $(PWD)/ssp.pid --user $(USER) -f $(PWD)/bin/init.php -s start
 
 pidstat: retest
 	@echo $@
