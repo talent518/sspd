@@ -160,7 +160,7 @@ function ssp_send_handler ( $ClientId, $xml ) {
 
 	$tagOpenString = substr($xml, 0, strpos($xml, '>'));
 
-	if (  $tagOpenString !== false && strpos($tagOpenString, 'type="Connect.Key"') === false && strpos($tagOpenString, 'type="Connect.Ping"') === false ) {
+	if (  $tagOpenString !== false && strpos($tagOpenString, 'type="Connect.Key"') === false && strpos($tagOpenString, 'type="Connect.Ping"') === false && strpos($tagOpenString, 'type="Connect.Denied"') === false ) {
 		$key = MOD('user.online')->get_by_client($index, 'sendKey');
 		$response = new XML_Element('response');
 		$response->type = 'Connect.Data';

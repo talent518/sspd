@@ -1,6 +1,7 @@
 #ifndef _EVENT_H
 #define _EVENT_H
 
+#include <pthread.h>
 #include <TSRM.h>
 #include <stdbool.h>
 #include <event.h>

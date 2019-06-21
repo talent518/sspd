@@ -88,6 +88,11 @@ int socket_recv(conn_t *ptr, char **data, int *data_len) {
 	return -1;
 }
 
+#if ASYNC_SEND
+void is_writable_conn(conn_t *ptr, bool iswrite);
+void socket_send_buf(conn_t *ptr, char *package, int plen);
+#endif
+
 int socket_send(conn_t *ptr, char *data, int data_len) {
 	int i, plen;
 	char *package;
@@ -106,6 +111,16 @@ int socket_send(conn_t *ptr, char *data, int data_len) {
 	memcpy(package + 4, data, data_len); //数据包内容
 
 #if ASYNC_SEND
+	if(!ptr->thread) {
+		i = send(ptr->sockfd, package, plen, MSG_WAITALL);
+		free(package);
+		return i;
+	} else if(ptr->thread->tid == pthread_self()) {
+		i = ptr->wbuf == NULL;
+		socket_send_buf(ptr, package, plen);
+		if(i) is_writable_conn(ptr, true);
+		return plen;
+	}
 	send_t *s = (send_t*)malloc(sizeof(send_t));
 	s->ptr = ptr;
 	s->str = package;

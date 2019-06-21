@@ -194,7 +194,7 @@ static void read_write_handler(int sock, short event, void* arg)
 }
 
 #if ASYNC_SEND
-static void socket_send_buf(conn_t *ptr, char *package, int plen) {
+void socket_send_buf(conn_t *ptr, char *package, int plen) {
 	if(ptr->wbuf) {
 		int bn = ptr->wsize - ptr->wbytes;
 		int n = plen + bn;
