@@ -24,6 +24,7 @@ worker_thread_t *worker_threads;
 
 static void listen_handler(const int fd, const short which, void *arg);
 bool update_accept_event(short new_flags) {
+#if 0
 	if(listen_thread.ev_flags==new_flags) {
 		return false;
 	}
@@ -37,7 +38,7 @@ bool update_accept_event(short new_flags) {
 	event_set(&listen_thread.listen_ev, listen_thread.sockfd, new_flags, listen_handler, NULL);
 	event_base_set(listen_thread.base, &listen_thread.listen_ev);
     event_add(&listen_thread.listen_ev, NULL);
-
+#endif
 	return true;
 }
 
@@ -492,19 +493,17 @@ static void listen_handler(const int fd, const short which, void *arg)
 
 		ptr = &conn;
 
-		do {
-			bzero(ptr, sizeof(conn_t));
+		bzero(ptr, sizeof(conn_t));
 
-			ptr->sockfd = conn_fd;
-			inet_ntop(AF_INET, &pin.sin_addr, ptr->host, len);
-			ptr->port = ntohs(pin.sin_port);
+		ptr->sockfd = conn_fd;
+		inet_ntop(AF_INET, &pin.sin_addr, ptr->host, len);
+		ptr->port = ntohs(pin.sin_port);
 
-			conn_info(ptr);
+		conn_info(ptr);
 
-			trigger(PHP_SSP_CONNECT_DENIED, ptr);
+		trigger(PHP_SSP_CONNECT_DENIED, ptr);
 
-			clean_conn(ptr);
-		} while((conn_fd = accept(fd, (struct sockaddr *)&pin, &len))>0);
+		clean_conn(ptr);
 	} else {
 		ptr = insert_conn();
 		ptr->sockfd = conn_fd;
