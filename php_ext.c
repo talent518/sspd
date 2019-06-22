@@ -133,7 +133,7 @@ static PHP_MINIT_FUNCTION(ssp)
 
 	pthread_mutex_init(&unique_lock, NULL);
 
-	zend_register_auto_global(zend_string_init("_SSP", sizeof("_SSP") - 1, 1), 0, NULL);
+	zend_register_auto_global(zend_string_init_interned("_SSP", sizeof("_SSP") - 1, 1), 0, NULL);
 
 #ifdef SSP_DEBUG_EXT
 	printf("module startup function for %s\n", __func__);
@@ -147,10 +147,10 @@ static PHP_MINIT_FUNCTION(ssp)
  */
 static PHP_MSHUTDOWN_FUNCTION(ssp)
 {
-	zend_hash_del(EG(zend_constants), zend_string_init("SSP_VERSION", sizeof("SSP_VERSION") - 1, 1));
-	zend_hash_del(EG(zend_constants), zend_string_init("SSP_RES_INDEX", sizeof("SSP_RES_INDEX") - 1, 1));
-	zend_hash_del(EG(zend_constants), zend_string_init("SSP_RES_SOCKFD", sizeof("SSP_RES_SOCKFD") - 1, 1));
-	zend_hash_del(EG(zend_constants), zend_string_init("SSP_RES_PORT", sizeof("SSP_RES_PORT") - 1, 1));
+	zend_hash_str_del(EG(zend_constants), "SSP_VERSION", sizeof("SSP_VERSION") - 1);
+	zend_hash_str_del(EG(zend_constants), "SSP_RES_INDEX", sizeof("SSP_RES_INDEX") - 1);
+	zend_hash_str_del(EG(zend_constants), "SSP_RES_SOCKFD", sizeof("SSP_RES_SOCKFD") - 1);
+	zend_hash_str_del(EG(zend_constants), "SSP_RES_PORT", sizeof("SSP_RES_PORT") - 1);
 
 	pthread_mutex_destroy(&unique_lock);
 
@@ -180,6 +180,7 @@ PHP_RINIT_FUNCTION(ssp)
  */
 PHP_RSHUTDOWN_FUNCTION(ssp)
 {
+	zend_hash_str_del(&EG(symbol_table), "_SSP", sizeof("_SSP") - 1);
 	zval_ptr_dtor(&SSP_G(ssp_vars));
 	ZVAL_UNDEF(&SSP_G(ssp_vars));
 
@@ -225,8 +226,6 @@ static PHP_MINFO_FUNCTION(ssp)
 
 void ssp_auto_globals_recreate()
 {
-	zend_string *var_name = zend_string_init("_SSP", sizeof("_SSP") - 1, 1);
-
 	if (!Z_ISUNDEF(SSP_G(ssp_vars))) {
 		zval_ptr_dtor(&SSP_G(ssp_vars));
 		ZVAL_UNDEF(&SSP_G(ssp_vars));
@@ -234,8 +233,7 @@ void ssp_auto_globals_recreate()
 
 	array_init_size(&SSP_G(ssp_vars), ssp_vars_length);
 	Z_ADDREF_P(&SSP_G(ssp_vars));
-	zend_hash_update_ind(&EG(symbol_table), var_name, &SSP_G(ssp_vars));
-	zend_string_release(var_name);
+	zend_hash_str_update(&EG(symbol_table), "_SSP", sizeof("_SSP") - 1, &SSP_G(ssp_vars));
 }
 
 bool trigger(unsigned short type, ...) {
@@ -253,7 +251,7 @@ bool trigger(unsigned short type, ...) {
 	char **data = NULL;
 	int *data_len;
 
-	ZVAL_PSTRING(&pfunc, trigger_handlers[type]);
+	ZVAL_STRING(&pfunc, trigger_handlers[type]);
 
 	va_start(args, type);
 	switch (type) {
@@ -276,7 +274,7 @@ bool trigger(unsigned short type, ...) {
 			data_len = va_arg(args, int*);
 			params = (zval *) emalloc(sizeof(zval) * param_count);
 			ZEND_REGISTER_RESOURCE(&params[0], ptr, le_ssp_descriptor);
-			ZVAL_PSTRINGL(&params[1], *data, *data_len);
+			ZVAL_STRINGL(&params[1], *data, *data_len);
 			break;
 		default:
 			perror("Trigger type not exists!");
@@ -377,7 +375,7 @@ static PHP_FUNCTION(ssp_info) {
 		} else if (!strcasecmp(key, "sockfd")) {
 			RETURN_LONG(ptr->sockfd);
 		} else if (!strcasecmp(key, "host")) {
-			ZVAL_PSTRING(return_value, ptr->host);
+			ZVAL_STRING(return_value, ptr->host);
 		} else if (!strcasecmp(key, "port")) {
 			RETURN_LONG(ptr->port);
 		} else if (!strcasecmp(key, "tid")) {

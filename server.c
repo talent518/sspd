@@ -86,7 +86,7 @@ void server_start() {
 		return;
 	}
 
-#if 1
+#if 0
 	pid = fork();
 
 	if (pid == -1) {

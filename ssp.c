@@ -38,21 +38,32 @@
 static char *php_optarg = NULL;
 static int php_optind = 1;
 
-static const opt_struct OPTIONS[] = { { 'c', 1, "php-ini" },
-	{ 'd', 1, "define" }, { 'f', 1, "file" }, { 'h', 0, "help" }, { 'i', 0,
-		"info" }, { 'm', 0, "modules" }, { 'n', 0, "no-php-ini" }, {
-		'H', 0, "hide-args" }, { '?', 0, "usage" },/* help alias (both '?' and 'usage') */
-	{ 'v', 0, "version" }, { 'z', 1, "zend-extension" }, { 'b', 1,
-		"backlog" }, { 's', 1, "service" },
+static const opt_struct OPTIONS[] = {
+	{ 'c', 1, "php-ini" },
+	{ 'd', 1, "define" },
+	{ 'f', 1, "file" },
+	{ 'h', 0, "help" },
+	{ 'i', 0, "info" },
+	{ 'm', 0, "modules" },
+	{ 'n', 0, "no-php-ini" },
+	{ 'H', 0, "hide-args" },
+	{ '?', 0, "usage" },/* help alias (both '?' and 'usage') */
+	{ 'v', 0, "version" },
+	{ 'z', 1, "zend-extension" },
+	{ 'b', 1, "backlog" },
+	{ 's', 1, "service" },
 
-	{ OPT_HOST, 1, "host" }, { OPT_PORT, 1, "port" }, { OPT_PIDFILE, 1,
-		"pidfile" },
+	{ OPT_HOST, 1, "host" },
+	{ OPT_PORT, 1, "port" },
+	{ OPT_PIDFILE, 1, "pidfile" },
 
-	{ OPT_USER, 1, "user" }, { OPT_NTHREADS, 1, "nthreads" }, {
-	OPT_MAX_CLIENTS, 1, "max-clients" }, { OPT_MAX_RECVS, 1,
-		"max-recvs" },
+	{ OPT_USER, 1, "user" },
+	{ OPT_NTHREADS, 1, "nthreads" },
+	{ OPT_MAX_CLIENTS, 1, "max-clients" },
+	{ OPT_MAX_RECVS, 1, "max-recvs" },
 
-	{ OPT_TIMEOUT, 1, "timeout" }, { OPT_TIMEOUT_GLOBAL, 1, "gtimeout" },
+	{ OPT_TIMEOUT, 1, "timeout" },
+	{ OPT_TIMEOUT_GLOBAL, 1, "gtimeout" },
 
 	{ OPT_SSP_VARS, 1, "sspvars" },
 
@@ -100,9 +111,9 @@ static void php_ssp_usage(char *argv0) {
 			"  -b <backlog>            Set the backlog queue limit (default: %d)\n"
 			"  --sspvars <sspvars>     Set the global php variable _SSP init array length (default: %ds)\n"
 #ifdef SSP_CODE_TIMEOUT
-		"  --timeout <timeout>     Set the timeout php cache timeout (default: %ds)\n"
+		"  --timeout <timeout>     Set the timeout php cache timeout (default: %lds)\n"
 #ifdef SSP_CODE_TIMEOUT_GLOBAL
-		"  --gtimeout <gtimeout>     Set the gtimeout global php variable _SSP timeout (default: %ds)\n"
+		"  --gtimeout <gtimeout>     Set the gtimeout global php variable _SSP timeout (default: %lds)\n"
 #endif
 #endif
 		"\n"
@@ -436,7 +447,11 @@ int main(int argc, char *argv[])
 				}
 			}zend_end_try();
 
-	if (strcmp(serv_opt, "script") == 0) {
+	if(!serv_opt) {
+		php_ssp_usage(argv[0]);
+		php_output_end_all();
+		exit_status = 1;
+	} else if (strcmp(serv_opt, "script") == 0) {
 		SG(request_info).argc = argc - php_optind + 1;
 		argv[php_optind - 1] = request_init_file;
 		SG(request_info).argv = argv + php_optind - 1;

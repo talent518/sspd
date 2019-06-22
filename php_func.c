@@ -41,6 +41,7 @@ char *request_init_file=NULL;
 const char HARDCODED_INI[] =
 	"error_reporting = E_ALL ^ E_NOTICE\n"
 	"html_errors=0\n"
+	"display_errors=1\n"
 	"register_argc_argv=1\n"
 	"implicit_flush=1\n"
 	"output_buffering=0\n"
@@ -226,7 +227,7 @@ static int php_ssp_shutdown(sapi_module_struct *sapi_module) /* {{{ */
 static void sapi_ssp_ini_defaults(HashTable *configuration_hash)
 {
 	zval tmp;
-	INI_DEFAULT("report_zend_debug", "1");
+	INI_DEFAULT("report_zend_debug", "0");
 	INI_DEFAULT("display_errors", "1");
 	INI_DEFAULT("memory_limit", "-1");
 	INI_DEFAULT("zend.enable_gc","1");
@@ -279,9 +280,19 @@ static const zend_function_entry additional_functions[] = {
 	{NULL, NULL, NULL}
 };
 
+#if 0
+ZEND_API zval *zend_get_configuration_directive(zend_string *name) {
+	printf("%s: %s\n", __func__, ZSTR_VAL(name));
+
+	return cfg_get_entry_ex(name);
+}
+#endif
+
 /* {{{ main
  */
 void ssp_init(){
+	signal(SIGPIPE, SIG_IGN);
+
 	CSM(ini_defaults) = sapi_ssp_ini_defaults;
 	CSM(php_ini_path_override) = NULL;
 	CSM(phpinfo_as_text) = 1;
@@ -290,9 +301,7 @@ void ssp_init(){
 	tsrm_startup(1, 1, 0, NULL);
 	(void)ts_resource(0);
 
-#ifdef ZEND_SIGNALS
 	zend_signal_startup();
-#endif
 
 	sapi_startup(&ssp_sapi_module);
 
@@ -342,21 +351,23 @@ void ssp_request_startup(){
 	REGISTER_MAIN_LONG_CONSTANT("SSP_TIMEOUT",ssp_timeout,CONST_CS | CONST_PERSISTENT);
 #endif
 
+	zend_is_auto_global_str(ZEND_STRL("_SERVER"));
+
 	php_execute_script(&zfd);
 }
 
 void ssp_request_shutdown(){
-	zend_hash_del(EG(zend_constants), zend_string_init("SSP_PIDFILE", sizeof("SSP_PIDFILE") - 1, 1));
-	zend_hash_del(EG(zend_constants), zend_string_init("SSP_USER", sizeof("SSP_USER") - 1, 1));
-	zend_hash_del(EG(zend_constants), zend_string_init("SSP_HOST", sizeof("SSP_HOST") - 1, 1));
-	zend_hash_del(EG(zend_constants), zend_string_init("SSP_PORT", sizeof("SSP_PORT") - 1, 1));
-	zend_hash_del(EG(zend_constants), zend_string_init("SSP_MAX_CLIENTS", sizeof("SSP_MAX_CLIENTS") - 1, 1));
-	zend_hash_del(EG(zend_constants), zend_string_init("SSP_MAX_RECVS", sizeof("SSP_MAX_RECVS") - 1, 1));
-	zend_hash_del(EG(zend_constants), zend_string_init("SSP_NTHREADS", sizeof("SSP_NTHREADS") - 1, 1));
-	zend_hash_del(EG(zend_constants), zend_string_init("SSP_BACKLOG", sizeof("SSP_BACKLOG") - 1, 1));
+	zend_hash_str_del(EG(zend_constants), "SSP_PIDFILE", sizeof("SSP_PIDFILE") - 1);
+	zend_hash_str_del(EG(zend_constants), "SSP_USER", sizeof("SSP_USER") - 1);
+	zend_hash_str_del(EG(zend_constants), "SSP_HOST", sizeof("SSP_HOST") - 1);
+	zend_hash_str_del(EG(zend_constants), "SSP_PORT", sizeof("SSP_PORT") - 1);
+	zend_hash_str_del(EG(zend_constants), "SSP_MAX_CLIENTS", sizeof("SSP_MAX_CLIENTS") - 1);
+	zend_hash_str_del(EG(zend_constants), "SSP_MAX_RECVS", sizeof("SSP_MAX_RECVS") - 1);
+	zend_hash_str_del(EG(zend_constants), "SSP_NTHREADS", sizeof("SSP_NTHREADS") - 1);
+	zend_hash_str_del(EG(zend_constants), "SSP_BACKLOG", sizeof("SSP_BACKLOG") - 1);
 
 #ifdef SSP_CODE_TIMEOUT
-	zend_hash_del(EG(zend_constants),zend_string_init("SSP_TIMEOUT",sizeof("SSP_TIMEOUT")-1,1));
+	zend_hash_str_del(EG(zend_constants), "SSP_TIMEOUT", sizeof("SSP_TIMEOUT")-1);
 #endif
 
 	php_request_shutdown(NULL);
