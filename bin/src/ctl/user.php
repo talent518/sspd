@@ -179,15 +179,15 @@ class CtlUser extends CtlBase {
 		$xml = new XML_Element('newsTree');
 		$groups = MOD('news.group')->get_list_by_where();
 		foreach ( $groups as $r ) {
-			$xml->$r['gid'] = new XML_Element('category');
-			$xml->$r['gid']->gid = $r['gid'];
-			$xml->$r['gid']->label = $r['gname'];
-			$xml->$r['gid']->counts = $r['counts'];
+			$xml->{$r['gid']} = new XML_Element('category');
+			$xml->{$r['gid']}->gid = $r['gid'];
+			$xml->{$r['gid']}->label = $r['gname'];
+			$xml->{$r['gid']}->counts = $r['counts'];
 		}
 		$newsTree = MOD('news')->get_tree_by_user($uid);
 		foreach ( $newsTree as $r ) {
 			$r['dateline'] = udate('m-d H:i', $r['dateline'], $uid);
-			$xml->$r['gid']->$r['aid'] = array_to_xml($r, 'news');
+			$xml->{$r['gid']}->{$r['aid']} = array_to_xml($r, 'news');
 		}
 		return $xml;
 	}

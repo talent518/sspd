@@ -65,7 +65,7 @@ class CtlInvest extends CtlBase {
 		foreach ( $investList as $r ) {
 			$r['code'] = substr('000000' . $r['code'],  - 6);
 			$r['dateline'] = udate('m-d H:i', $r['dateline'], $uid);
-			$xml->$r['iid'] = array_to_xml($r, 'invest');
+			$xml->{$r['iid']} = array_to_xml($r, 'invest');
 		}
 		return $xml;
 	}

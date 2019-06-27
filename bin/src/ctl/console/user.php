@@ -1,7 +1,4 @@
 <?php
-if (  ! defined('IN_SERVER') )
-	exit('Access Denied');
-
 import('ctl.base');
 import('lib.xml');
 
@@ -119,7 +116,7 @@ class CtlConsoleUser extends CtlBase {
 				$r['group'] = MOD('user.group')->get($r['gid'], 'title');
 				$r['online'] = ( MOD('user.online')->get_by_user($r['uid']) ? '在线' : '离线' );
 				$r['onlinetime'] = formatsecond($r['onlinetime'], '未登录过');
-				$xml->$r['uid'] = array_to_xml($r, 'user');
+				$xml->{$r['uid']} = array_to_xml($r, 'user');
 			}
 		} else {
 			if ( $userId ) {
