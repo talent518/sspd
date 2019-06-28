@@ -19,11 +19,7 @@ int recv_data_len(conn_t *ptr) {
 
 	ret = recv(ptr->sockfd, buf, sizeof(buf), MSG_WAITALL);
 
-	if (ret < 0) {
-		return -1;
-	} else if (ret == 0) {
-		return 0;
-	}
+	if (ret <= 0) return 0;
 
 	if (ret != sizeof(buf)) {
 		conn_info_ex(ptr, "[ The data packet is not complete ] ");
@@ -64,28 +60,23 @@ int socket_recv(conn_t *ptr, char **data, int *data_len) {
 	
 	ret = recv(ptr->sockfd, ptr->rbuf + ptr->rbytes, ptr->rsize - ptr->rbytes, MSG_DONTWAIT);
 
-	if (ret < 0) {
-		return -1;
-	} else if (ret == 0) {
-		return 0;
-	}
+	if (ret <= 0) return 0;
 
 	ptr->rbytes += ret;
 
-	if (ptr->rsize > 0 && ptr->rbytes == ptr->rsize) {
-		if (*data) {
-			free(*data);
-		}
+	if (ptr->rbytes != ptr->rsize) return -1;
 
-		*data = ptr->rbuf;
-		*data_len = ptr->rsize;
-
-		ptr->rbuf = NULL;
-		ptr->rsize = ptr->rbytes = 0;
-
-		return 1;
+	if (*data) {
+		free(*data);
 	}
-	return -1;
+
+	*data = ptr->rbuf;
+	*data_len = ptr->rsize;
+
+	ptr->rbuf = NULL;
+	ptr->rsize = ptr->rbytes = 0;
+
+	return 1;
 }
 
 #if ASYNC_SEND

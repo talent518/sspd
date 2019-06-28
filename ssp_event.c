@@ -154,6 +154,8 @@ static void read_write_handler(int sock, short event, void* arg)
 		} else {
 			ptr->thread->conn_num--;
 
+			//fprintf(stderr, "%s: send error\n", __func__);
+
 			clean_conn(ptr);
 			trigger(PHP_SSP_CLOSE,ptr);
 			remove_conn(ptr);
@@ -165,6 +167,8 @@ static void read_write_handler(int sock, short event, void* arg)
 	ret=socket_recv(ptr,&data,&data_len);
 	if(ret<0) { //已放入缓冲区
 	} else if(ret==0) { // 关闭连接
+		//fprintf(stderr, "%s: recv error\n", __func__);
+
 		ptr->thread->conn_num--;
 
 		clean_conn(ptr);
@@ -181,8 +185,9 @@ static void read_write_handler(int sock, short event, void* arg)
 			if(data_len>0) {
 				trigger(PHP_SSP_SEND,ptr,&data,&data_len);
 				INFO_RUNTIME("SEND");
-				socket_send(ptr,data,data_len);
+				ret = socket_send(ptr,data,data_len);
 				INFO_RUNTIME("send");
+				//if(ret<=0) fprintf(stderr, "%s: send error\n", __func__);
 			}
 		} TRIGGER_SHUTDOWN_EX();
 	}
@@ -229,15 +234,7 @@ static void notify_handler(const int fd, const short which, void *arg)
 	worker_thread_t *me = arg;
 	conn_t *ptr;
 
-	if (fd != me->read_fd) {
-		printf("notify_handler error : fd != me->read_fd\n");
-		exit(1);
-	}
-
 	buffer_len = read(fd, buffer, sizeof(buffer));
-	if (buffer_len <= 0) {
-		return;
-	}
 
 	for(i=0;i<buffer_len;i++) {
 		chr=buffer[i];
