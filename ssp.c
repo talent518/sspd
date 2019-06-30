@@ -120,6 +120,7 @@ static void php_ssp_usage(char *argv0) {
 		"  -s <option>             socket service option\n"
 		"  option:\n"
 		"       script             run script\n"
+		"       bench              run bench\n"
 		"       start              start ssp service\n"
 		"       stop               stop ssp service\n"
 		"       restart            restart ssp service\n"
@@ -458,6 +459,8 @@ int main(int argc, char *argv[])
 
 		ssp_request_startup();
 		ssp_request_shutdown();
+	} else if (strcmp(serv_opt, "bench") == 0) {
+		server_bench();
 	} else if (strcmp(serv_opt, "restart") == 0) {
 		server_stop();
 		server_start();

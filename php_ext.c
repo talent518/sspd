@@ -19,14 +19,15 @@
 
 static pthread_mutex_t unique_lock;
 
-static char trigger_handlers[7][30] = {
+static char trigger_handlers[8][30] = {
 	"ssp_start_handler",
 	"ssp_connect_handler",
 	"ssp_connect_denied_handler",
 	"ssp_receive_handler",
 	"ssp_send_handler",
 	"ssp_close_handler",
-	"ssp_stop_handler"
+	"ssp_stop_handler",
+	"ssp_bench_handler"
 };
 
 long le_ssp_descriptor, le_ssp_descriptor_ref;
@@ -41,6 +42,11 @@ long ssp_global_timeout=10;
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_resource, 0, 0, 1)
 ZEND_ARG_INFO(0, var)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_type, 0, 0, 2)
+ZEND_ARG_INFO(0, res)
+ZEND_ARG_INFO(0, type)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 1)
@@ -69,11 +75,24 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_stats, 0, 0, 0)
 ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_counts, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_requests, 0, 0, 1)
+ZEND_ARG_INFO(0, res)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_setup, 0, 0, 2)
+ZEND_ARG_INFO(0, res)
+ZEND_ARG_INFO(0, type)
+ZEND_END_ARG_INFO()
 /* }}} */
 
 /* {{{ ssp_functions[] */
 static const zend_function_entry ssp_functions[] = {
 	PHP_FE(ssp_resource, arginfo_ssp_resource)
+	PHP_FE(ssp_type, arginfo_ssp_type)
 	PHP_FE(ssp_info, arginfo_ssp_info)
 	PHP_FE(ssp_send, arginfo_ssp_send)
 	PHP_FE(ssp_close, arginfo_ssp_close)
@@ -81,6 +100,9 @@ static const zend_function_entry ssp_functions[] = {
 	PHP_FE(ssp_lock, arginfo_ssp_lock)
 	PHP_FE(ssp_unlock, arginfo_ssp_unlock)
 	PHP_FE(ssp_stats, arginfo_ssp_stats)
+	PHP_FE(ssp_counts, arginfo_ssp_counts)
+	PHP_FE(ssp_requests, arginfo_ssp_requests)
+	PHP_FE(ssp_setup, arginfo_ssp_setup)
 	PHP_FE_END
 };
 /* }}} */
@@ -128,6 +150,10 @@ static PHP_MINIT_FUNCTION(ssp)
 	REGISTER_LONG_CONSTANT("SSP_RES_SOCKFD", PHP_SSP_RES_SOCKFD, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SSP_RES_PORT", PHP_SSP_RES_PORT, CONST_CS | CONST_PERSISTENT);
 
+	REGISTER_LONG_CONSTANT("SETUP_USERNAME", SETUP_USERNAME, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SETUP_SENDKEY", SETUP_SENDKEY, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SETUP_RECEIVEKEY", SETUP_RECEIVEKEY, CONST_CS | CONST_PERSISTENT);
+
 	le_ssp_descriptor = zend_register_list_destructors_ex(php_destroy_ssp, NULL, PHP_SSP_DESCRIPTOR_RES_NAME, module_number);
 	le_ssp_descriptor_ref = zend_register_list_destructors_ex(php_destroy_ssp_ref, NULL, PHP_SSP_DESCRIPTOR_REF_RES_NAME, module_number);
 
@@ -148,9 +174,14 @@ static PHP_MINIT_FUNCTION(ssp)
 static PHP_MSHUTDOWN_FUNCTION(ssp)
 {
 	zend_hash_str_del(EG(zend_constants), "SSP_VERSION", sizeof("SSP_VERSION") - 1);
+
 	zend_hash_str_del(EG(zend_constants), "SSP_RES_INDEX", sizeof("SSP_RES_INDEX") - 1);
 	zend_hash_str_del(EG(zend_constants), "SSP_RES_SOCKFD", sizeof("SSP_RES_SOCKFD") - 1);
 	zend_hash_str_del(EG(zend_constants), "SSP_RES_PORT", sizeof("SSP_RES_PORT") - 1);
+
+	zend_hash_str_del(EG(zend_constants), "SETUP_USERNAME", sizeof("SETUP_USERNAME") - 1);
+	zend_hash_str_del(EG(zend_constants), "SETUP_SENDKEY", sizeof("SETUP_SENDKEY") - 1);
+	zend_hash_str_del(EG(zend_constants), "SETUP_RECEIVEKEY", sizeof("SETUP_RECEIVEKEY") - 1);
 
 	pthread_mutex_destroy(&unique_lock);
 
@@ -257,6 +288,7 @@ bool trigger(unsigned short type, ...) {
 	switch (type) {
 		case PHP_SSP_START:
 		case PHP_SSP_STOP:
+		case PHP_SSP_BENCH:
 			break;
 		case PHP_SSP_CONNECT:
 		case PHP_SSP_CONNECT_DENIED:
@@ -296,8 +328,6 @@ bool trigger(unsigned short type, ...) {
 	if (ret == SUCCESS) {
 		if (Z_TYPE_P(&retval) == IS_FALSE) {
 			retbool = false;
-		} else if (Z_TYPE_P(&retval) == IS_TRUE) {
-			retbool = true;
 		}
 		if (param_count > 1) {
 			convert_to_string_ex(&retval);
@@ -369,6 +399,7 @@ static PHP_FUNCTION(ssp_info) {
 		add_assoc_string(return_value, "host", ptr->host);
 		add_assoc_long(return_value, "port", ptr->port);
 		add_assoc_long(return_value, "tid", ptr->thread->id);
+		if(listen_thread.sockfd < 0) add_assoc_long(return_value, "type", ptr->type);
 	} else {
 		if (!strcasecmp(key, "index")) {
 			RETURN_LONG(ptr->index+1);
@@ -380,6 +411,8 @@ static PHP_FUNCTION(ssp_info) {
 			RETURN_LONG(ptr->port);
 		} else if (!strcasecmp(key, "tid")) {
 			RETURN_LONG(ptr->thread->id);
+		} else if (!strcasecmp(key, "type")) {
+			RETURN_LONG(ptr->type);
 		} else {
 			RETURN_NULL();
 		}
@@ -543,4 +576,105 @@ static PHP_FUNCTION(ssp_stats)
 #else
 	RETURN_FALSE;
 #endif
+}
+
+static PHP_FUNCTION(ssp_type) {
+	zval *res;
+	conn_t *ptr;
+	zend_long type = 0;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "rl", &res, &type) == FAILURE) {
+		return;
+	}
+	ptr = (conn_t *) zend_fetch_resource_ex(res, PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
+	if (!ptr) {
+		ptr = (conn_t *) zend_fetch_resource_ex(res, PHP_SSP_DESCRIPTOR_REF_RES_NAME, le_ssp_descriptor_ref);
+	}
+	if(!ptr) RETURN_NULL();
+	ptr->type = type;
+}
+
+static PHP_FUNCTION(ssp_requests) {
+	zval *res;
+	conn_t *ptr;
+	zend_long type = 0;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "rl", &res, &type) == FAILURE) {
+		return;
+	}
+	ptr = (conn_t *) zend_fetch_resource_ex(res, PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
+	if (!ptr) {
+		ptr = (conn_t *) zend_fetch_resource_ex(res, PHP_SSP_DESCRIPTOR_REF_RES_NAME, le_ssp_descriptor_ref);
+	}
+	if(!ptr) RETURN_NULL();
+
+	++ptr->requests;
+
+	RETURN_LONG(ptr->requests);
+}
+
+static PHP_FUNCTION(ssp_counts) {
+	if(ZEND_NUM_ARGS() == 1) {
+		zend_long key = 0;
+		if (zend_parse_parameters(ZEND_NUM_ARGS(), "l", &key) == FAILURE || key < 0 || key >= 10) {
+			return;
+		}
+
+		char chr = '0' + key;
+		write(listen_thread.write_fd, &chr, 1);
+	} else {
+		array_init_size(return_value, 11);
+		for(int i=0; i<10; i++)
+			add_index_long(return_value, i, counts[i]);
+		add_assoc_long(return_value, "conns", CONN_NUM);
+	}
+}
+
+static PHP_FUNCTION(ssp_setup) {
+	zval *res;
+	conn_t *ptr;
+	zend_long type = 0;
+
+	char *str = NULL;
+	size_t str_len = 0;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "rl|s", &res, &type, &str, &str_len) == FAILURE) {
+		return;
+	}
+	ptr = (conn_t *) zend_fetch_resource_ex(res, PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
+	if (!ptr) {
+		ptr = (conn_t *) zend_fetch_resource_ex(res, PHP_SSP_DESCRIPTOR_REF_RES_NAME, le_ssp_descriptor_ref);
+	}
+	if(!ptr) RETURN_NULL();
+
+	if(str) {
+		switch(type) {
+			case SETUP_USERNAME:
+				strncpy(ptr->username, str, str_len);
+				break;
+			case SETUP_SENDKEY:
+				strncpy(ptr->sendKey, str, str_len);
+				break;
+			case SETUP_RECEIVEKEY:
+				strncpy(ptr->receiveKey, str, str_len);
+				break;
+			default:
+				RETURN_FALSE;
+				break;
+		}
+
+		RETURN_TRUE;
+	} else {
+		switch(type) {
+			case SETUP_USERNAME:
+				RETURN_STRING(ptr->username);
+				break;
+			case SETUP_SENDKEY:
+				RETURN_STRING(ptr->sendKey);
+				break;
+			case SETUP_RECEIVEKEY:
+				RETURN_STRING(ptr->receiveKey);
+				break;
+			default:
+				RETURN_FALSE;
+				break;
+		}
+	}
 }

@@ -25,6 +25,7 @@
 #define PHP_SSP_SEND 4
 #define PHP_SSP_CLOSE 5
 #define PHP_SSP_STOP 6
+#define PHP_SSP_BENCH 7
 
 #define PHP_SSP_RES_INDEX 0
 #define PHP_SSP_RES_SOCKFD 1
@@ -118,6 +119,17 @@ static PHP_FUNCTION(ssp_lock);
 static PHP_FUNCTION(ssp_unlock);
 
 static PHP_FUNCTION(ssp_stats);
+
+// bench usage
+static PHP_FUNCTION(ssp_type);
+static PHP_FUNCTION(ssp_counts);
+static PHP_FUNCTION(ssp_requests);
+
+#define SETUP_USERNAME 0
+#define SETUP_SENDKEY 1
+#define SETUP_RECEIVEKEY 2
+static PHP_FUNCTION(ssp_setup);
+// end bench usage
 
 ZEND_DECLARE_MODULE_GLOBALS(ssp)
 

@@ -21,6 +21,8 @@ int ssp_nthreads = 10;
 
 listen_thread_t listen_thread;
 worker_thread_t *worker_threads;
+unsigned long int counts[10] = {0,0,0,0,0,0,0,0,0,0};
+unsigned long int precounts[10] = {0,0,0,0,0,0,0,0,0,0};
 
 static void listen_handler(const int fd, const short which, void *arg);
 bool update_accept_event(short new_flags) {
@@ -43,7 +45,9 @@ bool update_accept_event(short new_flags) {
 }
 
 void is_accept_conn_ex(bool do_accept) {
-	if (do_accept) {
+	if(listen_thread.sockfd < 0) {
+		// bench_event ignore
+	} else if (do_accept) {
 		if (update_accept_event(EV_READ | EV_PERSIST) && listen(listen_thread.sockfd, ssp_backlog) != 0) {
 			perror("listen");
 		}
@@ -56,7 +60,9 @@ void is_accept_conn_ex(bool do_accept) {
 
 void is_accept_conn(bool do_accept) {
 	char chr;
-	if (do_accept) {
+	if(listen_thread.sockfd < 0) {
+		return;
+	} else if (do_accept) {
 		chr='e'; // enable
 	} else {
 		chr='d'; // disable
@@ -298,14 +304,6 @@ static void notify_handler(const int fd, const short which, void *arg)
 
 				me->conn_num++;
 				me->clean_times = 0;
-				if(!trigger(PHP_SSP_CONNECT, ptr)) {
-					me->conn_num--;
-					conn_info(ptr);
-					clean_conn(ptr);
-					trigger(PHP_SSP_CLOSE,ptr);
-					remove_conn(ptr);
-					break;
-				}
 
 			#if ASYNC_SEND
 				ptr->evflags = EV_READ|EV_PERSIST;
@@ -314,6 +312,14 @@ static void notify_handler(const int fd, const short which, void *arg)
 				event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_write_handler, ptr);
 				event_base_set(me->base, &ptr->event);
 				event_add(&ptr->event, NULL);
+
+				if(!trigger(PHP_SSP_CONNECT, ptr)) {
+					me->conn_num--;
+					conn_info(ptr);
+					clean_conn(ptr);
+					trigger(PHP_SSP_CLOSE,ptr);
+					remove_conn(ptr);
+				}
 				break;
 	#ifdef SSP_CODE_TIMEOUT
 			case 't':
@@ -437,6 +443,18 @@ static void listen_notify_handler(const int fd, const short which, void *arg)
 				break;
 			case 'd': // 禁止连接(disable)
 				is_accept_conn_ex(false);
+				break;
+			case '0':
+			case '1':
+			case '2':
+			case '3':
+			case '4':
+			case '5':
+			case '6':
+			case '7':
+			case '8':
+			case '9':
+				counts[buf[i]-'0']++;
 				break;
 	#ifdef SSP_CODE_TIMEOUT
 			case 't':
@@ -604,6 +622,13 @@ static void signal_handler(const int fd, short event, void *arg) {
 		}
 	#endif
 #endif
+static void bench_handler(evutil_socket_t fd, short event, void *arg) {
+	trigger(PHP_SSP_BENCH);
+	memcpy(precounts, counts, sizeof(counts));
+	memset(counts, 0, sizeof(counts));
+
+	if(CONN_NUM <= 0) signal_handler(0, 0, NULL);
+}
 
 void loop_event (int sockfd) {
 	signal(SIGPIPE, SIG_IGN);
@@ -640,13 +665,26 @@ void loop_event (int sockfd) {
 		exit(1);
 	}
 
-	// listen event
-	listen_thread.ev_flags=EV_READ | EV_PERSIST;
-	event_set(&listen_thread.listen_ev, sockfd, listen_thread.ev_flags, listen_handler, NULL);
-	event_base_set(listen_thread.base, &listen_thread.listen_ev);
-	if (event_add(&listen_thread.listen_ev, NULL) == -1) {
-		perror("listen event");
-		exit(1);
+	if(listen_thread.sockfd < 0) {
+		// bench event
+		struct timeval btv;
+		evutil_timerclear(&btv);
+		btv.tv_sec = 1;
+		event_set(&listen_thread.bench_int, -1, EV_PERSIST, bench_handler, NULL);
+		event_base_set(listen_thread.base, &listen_thread.bench_int);
+		if (event_add(&listen_thread.bench_int, &btv) == -1) {
+			perror("timeout event");
+			exit(1);
+		}
+	} else {
+		// listen event
+		listen_thread.ev_flags=EV_READ | EV_PERSIST;
+		event_set(&listen_thread.listen_ev, sockfd, listen_thread.ev_flags, listen_handler, NULL);
+		event_base_set(listen_thread.base, &listen_thread.listen_ev);
+		if (event_add(&listen_thread.listen_ev, NULL) == -1) {
+			perror("listen event");
+			exit(1);
+		}
 	}
 
 	// int signal event
@@ -686,6 +724,43 @@ void loop_event (int sockfd) {
 	attach_conn();
 
 	THREAD_STARTUP();
+
+	if(listen_thread.sockfd < 0) {
+		conn_t *ptr;
+		int sockfd, i;
+		int s;
+		struct sockaddr_in addr;
+		bzero(&addr, sizeof(addr));
+		addr.sin_family = AF_INET;
+		addr.sin_port=htons(ssp_port);
+		addr.sin_addr.s_addr = inet_addr(ssp_host);
+
+		for(i = 0; i < ssp_maxclients; i++) {
+			if((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+				perror("socket");
+				continue;
+			}
+			if(connect(s, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
+				perror("connect");
+				continue;
+			}
+			ptr = insert_conn();
+			ptr->sockfd = s;
+			strcpy(ptr->host, ssp_host);
+			ptr->port = ssp_port;
+
+			ptr->thread = worker_threads + ptr->index % ssp_nthreads;
+
+			dprintf("notify thread %d\n", ptr->thread->id);
+
+			queue_push(ptr->thread->accept_queue, ptr);
+
+			conn_info(ptr);
+
+			char chr='l';
+			write(ptr->thread->write_fd, &chr, 1);
+		}
+	}
 
 	trigger(PHP_SSP_START);
 

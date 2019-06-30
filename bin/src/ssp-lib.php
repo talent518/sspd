@@ -77,3 +77,11 @@ function ssp_unlock () {
  */
 function ssp_stats ( $sleep_time = 100000 ) {
 }
+
+function ssp_type($res, $type) {
+}
+function ssp_counts($key = null) {
+}
+function ssp_setup($res, $type, $str = null) {
+}
+

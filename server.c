@@ -181,3 +181,7 @@ void server_status() {
 	}
 	printf("\033[31m[stopped]\033[m\n");
 }
+
+void server_bench() {
+	loop_event(-1);
+}
