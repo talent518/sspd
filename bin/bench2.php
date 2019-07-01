@@ -65,7 +65,7 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 		if($request->type === 'Connect.Data') {
 			$key = ssp_setup($ClientId, SETUP_RECEIVEKEY);
 			if ( $key ) {
-				$request = xml_to_object(str_decode($request->getText(), $key));
+				$request = xml_to_object(crypt_decode($request->getText(), $key));
 			} else {
 				$request = false;
 			}
@@ -151,7 +151,7 @@ function ssp_send_handler ( $ClientId, $xml ) {
 		$key = ssp_setup($ClientId, SETUP_SENDKEY);
 		$response = new XML_Element('response');
 		$response->type = 'Connect.Data';
-		$response->setText(str_encode($xml, $key));
+		$response->setText(crypt_encode($xml, $key));
 		
 		$return = ( string ) $response;
 		$xml = $response = null;

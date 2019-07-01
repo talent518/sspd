@@ -81,7 +81,7 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 			case 'Connect.Data':
 				$key = MOD('user.online')->get_by_client($index, 'receiveKey');
 				if ( $key ) {
-					$request = xml_to_object(str_decode($request->getText(), $key));
+					$request = xml_to_object(crypt_decode($request->getText(), $key));
 				}
 				if ( empty($request) ) {
 					return;
@@ -164,7 +164,7 @@ function ssp_send_handler ( $ClientId, $xml ) {
 		$key = MOD('user.online')->get_by_client($index, 'sendKey');
 		$response = new XML_Element('response');
 		$response->type = 'Connect.Data';
-		$response->setText(str_encode($xml, $key));
+		$response->setText(crypt_encode($xml, $key));
 		
 		$return = ( string ) $response;
 		$xml = $response = null;

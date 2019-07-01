@@ -169,7 +169,7 @@ class LibSocketClient {
 		if ( $data ) {
 			$response = xml_to_object($data);
 			if ( $this->receiveKey && $response->type == 'Connect.Data' ) {
-				$data = str_decode($response->getText(), $this->receiveKey);
+				$data = crypt_decode($response->getText(), $this->receiveKey);
 				$response = xml_to_object($data);
 			}
 			return $response;
@@ -202,7 +202,7 @@ class LibSocketClient {
 		)) ) {
 			$request = new XML_Element('request');
 			$request->type = 'Connect.Data';
-			$request->setText(str_encode(( string ) $in, $this->sendKey));
+			$request->setText(crypt_encode(( string ) $in, $this->sendKey));
 			$in = ( string ) $request;
 		} else {
 			$in = ( string ) $in;

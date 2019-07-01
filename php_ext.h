@@ -131,6 +131,9 @@ static PHP_FUNCTION(ssp_requests);
 static PHP_FUNCTION(ssp_setup);
 // end bench usage
 
+static PHP_FUNCTION(crypt_encode);
+static PHP_FUNCTION(crypt_decode);
+
 ZEND_DECLARE_MODULE_GLOBALS(ssp)
 
 #endif  /* PHP_EXT_H */

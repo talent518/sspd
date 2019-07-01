@@ -1,5 +1,5 @@
 <?php
-defined('IS_DEBUG') or define('IS_DEBUG', 1);
+defined('IS_DEBUG') or define('IS_DEBUG', 0);
 
 error_reporting(E_ALL & ~ E_WARNING &  ~ E_NOTICE & ~ E_STRICT);
 
@@ -206,14 +206,6 @@ function formatsize ( $size ) {
 function smicrotime () {
 	list ( $usec, $sec ) = explode(' ', microtime());
 	return bcadd($usec, $sec, 8);
-}
-
-function str_encode ( $string, $key = SSP_KEY, $expiry = 0 ) {
-	return LIB('crypt')->encode(( string ) $string, $key, $expiry);
-}
-
-function str_decode ( $string, $key = SSP_KEY, $expiry = 0 ) {
-	return LIB('crypt')->decode(( string ) $string, $key, $expiry);
 }
 
 // 字符截取...

@@ -8,7 +8,7 @@ class CtlUser extends CtlBase {
 	function onLogin ( $request ) {
 		$index = ssp_info($request->ClientId, 'index');
 		$params = &$request->params;
-		$auth = explode("\t", str_decode($params->auth));
+		$auth = explode("\t", crypt_decode($params->auth, SSP_KEY));
 		if ( count($auth) == 2 )
 			list ( $uid, $password ) = $auth;
 		else {
@@ -148,7 +148,7 @@ class CtlUser extends CtlBase {
 			if ( ( string ) ( $request->is_simple ) != 'true' ) {
 				$response->user = new XML_Element('user');
 				
-				$response->user->auth = str_encode($uid . "\t" . $password);
+				$response->user->auth = crypt_encode($uid . "\t" . $password, SSP_KEY);
 				
 				$response->user->uid = $uid;
 				$response->user->username = $username;

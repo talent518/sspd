@@ -3,6 +3,7 @@
 #include "ssp.h"
 #include "data.h"
 #include "api.h"
+#include "crypt.h"
 #include <malloc.h>
 #include <signal.h>
 #include <math.h>
@@ -87,6 +88,16 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_setup, 0, 0, 2)
 ZEND_ARG_INFO(0, res)
 ZEND_ARG_INFO(0, type)
 ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_crypt_encode, 0, 0, 2)
+ZEND_ARG_INFO(0, str)
+ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_crypt_decode, 0, 0, 2)
+ZEND_ARG_INFO(0, str)
+ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
 /* }}} */
 
 /* {{{ ssp_functions[] */
@@ -103,6 +114,8 @@ static const zend_function_entry ssp_functions[] = {
 	PHP_FE(ssp_counts, arginfo_ssp_counts)
 	PHP_FE(ssp_requests, arginfo_ssp_requests)
 	PHP_FE(ssp_setup, arginfo_ssp_setup)
+	PHP_FE(crypt_encode, arginfo_crypt_encode)
+	PHP_FE(crypt_decode, arginfo_crypt_decode)
 	PHP_FE_END
 };
 /* }}} */
@@ -676,5 +689,41 @@ static PHP_FUNCTION(ssp_setup) {
 				RETURN_FALSE;
 				break;
 		}
+	}
+}
+
+static PHP_FUNCTION(crypt_encode) {
+	zend_long expiry = 0;
+	char *str = NULL, *key = NULL;
+	size_t str_len = 0, key_len = 0;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "ss|l", &str, &str_len, &key, &key_len, &expiry) == FAILURE) {
+		return;
+	}
+
+	char *enc = NULL;
+
+	key_len = crypt_code(str, str_len, &enc, key, false, expiry);
+
+	if(enc && key_len) {
+		RETVAL_STRINGL(enc, key_len);
+		free(enc);
+	}
+}
+
+static PHP_FUNCTION(crypt_decode) {
+	zend_long expiry = 0;
+	char *enc = NULL, *key = NULL;
+	size_t enc_len = 0, key_len = 0;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "ss|l", &enc, &enc_len, &key, &key_len, &expiry) == FAILURE) {
+		return;
+	}
+
+	char *dec = NULL;
+
+	key_len = crypt_code(enc, enc_len, &dec, key, true, expiry);
+
+	if(dec && key_len) {
+		RETVAL_STRINGL(dec, key_len);
+		free(dec);
 	}
 }
