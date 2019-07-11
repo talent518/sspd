@@ -292,8 +292,6 @@ bool trigger(unsigned short type, ...) {
 	bool retbool = true;
 	va_list args;
 	conn_t *ptr = NULL;
-	char **data = NULL;
-	int *data_len;
 
 	ZVAL_STRING(&pfunc, trigger_handlers[type]);
 
@@ -312,14 +310,37 @@ bool trigger(unsigned short type, ...) {
 			ZEND_REGISTER_RESOURCE(&params[0], ptr, le_ssp_descriptor);
 			break;
 		case PHP_SSP_RECEIVE:
-		case PHP_SSP_SEND:
 			param_count = 2;
 			ptr = va_arg(args, conn_t*);
-			data = va_arg(args, char**);
-			data_len = va_arg(args, int*);
 			params = (zval *) emalloc(sizeof(zval) * param_count);
 			ZEND_REGISTER_RESOURCE(&params[0], ptr, le_ssp_descriptor);
-			ZVAL_STRINGL(&params[1], *data, *data_len);
+			{
+				char *s;
+				int l;
+				s = va_arg(args, char*);
+				l = va_arg(args, int);
+				ZVAL_STRINGL(&params[1], s, l);
+			}
+			break;
+		case PHP_SSP_SEND:
+			param_count = 2;
+			params = (zval *) emalloc(sizeof(zval) * param_count);
+			ZVAL_COPY(&params[0], va_arg(args, zval*));
+			ptr = (conn_t *) zend_fetch_resource_ex(&params[0], PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
+			if (!ptr) {
+				ptr = (conn_t *) zend_fetch_resource_ex(&params[0], PHP_SSP_DESCRIPTOR_REF_RES_NAME, le_ssp_descriptor_ref);
+			}
+			if(!ptr) {
+				va_end(args);
+				zval_ptr_dtor(&params[0]);
+				ZVAL_UNDEF(&params[0]);
+				efree(params);
+				zval_ptr_dtor(&pfunc);
+				ZVAL_UNDEF(&pfunc);
+				return FAILURE;
+			}
+			ZVAL_COPY(&params[1], va_arg(args, zval*));
+
 			break;
 		default:
 			perror("Trigger type not exists!");
@@ -332,6 +353,8 @@ bool trigger(unsigned short type, ...) {
 	printf("before trigger: %s\n", trigger_handlers[type]);
 #endif
 
+	ZVAL_UNDEF(&retval);
+
 	ret = call_user_function(EG(function_table), NULL, &pfunc, &retval, param_count, params);
 
 #ifdef SSP_DEBUG_TRIGGER
@@ -339,19 +362,16 @@ bool trigger(unsigned short type, ...) {
 #endif
 
 	if (ret == SUCCESS) {
+		// php_printf("%s: ", trigger_handlers[type]);php_var_dump(&retval, 1);fflush(stdout);
 		if (Z_TYPE_P(&retval) == IS_FALSE) {
 			retbool = false;
 		}
 		if (param_count > 1) {
-			convert_to_string_ex(&retval);
-			free(*data);
-			if (Z_STRLEN_P(&retval) > 0) {
-				char *_data = strndup(Z_STRVAL_P(&retval), Z_STRLEN_P(&retval));
-				*data = _data;
-				*data_len = Z_STRLEN_P(&retval);
-			} else {
-				*data = NULL;
-				*data_len = 0;
+			if(type == PHP_SSP_RECEIVE) {
+				retbool = trigger(PHP_SSP_SEND, &params[0], &retval);
+			} else { // type == PHP_SSP_SEND
+				convert_to_string_ex(&retval);
+				retbool = Z_STRLEN_P(&retval)>0 ? socket_send(ptr, Z_STRVAL_P(&retval), Z_STRLEN_P(&retval)) > 0 : false;
 			}
 		}
 	} else {
@@ -361,6 +381,7 @@ bool trigger(unsigned short type, ...) {
 		int i;
 		for (i = 0; i < param_count; i++) {
 			zval_ptr_dtor(&params[i]);
+			ZVAL_UNDEF(&params[i]);
 		}
 		efree(params);
 	}
@@ -434,11 +455,9 @@ static PHP_FUNCTION(ssp_info) {
 
 static PHP_FUNCTION(ssp_send)
 {
-	char *data;
-	long data_len;
-	zval *res;
+	zval *res, *data;
 	conn_t *ptr = NULL;
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "rs", &res, &data, &data_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "rz", &res, &data) == FAILURE) {
 		return;
 	}
 	ptr = (conn_t *) zend_fetch_resource(Z_RES_P(res), PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
@@ -446,12 +465,7 @@ static PHP_FUNCTION(ssp_send)
 		ptr = (conn_t *) zend_fetch_resource(Z_RES_P(res), PHP_SSP_DESCRIPTOR_REF_RES_NAME, le_ssp_descriptor_ref);
 	}
 	if (ptr) {
-		int ret = 0;
-		char *_data = strndup(data, data_len + 1);
-		trigger(PHP_SSP_SEND, ptr, &_data, &data_len);
-		ret = socket_send(ptr, _data, data_len);
-		free(_data);
-		RETURN_LONG(ret);
+		RETURN_BOOL(trigger(PHP_SSP_SEND, res, data));
 	} else {
 		RETURN_FALSE;
 	}

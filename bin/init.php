@@ -61,23 +61,17 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 		switch ( $request->type ) {
 			case 'Connect.Key':
 				$sendKey = LIB('string')->rand(128, STRING_RAND_BOTH);
-				$data = array(
+				MOD('user.online')->edit($index, [
 					'sendKey' => $sendKey, 
 					'receiveKey' => $request->getText()
-				);
-				MOD('user.online')->edit($index,$data);
+				]);
 				
 				if(IS_DEBUG) {
 					echo PHP_EOL, 'Received: "', trim($request), '" from ', $index, PHP_EOL;
 				}
-
-				$response = new XML_Element('response');
-				$response->type = 'Connect.Key';
-				$response->setText($data['sendKey']);
 				
-				$return = ( string ) $response;
-				$request = $response = $data = null;
-				return $return;
+				$request = null;
+				return '<response type="Connect.Key">' . $sendKey . '</response>';
 			case 'Connect.Data':
 				$key = MOD('user.online')->get_by_client($index, 'receiveKey');
 				if ( $key ) {
@@ -111,9 +105,8 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 		if (  ! in_array(strtolower($type), $authTypes) &&  ! MOD('user.online')->get_by_client($index, 'uid') ) {
 			$response = CTL('user')->login($ClientId);
 			if ( $response instanceof XML_Element || substr($response, 0, 1) == '<' ) {
-				$return = ( string ) $response;
-				$request = $response = null;
-				return $return;
+				$request = null;
+				return $response;
 			}
 		}
 		$ctl = explode('.', $type);
@@ -128,9 +121,8 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 			} elseif ( method_exists($ctl_obj, $mod) ) {
 				$response = $ctl_obj->$mod($request);
 				if ( $response instanceof XML_Element || substr($response, 0, 1) == '<' ) {
-					$return = ( string ) $response;
-					$request = $response = null;
-					return $return;
+					$request = null;
+					return $response;
 				}
 			} else {
 				if(IS_DEBUG) {
@@ -153,24 +145,22 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 }
 
 function ssp_send_handler ( $ClientId, $xml ) {
+	if(!$xml) return;
+
 	$index = ssp_info($ClientId, 'index');
 	if(IS_DEBUG) {
-		echo PHP_EOL, 'Sending: "', $xml, '" to: ', $index, PHP_EOL;
+		echo PHP_EOL, 'Sending: "', (string) $xml, '" to: ', $index, PHP_EOL;
 	}
 
-	$tagOpenString = substr($xml, 0, strpos($xml, '>'));
-
-	if (  $tagOpenString !== false && strpos($tagOpenString, 'type="Connect.Key"') === false && strpos($tagOpenString, 'type="Connect.Ping"') === false && strpos($tagOpenString, 'type="Connect.Denied"') === false ) {
+	if(!is_string($xml)) {
 		$key = MOD('user.online')->get_by_client($index, 'sendKey');
 		$response = new XML_Element('response');
 		$response->type = 'Connect.Data';
-		$response->setText(crypt_encode($xml, $key));
+		$response->setText(crypt_encode((string) $xml, $key));
 		
-		$return = ( string ) $response;
-		$xml = $response = null;
+		$return = $response;
 	} else {
-		$return = ( string ) $xml;
-		$xml = null;
+		$return = &$xml;
 	}
 	/*MOD('user.online')->update(array(
 		'microtime' => microtime(true),

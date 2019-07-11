@@ -22,7 +22,6 @@ int ssp_nthreads = 10;
 listen_thread_t listen_thread;
 worker_thread_t *worker_threads;
 unsigned long int counts[10] = {0,0,0,0,0,0,0,0,0,0};
-unsigned long int precounts[10] = {0,0,0,0,0,0,0,0,0,0};
 
 static void listen_handler(const int fd, const short which, void *arg);
 bool update_accept_event(short new_flags) {
@@ -186,15 +185,8 @@ static void read_write_handler(int sock, short event, void* arg)
 		TRIGGER_STARTUP_EX() {
 			rprintf("============================================================\n");
 			INIT_RUNTIME();
-			trigger(PHP_SSP_RECEIVE,ptr,&data,&data_len);
+			trigger(PHP_SSP_RECEIVE,ptr,data,data_len);
 			INFO_RUNTIME("RECV");
-			if(data_len>0) {
-				trigger(PHP_SSP_SEND,ptr,&data,&data_len);
-				INFO_RUNTIME("SEND");
-				ret = socket_send(ptr,data,data_len);
-				INFO_RUNTIME("send");
-				//if(ret<=0) fprintf(stderr, "%s: send error\n", __func__);
-			}
 		} TRIGGER_SHUTDOWN_EX();
 	}
 	if(data) {
@@ -624,7 +616,6 @@ static void signal_handler(const int fd, short event, void *arg) {
 #endif
 static void bench_handler(evutil_socket_t fd, short event, void *arg) {
 	trigger(PHP_SSP_BENCH);
-	memcpy(precounts, counts, sizeof(counts));
 	memset(counts, 0, sizeof(counts));
 
 	if(CONN_NUM <= 0) signal_handler(0, 0, NULL);

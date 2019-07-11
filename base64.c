@@ -99,14 +99,13 @@ int base64_encode(const unsigned char *src, int slen, unsigned char **dst, int *
 * 返回非0为成功，否则为失败
 */
 int base64_decode(const unsigned char *src, int slen, unsigned char **dst, int *dlen){
-	#define SRC_CHECK *src>127 || base64_dec_map[*src]==127
 	int i,n;
 	unsigned short x;
 	unsigned char *p;
 	*dlen=0;
-	if(slen==0 || SRC_CHECK){
-		return(0);
-	}
+
+	if(src == NULL || slen == 0) return 0;
+
 	n=(slen/4)*3;
 	if(*dlen<n+1 && *dst) {
 		free(*dst);
@@ -118,23 +117,22 @@ int base64_decode(const unsigned char *src, int slen, unsigned char **dst, int *
 
 	x=n=0;
 	p=*dst;
-	for(i=0;i<slen;i++){
-		if(SRC_CHECK) {
-			continue;
-		}
+	for(i=0;i<slen;i++,src++){
+		if(*src>127 || base64_dec_map[*src]==127) continue;
+
 		x=(x<<6) | (base64_dec_map[*src] & 0x3F);
 		n+=6;
 		if(n>=8){
 			*p++ = (unsigned char)(x>>(n-8));
 			n-=8;
 		}
-		src++;
 	}
 	*p = 0;
 	*dlen=p-*dst;
 	return(1);
 }
-/*
+
+#ifdef BASE64_MAIN
 int main(int argc, char *argv[]) {
 	char source[]="Base64编码与解码!!";
 	char *encode=NULL,*decode=NULL;
@@ -145,6 +143,10 @@ int main(int argc, char *argv[]) {
 
 	printf("source:%s\nsource_len:%d\n\nencode:%s\nencode_len:%d\n\ndecode:%s\ndecode_len:%d\n", source,source_len,encode,encode_len,decode,decode_len);
 
+	char *s = "QmFzZTY057yW56CB\n5LiO6Kej56CBISE=";
+	base64_decode(s, strlen(s),&decode,&decode_len);
+	printf("\ndecode:%s\ndecode_len:%d\n", decode,decode_len);
+
 	return 0;
 }
-*/
+#endif

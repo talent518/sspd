@@ -84,13 +84,10 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 					$request->type='User.Login';
 					$request->is_simple=true;
 					$request->params=array_to_xml(array('username'=>ssp_setup($ClientId, SETUP_USERNAME),'password'=>'123456'),'params');
-				
-					$return = ( string ) $request;
-					$request = $data = null;
 					
 					ssp_type($ClientId, TYPE_LOGIN);
 					
-					return $return;
+					return $request;
 				} else {
 					ssp_close($ClientId);
 					return;
@@ -99,7 +96,9 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 				if($request->type === 'User.Login.Succeed') {
 					ssp_counts(COUNT_LOGIN);
 					ssp_type($ClientId, TYPE_REQUEST);
-					return '<request type="Gold.State" />';
+					$request=new XML_Element('request');
+					$request->type='Gold.State';
+					return $request;
 				} else {
 					echo $request->getText(), PHP_EOL;
 					ssp_close($ClientId);
@@ -113,7 +112,9 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 						ssp_close($ClientId);
 						return;
 					} else {
-						return '<request type="Gold.State" />';
+						$request=new XML_Element('request');
+						$request->type='Gold.State';
+						return $request;
 					}
 				} elseif($request->type === 'Gold.State.Failed') {
 					ssp_counts(COUNT_REQUEST_FAILURE);
@@ -121,7 +122,9 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 						ssp_close($ClientId);
 						return;
 					} else {
-						return '<request type="Gold.State" />';
+						$request=new XML_Element('request');
+						$request->type='Gold.State';
+						return $request;
 					}
 				} else {
 					echo $request->getText(), PHP_EOL;
@@ -144,22 +147,20 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 }
 
 function ssp_send_handler ( $ClientId, $xml ) {
-	$index = ssp_info($ClientId, 'index');
-	$tagOpenString = substr($xml, 0, strpos($xml, '>'));
+	if(!$xml) return;
 
-	if (  $tagOpenString !== false && strpos($tagOpenString, 'type="Connect.Key"') === false ) {
+	$index = ssp_info($ClientId, 'index');
+
+	if ( !is_string($xml) ) {
 		$key = ssp_setup($ClientId, SETUP_SENDKEY);
 		$response = new XML_Element('response');
 		$response->type = 'Connect.Data';
-		$response->setText(crypt_encode($xml, $key));
+		$response->setText(crypt_encode((string) $xml, $key));
 		
-		$return = ( string ) $response;
-		$xml = $response = null;
+		return $response;
 	} else {
-		$return = ( string ) $xml;
-		$xml = null;
+		return $xml;
 	}
-	return $return;
 }
 
 function ssp_close_handler ( $ClientId ) {
