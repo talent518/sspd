@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include <sys/resource.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -23,9 +25,9 @@ listen_thread_t listen_thread;
 worker_thread_t *worker_threads;
 unsigned long int counts[10] = {0,0,0,0,0,0,0,0,0,0};
 
+#if 0
 static void listen_handler(const int fd, const short which, void *arg);
 bool update_accept_event(short new_flags) {
-#if 0
 	if(listen_thread.ev_flags==new_flags) {
 		return false;
 	}
@@ -39,7 +41,7 @@ bool update_accept_event(short new_flags) {
 	event_set(&listen_thread.listen_ev, listen_thread.sockfd, new_flags, listen_handler, NULL);
 	event_base_set(listen_thread.base, &listen_thread.listen_ev);
     event_add(&listen_thread.listen_ev, NULL);
-#endif
+
 	return true;
 }
 
@@ -69,6 +71,10 @@ void is_accept_conn(bool do_accept) {
 
 	write(listen_thread.write_fd, &chr, 1);
 }
+#else
+#define is_accept_conn_ex(a)
+#define is_accept_conn(a)
+#endif
 
 static void *worker_thread_handler(void *arg)
 {
@@ -167,7 +173,8 @@ static void read_write_handler(int sock, short event, void* arg)
 
 			is_accept_conn(true);
 		}
-	} else {
+	}
+	if(event & EV_READ) {
 #endif
 	ret=socket_recv(ptr,&data,&data_len);
 	if(ret<0) { //已放入缓冲区
@@ -211,9 +218,28 @@ void socket_send_buf(conn_t *ptr, char *package, int plen) {
 		ptr->wbytes = 0;
 		ptr->wsize = n;
 	} else {
-		ptr->wbuf = package;
-		ptr->wbytes = 0;
-		ptr->wsize = plen;
+		int n = send(ptr->sockfd, package, plen, MSG_DONTWAIT);
+		if(n >= 0) {
+			if(n < plen) {
+				ptr->wbuf = package;
+				ptr->wbytes = n;
+				ptr->wsize = plen;
+
+				is_writable_conn(ptr, true);
+			} else {
+				free(package);
+			}
+		} else {
+			free(package);
+
+			ptr->thread->conn_num--;
+
+			clean_conn(ptr);
+			trigger(PHP_SSP_CLOSE, ptr);
+			remove_conn(ptr);
+
+			is_accept_conn(true);
+		}
 	}
 }
 #endif // ASYNC_SEND
@@ -625,6 +651,16 @@ void loop_event (int sockfd) {
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGURG, SIG_IGN);
 	signal(SIGALRM, SIG_IGN);
+
+	struct rlimit rlim;
+	if(getrlimit(RLIMIT_NOFILE, &rlim) < 0) {
+		perror("getrlimit nofile");
+	} else {
+		// printf("rlim.rlim_cur: %lu, rlim.rlim_max: %lu\n", rlim.rlim_cur, rlim.rlim_max);
+		rlim.rlim_cur = ssp_maxclients + 128 * ssp_nthreads;
+		if(rlim.rlim_cur > rlim.rlim_max) rlim.rlim_max = rlim.rlim_cur;
+		if(setrlimit(RLIMIT_NOFILE, &rlim) < 0) perror("setrlimit nofile");
+	}
 
 	// init main thread
 	listen_thread.sockfd = sockfd;

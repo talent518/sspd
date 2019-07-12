@@ -60,7 +60,7 @@ int socket_recv(conn_t *ptr, char **data, int *data_len) {
 	
 	ret = recv(ptr->sockfd, ptr->rbuf + ptr->rbytes, ptr->rsize - ptr->rbytes, MSG_DONTWAIT);
 
-	if (ret <= 0) return 0;
+	if (ret < 0) return 0;
 
 	ptr->rbytes += ret;
 
@@ -80,7 +80,6 @@ int socket_recv(conn_t *ptr, char **data, int *data_len) {
 }
 
 #if ASYNC_SEND
-void is_writable_conn(conn_t *ptr, bool iswrite);
 void socket_send_buf(conn_t *ptr, char *package, int plen);
 #endif
 
@@ -107,9 +106,7 @@ int socket_send(conn_t *ptr, char *data, int data_len) {
 		free(package);
 		return i;
 	} else if(ptr->thread->tid == pthread_self()) {
-		i = ptr->wbuf == NULL;
 		socket_send_buf(ptr, package, plen);
-		if(i) is_writable_conn(ptr, true);
 		return plen;
 	}
 	send_t *s = (send_t*)malloc(sizeof(send_t));
