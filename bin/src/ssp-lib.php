@@ -21,14 +21,6 @@ define('SETUP_RECEIVEKEY', 2);
 $_SSP = $GLOBALS['_SSP'] = array();
 
 /**
- * 获取连接资源
- * 
- * @param resource $var index
- */
-function ssp_resource ( $var ) {
-}
-
-/**
  * 获取连接资源信息
  *
  * @param resource $res
@@ -40,26 +32,18 @@ function ssp_info ( $res, $key = null ) {
 /**
  * 发送消息
  *
- * @param resource $res
+ * @param integer|resource $index|$res
  * @param string $message
  */
-function ssp_send ( $res, $message ) {
+function ssp_send ( $index, $message ) {
 }
 
 /**
  * 关闭连接
  *
- * @param resource $res
+ * @param integer|resource $index|$res
  */
-function ssp_close ( $res ) {
-}
-
-/**
- * 释放连接
- *
- * @param resource $res
- */
-function ssp_destroy ( $res ) {
+function ssp_close ( $index ) {
 }
 
 /**

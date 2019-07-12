@@ -88,7 +88,6 @@ class CtlUser extends CtlBase {
 			$exitLogin = new XML_Element('response');
 			$exitLogin->type = 'User.Login.Failed';
 			$exitLogin->setText('此用户在另一地点登录，你被迫退出！');
-			$exitStrng = $exitLogin;
 			
 			$exitData=array( 'uid'=>0, 'gid'=>0, 'logintimes'=>0, 'logintime'=>time(), 'timezone'=>0, 'broadcast'=>0, 'consult'=>0 );
 			
@@ -111,10 +110,7 @@ class CtlUser extends CtlBase {
 			ssp_unlock();
 
 			foreach($list as $exitId){
-				$exitRes=ssp_resource($exitId);
-				if($exitRes) {
-					ssp_send($exitRes, $exitStrng); ssp_close($exitRes); ssp_destroy($exitRes);
-				}
+				ssp_send($exitId, $exitLogin); ssp_close($exitId);
 			}
 
 			if ( UGK($uid, 'consult_reply') ) {

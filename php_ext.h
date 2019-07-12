@@ -15,7 +15,6 @@
 #include "api.h"
 
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp conn_t"
-#define PHP_SSP_DESCRIPTOR_REF_RES_NAME "ssp ref conn_t"
 #define PHP_SSP_VERSION "v2.2.0"
 
 #define PHP_SSP_START 0
@@ -31,7 +30,7 @@
 #define PHP_SSP_RES_SOCKFD 1
 #define PHP_SSP_RES_PORT 2
 
-extern long le_ssp_descriptor,le_ssp_descriptor_ref;
+extern long le_ssp_descriptor;
 extern unsigned int ssp_vars_length;
 #ifdef SSP_CODE_TIMEOUT
 	extern long ssp_timeout;
@@ -110,11 +109,9 @@ static PHP_MINFO_FUNCTION(ssp);
 void ssp_auto_globals_recreate();
 bool trigger(unsigned short type,...);
 
-static PHP_FUNCTION(ssp_resource);
 static PHP_FUNCTION(ssp_info);
 static PHP_FUNCTION(ssp_send);
 static PHP_FUNCTION(ssp_close);
-static PHP_FUNCTION(ssp_destroy);
 static PHP_FUNCTION(ssp_lock);
 static PHP_FUNCTION(ssp_unlock);
 
