@@ -7,8 +7,11 @@
 #include <malloc.h>
 #include <signal.h>
 #include <math.h>
+#include <fcntl.h>
 
+#include <standard/php_var.h>
 #include <zend_constants.h>
+#include <zend_smart_str.h>
 
 #ifdef HAVE_LIBGTOP
 #include <glibtop.h>
@@ -39,6 +42,10 @@ long ssp_timeout=60;
 long ssp_global_timeout=10;
 #endif
 #endif
+int ssp_server_id = -1;
+int ssp_server_max = -1;
+server_t *servers = NULL;
+queue_t *ssp_server_queue = NULL;
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_type, 0, 0, 2)
@@ -49,6 +56,24 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 1)
 ZEND_ARG_INFO(0, res)
 ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_connect, 0, 0, 1)
+ZEND_ARG_INFO(0, host)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_conv_setup, 0, 0, 2)
+ZEND_ARG_INFO(0, sid)
+ZEND_ARG_INFO(0, max_sid)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_conv_connect, 0, 0, 3)
+ZEND_ARG_INFO(0, host)
+ZEND_ARG_INFO(0, port)
+ZEND_ARG_INFO(0, sid)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_conv_disconnect, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_send, 0, 0, 2)
@@ -96,6 +121,10 @@ ZEND_END_ARG_INFO()
 static const zend_function_entry ssp_functions[] = {
 	PHP_FE(ssp_type, arginfo_ssp_type)
 	PHP_FE(ssp_info, arginfo_ssp_info)
+	PHP_FE(ssp_connect, arginfo_ssp_connect)
+	PHP_FE(ssp_conv_setup, arginfo_ssp_conv_setup)
+	PHP_FE(ssp_conv_connect, arginfo_ssp_conv_connect)
+	PHP_FE(ssp_conv_disconnect, arginfo_ssp_conv_disconnect)
 	PHP_FE(ssp_send, arginfo_ssp_send)
 	PHP_FE(ssp_close, arginfo_ssp_close)
 	PHP_FE(ssp_lock, arginfo_ssp_lock)
@@ -314,6 +343,7 @@ bool trigger(unsigned short type, ...) {
 		default:
 			perror("Trigger type not exists!");
 			va_end(args);
+			TRIGGER_SHUTDOWN();
 			return FAILURE;
 	}
 	va_end(args);
@@ -403,11 +433,342 @@ static PHP_FUNCTION(ssp_info) {
 	}
 }
 
+static PHP_FUNCTION(ssp_connect)
+{
+	char *host;
+	size_t host_len;
+	zend_long port = ssp_port;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "s|l", &host, &host_len, &port) == FAILURE) {
+		return;
+	}
+
+	if(listen_thread.sockfd < 0 && CONN_NUM < ssp_maxclients) {
+		conn_t *ptr;
+		int s;
+		struct sockaddr_in addr;
+		bzero(&addr, sizeof(addr));
+		addr.sin_family = AF_INET;
+		addr.sin_port=htons(ssp_port);
+		addr.sin_addr.s_addr = inet_addr(ssp_host);
+
+		if((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+			perror("socket");
+			RETURN_FALSE;
+		}
+		if(connect(s, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
+			perror("connect");
+			close(s);
+			RETURN_FALSE;
+		}
+
+		int send_timeout = 1000, recv_timeout = 1000;
+		setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
+		setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int)); // 接收超时
+
+		int flags = fcntl(s, F_GETFL, 0);
+		fcntl(s, F_SETFL, flags|O_NONBLOCK);
+
+		ptr = insert_conn();
+		ptr->sockfd = s;
+		strcpy(ptr->host, ssp_host);
+		ptr->port = ssp_port;
+
+		ptr->thread = worker_threads + ptr->index % ssp_nthreads;
+
+		dprintf("notify thread %d\n", ptr->thread->id);
+
+		queue_push(ptr->thread->accept_queue, ptr);
+
+		conn_info(ptr);
+
+		char chr='l';
+		write(ptr->thread->write_fd, &chr, 1);
+
+		RETURN_TRUE;
+	} else {
+		RETURN_FALSE;
+	}
+
+}
+
+static PHP_FUNCTION(ssp_conv_setup)
+{
+	zend_long sid, max_sid;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "ll", &sid, &max_sid) == FAILURE || sid < 0 || max_sid <= 0 || servers) {
+		return;
+	}
+
+	ssp_server_id = sid;
+	ssp_server_max = max_sid;
+
+	size_t n = sizeof(server_t)*max_sid;
+	servers = (server_t*) malloc(n);
+	memset(servers, 0, n);
+
+	ssp_server_queue = queue_init();
+}
+
+#if ASYNC_SEND
+static void read_write_handler(int sock, short event, void *arg);
+void is_writable_conv(server_t *ptr, bool iswrite) {
+	if(event_del(&ptr->event) == -1) perror("event_del");
+
+	if(iswrite) event_set(&ptr->event, ptr->sockfd, EV_READ|EV_WRITE|EV_PERSIST, read_write_handler, ptr);
+	else event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_write_handler, ptr);
+
+	event_base_set(listen_thread.base, &ptr->event);
+	event_add(&ptr->event, NULL);
+}
+#endif
+
+void ssp_conv_disconnect(server_t *s);
+static void read_write_handler(int sock, short event, void *arg)
+{
+	server_t *ptr = arg;
+	int n = 0, ret;
+
+#if ASYNC_SEND
+	if(event & EV_WRITE) {
+		ret = send(ptr->sockfd, ptr->wbuf+ptr->wbytes, ptr->wsize - ptr->wbytes, MSG_DONTWAIT);
+		if(ret > 0) {
+			ptr->wbytes += ret;
+			if(ptr->wsize == ptr->wbytes) {
+				free(ptr->wbuf);
+				ptr->wbuf = NULL;
+				ptr->wbytes = ptr->wsize = 0;
+
+				is_writable_conv(ptr, false);
+			}
+		} else {
+			fprintf(stderr, "%s: send error\n", __func__);
+			ssp_conv_disconnect(ptr);
+		}
+	}
+	if(event & EV_READ) {
+#endif
+	if(ptr->rsize == 0) {
+		n = sizeof(int)*2;
+		ret = recv(ptr->sockfd, &ptr->index, n, MSG_WAITALL);
+		if(ret<0) {
+			fprintf(stderr, "%s: recv package head error\n", __func__);
+
+			ssp_conv_disconnect(ptr);
+			return;
+		} else if(ret==0) {
+			fprintf(stderr, "%s: recv package head length is zero\n", __func__);
+			return;
+		} else if(n != ret) {
+			fprintf(stderr, "%s: recv package head length error\n", __func__);
+
+			ssp_conv_disconnect(ptr);
+			return;
+		} else {
+			ptr->rbuf = (char*) malloc(ptr->rsize);
+			ptr->rbytes = 0;
+			ptr->rsize = 0;
+		}
+	}
+	ret = recv(ptr->sockfd, ptr->rbuf + ptr->rbytes, ptr->rsize - ptr->rbytes, MSG_DONTWAIT);
+	if(ret < 0) {
+		fprintf(stderr, "%s: recv package data error\n", __func__);
+
+		ssp_conv_disconnect(ptr);
+	} else if(ret == 0) {
+		fprintf(stderr, "%s: recv package data length is zero\n", __func__);
+	} else {
+		ptr->rbytes += ret;
+
+		if(ptr->rsize != ptr->rbytes) return;
+
+		conn_t *c = index_conn(ptr->index);
+		if(c) {
+			if(ptr->rsize == 1 && ptr->rbuf[0] == '\0') {
+				socket_close(c);
+			} else {
+				do {
+					php_unserialize_data_t var_hash;
+					char *buf = ptr->rbuf;
+					const unsigned char *p = buf;
+					size_t buf_len = ptr->rsize;
+					PHP_VAR_UNSERIALIZE_INIT(var_hash);
+					zval *retval = var_tmp_var(&var_hash);
+					if(!php_var_unserialize(retval, &p, p + buf_len, &var_hash)) {
+						if (!EG(exception)) {
+							php_error_docref(NULL, E_NOTICE, "Error at offset " ZEND_LONG_FMT " of %zd bytes", (zend_long)((char*)p - buf), buf_len);
+						}
+					} else {
+						trigger(PHP_SSP_SEND, c, retval);
+					}
+					PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
+				} while(0);
+			}
+
+			unref_conn(c);
+		}
+
+		free(ptr->rbuf);
+		ptr->rbuf = NULL;
+		ptr->rbytes = 0;
+		ptr->rsize = 0;
+	}
+#if ASYNC_SEND
+	}
+#endif
+}
+
+static void listen_handler(int sock, short event, void *arg)
+{
+	server_t *ptr = arg;
+	struct sockaddr_in pin;
+	socklen_t len = sizeof(pin);
+	int s , n = -1;
+	if((s = accept(sock, (struct sockaddr *)&pin, &len)) < 0 || recv(s, &n, sizeof(int), MSG_WAITALL) != sizeof(int)) {
+		perror("accept");
+		return;
+	}
+
+	if(n == ptr->sid || n < 0 || n >= ssp_server_max || servers[n].sockfd >= 0) {
+		fprintf(stderr, "conv argument error\n");
+		return;
+	}
+
+	ptr = &servers[n];
+
+	char host[16];
+	inet_ntop(AF_INET, &pin.sin_addr, host, len);
+	if(strcmp(host, ptr->host) || ntohs(pin.sin_port) != ptr->port) {
+		fprintf(stderr, "conv host or port not equal\n");
+		return;
+	}
+
+	int send_timeout = 1000, recv_timeout = 1000;
+	setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
+	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int)); // 接收超时
+
+	int flags = fcntl(s, F_GETFL, 0);
+	fcntl(s, F_SETFL, flags|O_NONBLOCK);
+
+	ptr->sockfd = s;
+
+	event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_write_handler, ptr);
+	event_base_set(listen_thread.base, &ptr->event);
+	event_add(&ptr->event, NULL);
+}
+
+static PHP_FUNCTION(ssp_conv_connect)
+{
+	char *host;
+	size_t host_len;
+	zend_long port, sid;
+	server_t *ptr;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "sll", &host, &host_len, &port, &sid) == FAILURE || sid < 0 || sid >= ssp_server_max) {
+		return;
+	}
+
+	ptr = &servers[sid];
+
+	strncpy(ptr->host, host, host_len);
+	ptr->port = port;
+	ptr->sid = sid;
+	ptr->sockfd = -1;
+
+	int s;
+	struct sockaddr_in addr;
+	bzero(&addr, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_port=htons(ssp_port);
+	addr.sin_addr.s_addr = inet_addr(ssp_host);
+
+	if((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		perror("socket");
+		RETURN_FALSE;
+	}
+
+	if(sid == ssp_server_id) {
+		if(bind(s, (struct sockaddr *) &addr, sizeof(addr)) < 0 || listen(s, ssp_backlog) < 0) {
+			perror("listen");
+			close(s);
+			RETURN_FALSE;
+		}
+
+		ptr->sockfd = s;
+
+		event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, listen_handler, ptr);
+		event_base_set(listen_thread.base, &ptr->event);
+		event_add(&ptr->event, NULL);
+	} else {
+		if(connect(s, (struct sockaddr*) &addr, sizeof(addr)) < 0 || send(s, &ptr->sid, sizeof(int), MSG_WAITALL) != sizeof(int)) {
+			perror("connect");
+			close(s);
+			RETURN_FALSE;
+		}
+
+		int send_timeout = 1000, recv_timeout = 1000;
+		setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
+		setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int)); // 接收超时
+
+		int flags = fcntl(s, F_GETFL, 0);
+		fcntl(s, F_SETFL, flags|O_NONBLOCK);
+
+		ptr->sockfd = s;
+
+		event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_write_handler, ptr);
+		event_base_set(listen_thread.base, &ptr->event);
+		event_add(&ptr->event, NULL);
+	}
+}
+
+void ssp_conv_disconnect(server_t *s) {
+	if(s->sockfd < 0) return;
+
+	shutdown(s->sockfd, SHUT_RDWR);
+	close(s->sockfd);
+	if(s->event.ev_base) event_del(&s->event);
+
+	if(s->rbuf) {
+		free(s->rbuf);
+	}
+
+#if ASYNC_SEND
+	if(s->wbuf) {
+		free(s->wbuf);
+	}
+#endif
+
+	memset(s, 0, sizeof(server_t));
+
+	s->sockfd = -1;
+}
+
+static PHP_FUNCTION(ssp_conv_disconnect)
+{
+	int i;
+	if(!servers) return;
+
+
+	for(i=0; i<ssp_server_max; i++) {
+		ssp_conv_disconnect(&servers[i]);
+	}
+
+	free(servers);
+
+	ssp_server_id = ssp_server_max = -1;
+	servers = NULL;
+
+	conv_server_t *c;
+
+	while((c = queue_pop(ssp_server_queue)) != NULL) {
+		free(c);
+	}
+
+	queue_free(ssp_server_queue);
+}
+
 static PHP_FUNCTION(ssp_send)
 {
-	zval *res, *data;
+	zval *res, *data, *sid = NULL;
 	conn_t *ptr = NULL;
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "zz", &res, &data) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "zz|z", &res, &data, &sid) == FAILURE) {
 		return;
 	}
 
@@ -415,6 +776,56 @@ static PHP_FUNCTION(ssp_send)
 		ptr = (conn_t *) zend_fetch_resource_ex(res, PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
 	} else {
 		convert_to_long_ex(res);
+		if(sid) {
+			convert_to_long_ex(sid);
+			zend_long i = Z_LVAL_P(sid);
+			if(i != ssp_server_id) {
+				RETVAL_NULL();
+				if(i >= 0 && i < ssp_server_max) {
+					server_t *s = &servers[i];
+					if(s->sockfd < 0) return;
+
+					do {
+						php_serialize_data_t var_hash;
+						smart_str buf = {0};
+						PHP_VAR_SERIALIZE_INIT(var_hash);
+						php_var_serialize(&buf, data, &var_hash);
+						PHP_VAR_SERIALIZE_DESTROY(var_hash);
+						if (EG(exception)) {
+							smart_str_free(&buf);
+							RETURN_FALSE;
+						} else if (buf.s) {
+							conv_server_t *c = (conv_server_t*) malloc(sizeof(conv_server_t) + ZSTR_LEN(buf.s));
+							c->ptr = s;
+							c->index = Z_LVAL_P(res)-1;
+							c->size = ZSTR_LEN(buf.s);
+							strncpy(c->buf, ZSTR_VAL(buf.s), ZSTR_LEN(buf.s));
+
+						#if ASYNC_SEND
+							queue_push(ssp_server_queue, c);
+
+							char chr = 's';
+							write(listen_thread.write_fd, &chr, 1);
+						#else
+							size_t plen = c->size + sizeof(int)*2;
+							int n = send(s->sockfd, &c->index, plen, MSG_WAITALL);
+							if(n != plen) {
+								ssp_conv_disconnect(s);
+							}
+
+							free(c);
+						#endif
+
+							smart_str_free(&buf);
+
+							RETVAL_TRUE;
+						}
+					} while(0);
+				}
+
+				return;
+			}
+		}
 		ptr = index_conn(Z_LVAL_P(res)-1);
 	}
 
@@ -431,9 +842,9 @@ static PHP_FUNCTION(ssp_send)
 
 static PHP_FUNCTION(ssp_close)
 {
-	zval *res;
+	zval *res, *sid = NULL;
 	conn_t *ptr = NULL;
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z", &res) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "z|z", &res, &sid) == FAILURE) {
 		return;
 	}
 
@@ -441,6 +852,42 @@ static PHP_FUNCTION(ssp_close)
 		ptr = (conn_t *) zend_fetch_resource_ex(res, PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
 	} else {
 		convert_to_long_ex(res);
+		if(sid) {
+			convert_to_long_ex(sid);
+			zend_long i = Z_LVAL_P(sid);
+			if(i != ssp_server_id) {
+				RETVAL_NULL();
+				if(i >= 0 && i < ssp_server_max) {
+					server_t *s = &servers[i];
+					if(s->sockfd < 0) return;
+
+					conv_server_t *c = (conv_server_t*) malloc(sizeof(conv_server_t));
+					c->ptr = s;
+					c->index = Z_LVAL_P(res)-1;
+					c->size = 1;
+					c->buf[0] = '\0';
+
+				#if ASYNC_SEND
+					queue_push(ssp_server_queue, c);
+
+					char chr = 's';
+					write(listen_thread.write_fd, &chr, 1);
+				#else
+					size_t plen = c->size + sizeof(int)*2;
+					int n = send(s->sockfd, &c->index, plen, MSG_WAITALL);
+					if(n != plen) {
+						ssp_conv_disconnect(s);
+					}
+
+					free(c);
+				#endif
+
+					RETVAL_TRUE;
+				}
+
+				return;
+			}
+		}
 		ptr = index_conn(Z_LVAL_P(res)-1);
 	}
 

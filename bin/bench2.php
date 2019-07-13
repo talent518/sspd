@@ -14,6 +14,7 @@ import('lib.xml');
 import('mod.uc.base');
 
 function ssp_start_handler () {
+	for($i=0; $i<SSP_MAX_CLIENTS; $i++) ssp_connect(SSP_HOST);
 }
 
 function ssp_bench_handler () {

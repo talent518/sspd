@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <fcntl.h>
 
 #include <sys/resource.h>
 #include <sys/time.h>
@@ -132,10 +133,9 @@ void is_writable_conn(conn_t *ptr, bool iswrite) {
 	dprintf("%s: %4d, %d, begin\n", __func__, ptr->index, iswrite);
 	if(event_del(&ptr->event) == -1) perror("event_del");
 
-	if(iswrite) ptr->evflags |= EV_WRITE;
-	else ptr->evflags &= ~EV_WRITE;
+	if(iswrite) event_set(&ptr->event, ptr->sockfd, EV_READ|EV_WRITE|EV_PERSIST, read_write_handler, ptr);
+	else event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_write_handler, ptr);
 
-	event_set(&ptr->event, ptr->sockfd, ptr->evflags, read_write_handler, ptr);
 	event_base_set(ptr->thread->base, &ptr->event);
 	event_add(&ptr->event, NULL);
 	dprintf("%s: %4d, %d, end\n", __func__, ptr->index, iswrite);
@@ -189,12 +189,9 @@ static void read_write_handler(int sock, short event, void* arg)
 
 		is_accept_conn(true);
 	} else { // 接收数据成功
-		TRIGGER_STARTUP_EX() {
-			rprintf("============================================================\n");
-			INIT_RUNTIME();
-			trigger(PHP_SSP_RECEIVE,ptr,data,data_len);
-			INFO_RUNTIME("RECV");
-		} TRIGGER_SHUTDOWN_EX();
+		INIT_RUNTIME();
+		trigger(PHP_SSP_RECEIVE,ptr,data,data_len);
+		INFO_RUNTIME("RECV");
 	}
 	if(data) {
 		free(data);
@@ -275,11 +272,8 @@ static void notify_handler(const int fd, const short which, void *arg)
 
 				assert(ptr->thread == me);
 
-				chr = ptr->wbuf == NULL;
 				socket_send_buf(ptr, s->str, s->len);
 				free(s);
-
-				if(chr) is_writable_conn(ptr, true);
 				break;
 			}
 		#endif // ASYNC_SEND
@@ -322,10 +316,6 @@ static void notify_handler(const int fd, const short which, void *arg)
 
 				me->conn_num++;
 				me->clean_times = 0;
-
-			#if ASYNC_SEND
-				ptr->evflags = EV_READ|EV_PERSIST;
-			#endif
 
 				event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_write_handler, ptr);
 				event_base_set(me->base, &ptr->event);
@@ -462,6 +452,45 @@ static void listen_notify_handler(const int fd, const short which, void *arg)
 			case 'd': // 禁止连接(disable)
 				is_accept_conn_ex(false);
 				break;
+		#if ASYNC_SEND
+			case 's': {
+				conv_server_t *c = queue_pop(ssp_server_queue);
+				if(!c) break;
+
+				server_t *ptr = c->ptr;
+				size_t plen = c->size + sizeof(int)*2;
+
+				if(ptr->wbuf) {
+					int bn = ptr->wsize - ptr->wbytes;
+					int n = plen + bn;
+					char *data = (char*) malloc(n);
+					memcpy(data, ptr->wbuf + ptr->wbytes, bn);
+					memcpy(data + bn, &c->index, plen);
+					free(ptr->wbuf);
+					ptr->wbuf = data;
+					ptr->wbytes = 0;
+					ptr->wsize = n;
+				} else {
+					int n = send(ptr->sockfd, &c->index, plen, MSG_DONTWAIT);
+					if(n >= 0) {
+						if(n < plen) {
+							ptr->wbuf = (char *) malloc(plen-n);
+							ptr->wbytes = n;
+							ptr->wsize = plen;
+
+							memcpy(ptr->wbuf, &c->index+n, plen-n);
+
+							is_writable_conv(ptr, true);
+						}
+					} else {
+						ssp_conv_disconnect(ptr);
+					}
+				}
+
+				free(c);
+				break;
+			}
+#endif // ASYNC_SEND
 			case '0':
 			case '1':
 			case '2':
@@ -517,6 +546,9 @@ static void listen_handler(const int fd, const short which, void *arg)
 	int send_timeout = 1000, recv_timeout = 1000;
 	setsockopt(conn_fd, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
 	setsockopt(conn_fd, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int)); // 接收超时
+
+	int flags = fcntl(conn_fd, F_GETFL, 0);
+	fcntl(conn_fd, F_SETFL, flags|O_NONBLOCK);
 
 	conn_t *ptr;
 
@@ -752,42 +784,6 @@ void loop_event (int sockfd) {
 
 	THREAD_STARTUP();
 
-	if(listen_thread.sockfd < 0) {
-		conn_t *ptr;
-		int sockfd, i;
-		int s;
-		struct sockaddr_in addr;
-		bzero(&addr, sizeof(addr));
-		addr.sin_family = AF_INET;
-		addr.sin_port=htons(ssp_port);
-		addr.sin_addr.s_addr = inet_addr(ssp_host);
-
-		for(i = 0; i < ssp_maxclients; i++) {
-			if((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-				perror("socket");
-				continue;
-			}
-			if(connect(s, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
-				perror("connect");
-				continue;
-			}
-			ptr = insert_conn();
-			ptr->sockfd = s;
-			strcpy(ptr->host, ssp_host);
-			ptr->port = ssp_port;
-
-			ptr->thread = worker_threads + ptr->index % ssp_nthreads;
-
-			dprintf("notify thread %d\n", ptr->thread->id);
-
-			queue_push(ptr->thread->accept_queue, ptr);
-
-			conn_info(ptr);
-
-			char chr='l';
-			write(ptr->thread->write_fd, &chr, 1);
-		}
-	}
 
 	trigger(PHP_SSP_START);
 

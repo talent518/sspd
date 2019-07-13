@@ -257,14 +257,16 @@ int main(int argc, char *argv[])
 			case OPT_SSP_VARS:
 				ssp_vars_length = atoi(php_optarg);
 				break;
-#ifdef SSP_CODE_TIMEOUT
+		#ifdef SSP_CODE_TIMEOUT
 				case OPT_TIMEOUT:
 				ssp_timeout = atoi(php_optarg);
 				break;
+			#ifdef SSP_CODE_TIMEOUT_GLOBAL
 				case OPT_TIMEOUT_GLOBAL:
 				ssp_global_timeout = atoi(php_optarg);
 				break;
-#endif
+			#endif
+		#endif
 		}
 	}
 

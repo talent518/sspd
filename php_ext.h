@@ -11,8 +11,11 @@
 #include <TSRM.h>
 #include <zend.h>
 
+#include <event.h>
+
 #include "config.h"
 #include "api.h"
+#include "queue.h"
 
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp conn_t"
 #define PHP_SSP_VERSION "v2.2.0"
@@ -69,33 +72,23 @@ ZEND_END_MODULE_GLOBALS(ssp)
 			}
 	#endif
 
-	#define TRIGGER_STARTUP_EX() dprintf("############################################TRIGGER_STARTUP_EX#########################################################################\n");\
-		TRIGGER_STARTUP()
-
-	#define TRIGGER_SHUTDOWN_EX() TRIGGER_SHUTDOWN();\
-		dprintf("############################################TRIGGER_SHUTDOWN_EX########################################################################\n")
-
 	#define THREAD_STARTUP() ssp_request_startup()
 	#define THREAD_SHUTDOWN() ssp_request_shutdown()
 #else
 	#define TRIGGER_STARTUP() \
 		if((SSP_G(trigger_count)++) == 0) {\
 			ssp_request_startup();\
-			dprintf("-----------------------------------------ssp_request_startup------------------------------------------------------------------------------\n");\
+			dprintf("--------------------------------------------TRIGGER_STARTUP---------------------------------------------------------------------------\n");\
 		}
 
 	#define TRIGGER_SHUTDOWN() \
 		if((--SSP_G(trigger_count)) == 0) {\
-			dprintf("-----------------------------------------ssp_request_shutdown-----------------------------------------------------------------------------\n");\
+			dprintf("--------------------------------------------TRIGGER_SHUTDOWN---------------------------------------------------------------------------\n");\
 			ssp_request_shutdown();\
 		}
 
-	#define TRIGGER_STARTUP_EX() TRIGGER_STARTUP()
-
-	#define TRIGGER_SHUTDOWN_EX() TRIGGER_SHUTDOWN()
-
-	#define THREAD_STARTUP() (void)ts_resource(0)
-	#define THREAD_SHUTDOWN() (void)ts_resource(0)
+	#define THREAD_STARTUP() ts_resource(0)
+	#define THREAD_SHUTDOWN() ts_resource(0)
 #endif
 
 static PHP_MINIT_FUNCTION(ssp);
@@ -110,6 +103,7 @@ void ssp_auto_globals_recreate();
 bool trigger(unsigned short type,...);
 
 static PHP_FUNCTION(ssp_info);
+static PHP_FUNCTION(ssp_connect);
 static PHP_FUNCTION(ssp_send);
 static PHP_FUNCTION(ssp_close);
 static PHP_FUNCTION(ssp_lock);
@@ -131,6 +125,42 @@ static PHP_FUNCTION(ssp_setup);
 static PHP_FUNCTION(crypt_encode);
 static PHP_FUNCTION(crypt_decode);
 
-ZEND_DECLARE_MODULE_GLOBALS(ssp)
+ZEND_DECLARE_MODULE_GLOBALS(ssp);
+
+typedef struct _server_t {
+	int sid;
+
+	int sockfd;
+	char host[16];
+	int port;
+
+	char *rbuf;
+	int rbytes;
+	int index;
+	int rsize;
+
+#if ASYNC_SEND
+	char *wbuf;
+	int wbytes;
+	int wsize;
+#endif // ASYNC_SEND
+
+	struct event event;
+} server_t;
+
+typedef struct _conv_server_t {
+	server_t *ptr;
+	int index;
+	int size;
+	char buf[1];
+} conv_server_t;
+
+extern int ssp_server_id;
+extern int ssp_server_max;
+extern server_t *servers;
+extern queue_t *ssp_server_queue;
+static PHP_FUNCTION(ssp_conv_setup);
+static PHP_FUNCTION(ssp_conv_connect);
+static PHP_FUNCTION(ssp_conv_disconnect);
 
 #endif  /* PHP_EXT_H */

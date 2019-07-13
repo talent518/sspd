@@ -21,6 +21,31 @@ define('SETUP_RECEIVEKEY', 2);
 $_SSP = $GLOBALS['_SSP'] = array();
 
 /**
+ * 设置ssp转发服务器(ssp服务端在ssp_start_handler中使用)
+ *
+ * @param integer $sid
+ * @param integer $max_sid
+ */
+function ssp_conv_setup ( $sid, $max_sid ) {
+}
+
+/**
+ * 连接ssp转发服务器(ssp服务端在ssp_start_handler中使用)
+ *
+ * @param string $host
+ * @param integer port
+ * @param integer sid
+ */
+function ssp_conv_connect ( $host, $port, $sid ) {
+}
+
+/**
+ * 关闭所有ssp转发服务器的连接(ssp服务端在ssp_stop_handler中使用)
+ */
+function ssp_conv_disconnect ( ) {
+}
+
+/**
  * 获取连接资源信息
  *
  * @param resource $res
@@ -30,12 +55,21 @@ function ssp_info ( $res, $key = null ) {
 }
 
 /**
+ * 连接ssp服务器(压力测试专用且只能在ssp_start_handler)
+ *
+ * @param string $host
+ * @param integer $port
+ */
+function ssp_connect ( $host, $port = SSP_PORT ) {
+}
+
+/**
  * 发送消息
  *
  * @param integer|resource $index|$res
  * @param string $message
  */
-function ssp_send ( $index, $message ) {
+function ssp_send ( $index, $message, $sid = null ) {
 }
 
 /**
@@ -43,7 +77,7 @@ function ssp_send ( $index, $message ) {
  *
  * @param integer|resource $index|$res
  */
-function ssp_close ( $index ) {
+function ssp_close ( $index, $sid = null ) {
 }
 
 /**

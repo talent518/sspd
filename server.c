@@ -51,8 +51,8 @@ void server_start() {
 	setsockopt(listen_fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(int));
 
 	int send_timeout = 1000, recv_timeout = 1000;
-	setsockopt(listen_fd, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int));//���ͳ�ʱ
-	setsockopt(listen_fd, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int));//���ճ�ʱ
+	setsockopt(listen_fd, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int));
+	setsockopt(listen_fd, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int));
 
 	typedef struct {
 		u_short l_onoff;
