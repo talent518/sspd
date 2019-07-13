@@ -126,9 +126,7 @@ class CtlInvest extends CtlBase {
 			$remind->type = 'Remind.Invest';
 			foreach ( MOD('user.online')->get_list_by_where('uid>0') as $sf => $r ) {
 				if ( UGK($r['uid'], 'invest') ) {
-					$res = ssp_resource($sf);
-					ssp_send($res, ( string ) $remind);
-					ssp_destroy($res);
+					ssp_send($sf, $remind);
 				}
 			}
 		} elseif (  !  ! ( $error = MOD('invest')->error ) ) {
