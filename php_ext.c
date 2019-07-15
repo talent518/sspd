@@ -46,6 +46,7 @@ int ssp_server_id = -1;
 int ssp_server_max = -1;
 server_t *servers = NULL;
 queue_t *ssp_server_queue = NULL;
+static struct event conv_timeout_int;
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_type, 0, 0, 2)
@@ -448,8 +449,8 @@ static PHP_FUNCTION(ssp_connect)
 		struct sockaddr_in addr;
 		bzero(&addr, sizeof(addr));
 		addr.sin_family = AF_INET;
-		addr.sin_port=htons(ssp_port);
-		addr.sin_addr.s_addr = inet_addr(ssp_host);
+		addr.sin_port=htons(port);
+		addr.sin_addr.s_addr = inet_addr(host);
 
 		if((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			perror("socket");
@@ -491,12 +492,44 @@ static PHP_FUNCTION(ssp_connect)
 
 }
 
+static void conv_timeout_handler(int sock, short event, void *arg) {
+	int i;
+	server_t *s;
+	for(i=0; i<ssp_server_max; i++) {
+		s = &servers[i];
+		if(i == ssp_server_id || s->sockfd < 0) continue;
+
+		conv_server_t *c = (conv_server_t*) malloc(sizeof(conv_server_t));
+		c->ptr = s;
+		c->index = 0;
+		c->size = 1;
+		c->buf[0] = '0';
+
+	#if ASYNC_SEND
+		queue_push(ssp_server_queue, c);
+
+		char chr = 's';
+		write(listen_thread.write_fd, &chr, 1);
+	#else
+		size_t plen = c->size + sizeof(int)*2;
+		int n = send(s->sockfd, &c->index, plen, MSG_WAITALL);
+		if(n != plen) {
+			ssp_conv_disconnect(s);
+		}
+
+		free(c);
+	#endif
+	}
+}
+
 static PHP_FUNCTION(ssp_conv_setup)
 {
 	zend_long sid, max_sid;
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "ll", &sid, &max_sid) == FAILURE || sid < 0 || max_sid <= 0 || servers) {
 		return;
 	}
+
+	vprintf("sid: %ld, max_sid: %ld\n", sid, max_sid);
 
 	ssp_server_id = sid;
 	ssp_server_max = max_sid;
@@ -505,7 +538,23 @@ static PHP_FUNCTION(ssp_conv_setup)
 	servers = (server_t*) malloc(n);
 	memset(servers, 0, n);
 
+	for(n=0; n<max_sid; n++) {
+		servers[n].sockfd = -1;
+	}
+
 	ssp_server_queue = queue_init();
+
+#if 0
+	struct timeval tv;
+	evutil_timerclear(&tv);
+	tv.tv_sec = 10;
+	event_set(&conv_timeout_int, -1, EV_PERSIST, conv_timeout_handler, NULL);
+	event_base_set(listen_thread.base, &conv_timeout_int);
+	if (event_add(&conv_timeout_int, &tv) == -1) {
+		perror("timeout event");
+		exit(1);
+	}
+#endif
 }
 
 #if ASYNC_SEND
@@ -549,13 +598,10 @@ static void read_write_handler(int sock, short event, void *arg)
 	if(ptr->rsize == 0) {
 		n = sizeof(int)*2;
 		ret = recv(ptr->sockfd, &ptr->index, n, MSG_WAITALL);
-		if(ret<0) {
-			fprintf(stderr, "%s: recv package head error\n", __func__);
+		if(ret <= 0) {
+			// fprintf(stderr, "%s: recv package head error %d\n", __func__, ssp_server_id);
 
 			ssp_conv_disconnect(ptr);
-			return;
-		} else if(ret==0) {
-			fprintf(stderr, "%s: recv package head length is zero\n", __func__);
 			return;
 		} else if(n != ret) {
 			fprintf(stderr, "%s: recv package head length error\n", __func__);
@@ -565,7 +611,6 @@ static void read_write_handler(int sock, short event, void *arg)
 		} else {
 			ptr->rbuf = (char*) malloc(ptr->rsize);
 			ptr->rbytes = 0;
-			ptr->rsize = 0;
 		}
 	}
 	ret = recv(ptr->sockfd, ptr->rbuf + ptr->rbytes, ptr->rsize - ptr->rbytes, MSG_DONTWAIT);
@@ -579,6 +624,11 @@ static void read_write_handler(int sock, short event, void *arg)
 		ptr->rbytes += ret;
 
 		if(ptr->rsize != ptr->rbytes) return;
+
+		if(ptr->rsize == 1 && ptr->rbuf[0]) {
+			vprintf("conv keep alive: %d, %d\n", ptr->sid, ssp_server_id);
+			goto end;
+		}
 
 		conn_t *c = index_conn(ptr->index);
 		if(c) {
@@ -606,6 +656,7 @@ static void read_write_handler(int sock, short event, void *arg)
 			unref_conn(c);
 		}
 
+		end:
 		free(ptr->rbuf);
 		ptr->rbuf = NULL;
 		ptr->rbytes = 0;
@@ -622,24 +673,26 @@ static void listen_handler(int sock, short event, void *arg)
 	struct sockaddr_in pin;
 	socklen_t len = sizeof(pin);
 	int s , n = -1;
-	if((s = accept(sock, (struct sockaddr *)&pin, &len)) < 0 || recv(s, &n, sizeof(int), MSG_WAITALL) != sizeof(int)) {
+	if((s = accept(sock, (struct sockaddr *)&pin, &len)) < 0) {
 		perror("accept");
 		return;
 	}
 
+	if(recv(s, &n, sizeof(int), MSG_WAITALL) != sizeof(int)) {
+		perror("recv lenght no equal 4");
+		return;
+	}
+
 	if(n == ptr->sid || n < 0 || n >= ssp_server_max || servers[n].sockfd >= 0) {
-		fprintf(stderr, "conv argument error\n");
+		fprintf(stderr, "conv argument error: %d, %d, %d\n", n, ssp_server_id, ssp_server_max);
+		close(s);
 		return;
 	}
 
 	ptr = &servers[n];
 
-	char host[16];
-	inet_ntop(AF_INET, &pin.sin_addr, host, len);
-	if(strcmp(host, ptr->host) || ntohs(pin.sin_port) != ptr->port) {
-		fprintf(stderr, "conv host or port not equal\n");
-		return;
-	}
+	inet_ntop(AF_INET, &pin.sin_addr, ptr->host, len);
+	ptr->port = ntohs(pin.sin_port);
 
 	int send_timeout = 1000, recv_timeout = 1000;
 	setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
@@ -666,18 +719,18 @@ static PHP_FUNCTION(ssp_conv_connect)
 	}
 
 	ptr = &servers[sid];
+	ptr->sid = sid;
 
 	strncpy(ptr->host, host, host_len);
 	ptr->port = port;
-	ptr->sid = sid;
 	ptr->sockfd = -1;
 
 	int s;
 	struct sockaddr_in addr;
 	bzero(&addr, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port=htons(ssp_port);
-	addr.sin_addr.s_addr = inet_addr(ssp_host);
+	addr.sin_port = htons(port);
+	addr.sin_addr.s_addr = inet_addr(host);
 
 	if((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		perror("socket");
@@ -685,11 +738,40 @@ static PHP_FUNCTION(ssp_conv_connect)
 	}
 
 	if(sid == ssp_server_id) {
-		if(bind(s, (struct sockaddr *) &addr, sizeof(addr)) < 0 || listen(s, ssp_backlog) < 0) {
+		int opt = 1;
+		setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int));
+		setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(int));
+
+		int send_timeout = 1000, recv_timeout = 1000;
+		setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int));
+		setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int));
+
+		typedef struct {
+			u_short l_onoff;
+			u_short l_linger;
+		} linger;
+		linger m_sLinger;
+		m_sLinger.l_onoff = 1;//(在closesocket()调用,但是还有数据没发送完毕的时候容许逗留)
+		// 如果m_sLinger.l_onoff=0;则功能和2.)作用相同;
+		m_sLinger.l_linger = 5;//(容许逗留的时间为5秒)
+		setsockopt(s, SOL_SOCKET, SO_LINGER, &m_sLinger, sizeof(linger));
+
+		int send_buffer = 0, recv_buffer = 0;
+		setsockopt(s, SOL_SOCKET, SO_SNDBUF, &send_buffer, sizeof(int));//发送缓冲区大小
+		setsockopt(s, SOL_SOCKET, SO_RCVBUF, &recv_buffer, sizeof(int));//接收缓冲区大小
+
+		if(bind(s, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+			perror("bind");
+			close(s);
+			RETURN_FALSE;
+		}
+		if(listen(s, ssp_backlog) < 0) {
 			perror("listen");
 			close(s);
 			RETURN_FALSE;
 		}
+
+		vprintf("%s: %ld, %ld listen\n", host, port, sid);
 
 		ptr->sockfd = s;
 
@@ -697,15 +779,18 @@ static PHP_FUNCTION(ssp_conv_connect)
 		event_base_set(listen_thread.base, &ptr->event);
 		event_add(&ptr->event, NULL);
 	} else {
-		if(connect(s, (struct sockaddr*) &addr, sizeof(addr)) < 0 || send(s, &ptr->sid, sizeof(int), MSG_WAITALL) != sizeof(int)) {
-			perror("connect");
+		if(connect(s, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
+			//perror("connect");
+			close(s);
+			RETURN_FALSE;
+		}
+		if(send(s, &ssp_server_id, sizeof(int), MSG_WAITALL) != sizeof(int)) {
+			perror("send");
 			close(s);
 			RETURN_FALSE;
 		}
 
-		int send_timeout = 1000, recv_timeout = 1000;
-		setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
-		setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int)); // 接收超时
+		vprintf("%s: %ld, %ld connect\n", host, port, sid);
 
 		int flags = fcntl(s, F_GETFL, 0);
 		fcntl(s, F_SETFL, flags|O_NONBLOCK);
@@ -720,6 +805,8 @@ static PHP_FUNCTION(ssp_conv_connect)
 
 void ssp_conv_disconnect(server_t *s) {
 	if(s->sockfd < 0) return;
+
+	vprintf("%s: %d, %d, %d, %d close\n", s->host, s->port, s->sid, ssp_server_id, ssp_server_max);
 
 	shutdown(s->sockfd, SHUT_RDWR);
 	close(s->sockfd);
@@ -783,6 +870,7 @@ static PHP_FUNCTION(ssp_send)
 				RETVAL_NULL();
 				if(i >= 0 && i < ssp_server_max) {
 					server_t *s = &servers[i];
+
 					if(s->sockfd < 0) return;
 
 					do {

@@ -46,6 +46,7 @@ void server_start() {
 		printf("Not on the host %s bind port %d\n", ssp_host, ssp_port);
 		return;
 	}
+
 	int opt = 1;
 	setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int));
 	setsockopt(listen_fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(int));

@@ -163,4 +163,10 @@ static PHP_FUNCTION(ssp_conv_setup);
 static PHP_FUNCTION(ssp_conv_connect);
 static PHP_FUNCTION(ssp_conv_disconnect);
 
+#ifdef SSP_DEBUG_CONV
+#define vprintf(args...) fprintf(stderr, args);
+#else
+#define vprintf(args...)
+#endif
+
 #endif  /* PHP_EXT_H */

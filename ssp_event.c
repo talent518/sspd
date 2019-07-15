@@ -215,6 +215,7 @@ void socket_send_buf(conn_t *ptr, char *package, int plen) {
 		ptr->wbytes = 0;
 		ptr->wsize = n;
 	} else {
+	#if 0
 		int n = send(ptr->sockfd, package, plen, MSG_DONTWAIT);
 		if(n >= 0) {
 			if(n < plen) {
@@ -237,6 +238,13 @@ void socket_send_buf(conn_t *ptr, char *package, int plen) {
 
 			is_accept_conn(true);
 		}
+	#else
+		ptr->wbuf = package;
+		ptr->wbytes = 0;
+		ptr->wsize = plen;
+
+		is_writable_conn(ptr, true);
+	#endif
 	}
 }
 #endif // ASYNC_SEND
@@ -462,29 +470,43 @@ static void listen_notify_handler(const int fd, const short which, void *arg)
 
 				if(ptr->wbuf) {
 					int bn = ptr->wsize - ptr->wbytes;
-					int n = plen + bn;
-					char *data = (char*) malloc(n);
+					char *data = (char*) malloc(plen + bn);
 					memcpy(data, ptr->wbuf + ptr->wbytes, bn);
 					memcpy(data + bn, &c->index, plen);
 					free(ptr->wbuf);
 					ptr->wbuf = data;
 					ptr->wbytes = 0;
-					ptr->wsize = n;
+					ptr->wsize = plen + bn;
 				} else {
+				#if 0
 					int n = send(ptr->sockfd, &c->index, plen, MSG_DONTWAIT);
 					if(n >= 0) {
 						if(n < plen) {
 							ptr->wbuf = (char *) malloc(plen-n);
-							ptr->wbytes = n;
+							ptr->wbytes = 0;
 							ptr->wsize = plen;
 
 							memcpy(ptr->wbuf, &c->index+n, plen-n);
 
 							is_writable_conv(ptr, true);
+						} else {
+							free(ptr->wbuf);
+							ptr->wbytes = ptr->wsize = 0;
+							is_writable_conv(ptr, false);
 						}
 					} else {
+						printf("conv send notify error %d\n", ptr->sid);
 						ssp_conv_disconnect(ptr);
 					}
+				#else
+					ptr->wbuf = (char *) malloc(plen);
+					ptr->wbytes = 0;
+					ptr->wsize = plen;
+
+					memcpy(ptr->wbuf, &c->index, plen);
+
+					is_writable_conv(ptr, true);
+				#endif
 				}
 
 				free(c);

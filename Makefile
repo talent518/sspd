@@ -54,3 +54,20 @@ bench: all
 bench2: all
 	@echo $@
 	@$(BIN_DIR)/ssp --host 127.0.0.1 --port 8086 --nthreads 8 --max-clients 2000 --timeout 300 -f $(PWD)/bin/bench2.php -s bench
+
+kill3:
+	@echo $@
+	@-$(BIN_DIR)/ssp --pidfile $(PWD)/ssp.pid --user $(USER) -s stop
+	@-$(BIN_DIR)/ssp --pidfile $(PWD)/ssp2.pid --user $(USER) -s stop
+	@-$(BIN_DIR)/ssp --pidfile $(PWD)/ssp3.pid --user $(USER) -s stop
+
+retest3: kill3 all
+	@echo $@
+	@$(BIN_DIR)/ssp --port 8082 --nthreads 2 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp.pid --user $(USER) -f $(PWD)/bin/conv.php -s start
+	@$(BIN_DIR)/ssp --port 8084 --nthreads 2 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp2.pid --user $(USER) -f $(PWD)/bin/conv.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 2 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp3.pid --user $(USER) -f $(PWD)/bin/conv.php -s start
+
+bench3: all
+	@echo $@
+	@$(BIN_DIR)/ssp --nthreads 8 --max-clients 2000 --timeout 300 -f $(PWD)/bin/bench3.php -s bench
+
