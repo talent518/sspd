@@ -1067,6 +1067,8 @@ static PHP_FUNCTION(ssp_requests) {
 	RETURN_LONG(ptr->requests);
 }
 
+unsigned int counts[10] = {0,0,0,0,0,0,0,0,0,0};
+
 static PHP_FUNCTION(ssp_counts) {
 	if(ZEND_NUM_ARGS() == 1) {
 		zend_long key = 0;
@@ -1074,12 +1076,11 @@ static PHP_FUNCTION(ssp_counts) {
 			return;
 		}
 
-		char chr = '0' + key;
-		write(listen_thread.write_fd, &chr, 1);
+		__sync_fetch_and_add(&counts[key], 1);
 	} else {
 		array_init_size(return_value, 11);
 		for(int i=0; i<10; i++)
-			add_index_long(return_value, i, counts[i]);
+			add_index_long(return_value, i, __sync_lock_test_and_set(&counts[i], 0));
 		add_assoc_long(return_value, "conns", CONN_NUM);
 	}
 }

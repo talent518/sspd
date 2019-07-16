@@ -24,7 +24,6 @@ int ssp_nthreads = 10;
 
 listen_thread_t listen_thread;
 worker_thread_t *worker_threads;
-unsigned long int counts[10] = {0,0,0,0,0,0,0,0,0,0};
 
 #if 0
 static void listen_handler(const int fd, const short which, void *arg);
@@ -513,18 +512,6 @@ static void listen_notify_handler(const int fd, const short which, void *arg)
 				break;
 			}
 #endif // ASYNC_SEND
-			case '0':
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-			case '6':
-			case '7':
-			case '8':
-			case '9':
-				counts[buf[i]-'0']++;
-				break;
 	#ifdef SSP_CODE_TIMEOUT
 			case 't':
 				if(isclean) {
@@ -697,8 +684,6 @@ static void signal_handler(const int fd, short event, void *arg) {
 
 static void bench_handler(evutil_socket_t fd, short event, void *arg) {
 	trigger(PHP_SSP_BENCH);
-	memset(counts, 0, sizeof(counts));
-
 	if(CONN_NUM <= 0) signal_handler(0, 0, NULL);
 }
 

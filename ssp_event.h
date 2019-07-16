@@ -50,7 +50,6 @@ typedef struct {
 
 extern listen_thread_t listen_thread;
 extern worker_thread_t *worker_threads;
-extern unsigned long int counts[10];
 
 void is_accept_conn(bool do_accept);
 void loop_event(int sockfd);
