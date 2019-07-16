@@ -56,27 +56,27 @@ int socket_recv(conn_t *ptr, char **data, int *data_len) {
 		} else {
 			return ret;
 		}
-	}
+	} else {
+		ret = recv(ptr->sockfd, ptr->rbuf + ptr->rbytes, ptr->rsize - ptr->rbytes, MSG_DONTWAIT);
+
+		if (ret < 0) return 0;
+
+		ptr->rbytes += ret;
+
+		if (ptr->rbytes != ptr->rsize) return -1;
+
+		if (*data) {
+			free(*data);
+		}
+
+		*data = ptr->rbuf;
+		*data_len = ptr->rsize;
+
+		ptr->rbuf = NULL;
+		ptr->rsize = ptr->rbytes = 0;
 	
-	ret = recv(ptr->sockfd, ptr->rbuf + ptr->rbytes, ptr->rsize - ptr->rbytes, MSG_DONTWAIT);
-
-	if (ret < 0) return 0;
-
-	ptr->rbytes += ret;
-
-	if (ptr->rbytes != ptr->rsize) return -1;
-
-	if (*data) {
-		free(*data);
+		return 1;
 	}
-
-	*data = ptr->rbuf;
-	*data_len = ptr->rsize;
-
-	ptr->rbuf = NULL;
-	ptr->rsize = ptr->rbytes = 0;
-
-	return 1;
 }
 
 #if ASYNC_SEND

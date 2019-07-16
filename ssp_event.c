@@ -694,6 +694,7 @@ static void signal_handler(const int fd, short event, void *arg) {
 		}
 	#endif
 #endif
+
 static void bench_handler(evutil_socket_t fd, short event, void *arg) {
 	trigger(PHP_SSP_BENCH);
 	memset(counts, 0, sizeof(counts));

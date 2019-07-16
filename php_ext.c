@@ -160,12 +160,16 @@ zend_module_entry ssp_module_entry = {
 };
 /* }}} */
 
+#ifdef SSP_DEBUG_PRINTF
 static void php_destroy_ssp(zend_resource *rsrc) /* {{{ */
 {
 	conn_t *ptr = (conn_t *) rsrc->ptr;
 
 	conn_info(ptr);
 }
+#else
+#define php_destroy_ssp NULL
+#endif
 
 /* {{{ MINIT */
 static PHP_MINIT_FUNCTION(ssp)
@@ -492,34 +496,60 @@ static PHP_FUNCTION(ssp_connect)
 
 }
 
+void ssp_conv_disconnect(server_t *s) {
+	if(s->sockfd < 0) return;
+
+	vprintf("%s: %d, %d, %d, %d close\n", s->host, s->port, s->sid, ssp_server_id, ssp_server_max);
+
+	shutdown(s->sockfd, SHUT_RDWR);
+	close(s->sockfd);
+	if(s->event.ev_base) event_del(&s->event);
+
+	if(s->rbuf) {
+		free(s->rbuf);
+	}
+
+#if ASYNC_SEND
+	if(s->wbuf) {
+		free(s->wbuf);
+	}
+#endif
+
+	memset(s, 0, sizeof(server_t));
+
+	s->sockfd = -1;
+}
+
+#define SID_CONDITION(sid) (sid >= 0 && sid < ssp_server_max && sid != ssp_server_id && servers[sid].sockfd >= 0)
+
+static void conv_socket_send(int sid, int id, char *buf, int size) {
+	server_t *s = &servers[sid];
+	conv_server_t *c = (conv_server_t*) malloc(sizeof(conv_server_t) + size);
+	c->ptr = s;
+	c->index = id;
+	c->size = size;
+	strncpy(c->buf, buf, size);
+
+	vprintf("sid: %d, id: %d, size: %d, buf: %s\n", sid, id, size, buf);
+
+#if ASYNC_SEND
+	queue_push(ssp_server_queue, c);
+
+	write(listen_thread.write_fd, "s", 1);
+#else
+	size_t plen = size + sizeof(int)*2;
+	int n = send(s->sockfd, &c->index, plen, MSG_WAITALL);
+	if(n != plen) {
+		ssp_conv_disconnect(s);
+	}
+
+	free(c);
+#endif
+}
+
 static void conv_timeout_handler(int sock, short event, void *arg) {
 	int i;
-	server_t *s;
-	for(i=0; i<ssp_server_max; i++) {
-		s = &servers[i];
-		if(i == ssp_server_id || s->sockfd < 0) continue;
-
-		conv_server_t *c = (conv_server_t*) malloc(sizeof(conv_server_t));
-		c->ptr = s;
-		c->index = 0;
-		c->size = 1;
-		c->buf[0] = '0';
-
-	#if ASYNC_SEND
-		queue_push(ssp_server_queue, c);
-
-		char chr = 's';
-		write(listen_thread.write_fd, &chr, 1);
-	#else
-		size_t plen = c->size + sizeof(int)*2;
-		int n = send(s->sockfd, &c->index, plen, MSG_WAITALL);
-		if(n != plen) {
-			ssp_conv_disconnect(s);
-		}
-
-		free(c);
-	#endif
-	}
+	for(i=0; i<ssp_server_max; i++) if(SID_CONDITION(i)) conv_socket_send(i, 0, "w", 1);
 }
 
 static PHP_FUNCTION(ssp_conv_setup)
@@ -544,7 +574,6 @@ static PHP_FUNCTION(ssp_conv_setup)
 
 	ssp_server_queue = queue_init();
 
-#if 0
 	struct timeval tv;
 	evutil_timerclear(&tv);
 	tv.tv_sec = 10;
@@ -554,7 +583,6 @@ static PHP_FUNCTION(ssp_conv_setup)
 		perror("timeout event");
 		exit(1);
 	}
-#endif
 }
 
 #if ASYNC_SEND
@@ -570,7 +598,6 @@ void is_writable_conv(server_t *ptr, bool iswrite) {
 }
 #endif
 
-void ssp_conv_disconnect(server_t *s);
 static void read_write_handler(int sock, short event, void *arg)
 {
 	server_t *ptr = arg;
@@ -612,55 +639,56 @@ static void read_write_handler(int sock, short event, void *arg)
 			ptr->rbuf = (char*) malloc(ptr->rsize);
 			ptr->rbytes = 0;
 		}
-	}
-	ret = recv(ptr->sockfd, ptr->rbuf + ptr->rbytes, ptr->rsize - ptr->rbytes, MSG_DONTWAIT);
-	if(ret < 0) {
-		fprintf(stderr, "%s: recv package data error\n", __func__);
-
-		ssp_conv_disconnect(ptr);
-	} else if(ret == 0) {
-		fprintf(stderr, "%s: recv package data length is zero\n", __func__);
 	} else {
-		ptr->rbytes += ret;
+		ret = recv(ptr->sockfd, ptr->rbuf + ptr->rbytes, ptr->rsize - ptr->rbytes, MSG_DONTWAIT);
+		if(ret < 0) {
+			fprintf(stderr, "%s: recv package data error\n", __func__);
 
-		if(ptr->rsize != ptr->rbytes) return;
+			ssp_conv_disconnect(ptr);
+		} else if(ret == 0) {
+			fprintf(stderr, "%s: recv package data length is zero\n", __func__);
+		} else {
+			ptr->rbytes += ret;
 
-		if(ptr->rsize == 1 && ptr->rbuf[0]) {
-			vprintf("conv keep alive: %d, %d\n", ptr->sid, ssp_server_id);
-			goto end;
-		}
+			if(ptr->rsize != ptr->rbytes) return;
 
-		conn_t *c = index_conn(ptr->index);
-		if(c) {
-			if(ptr->rsize == 1 && ptr->rbuf[0] == '\0') {
-				socket_close(c);
-			} else {
-				do {
-					php_unserialize_data_t var_hash;
-					char *buf = ptr->rbuf;
-					const unsigned char *p = buf;
-					size_t buf_len = ptr->rsize;
-					PHP_VAR_UNSERIALIZE_INIT(var_hash);
-					zval *retval = var_tmp_var(&var_hash);
-					if(!php_var_unserialize(retval, &p, p + buf_len, &var_hash)) {
-						if (!EG(exception)) {
-							php_error_docref(NULL, E_NOTICE, "Error at offset " ZEND_LONG_FMT " of %zd bytes", (zend_long)((char*)p - buf), buf_len);
-						}
-					} else {
-						trigger(PHP_SSP_SEND, c, retval);
-					}
-					PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
-				} while(0);
+			if(ptr->rsize == 1 && ptr->rbuf[0] == 'w') {
+				vprintf("conv keep alive: %d, %d\n", ptr->sid, ssp_server_id);
+				goto end;
 			}
 
-			unref_conn(c);
-		}
+			conn_t *c = index_conn(ptr->index);
+			if(c) {
+				if(ptr->rsize == 1 && ptr->rbuf[0] == 'x') {
+					socket_close(c);
+				} else {
+					do {
+						php_unserialize_data_t var_hash;
+						char *buf = ptr->rbuf;
+						const unsigned char *p = buf;
+						size_t buf_len = ptr->rsize;
+						PHP_VAR_UNSERIALIZE_INIT(var_hash);
+						zval *retval = var_tmp_var(&var_hash);
+						if(!php_var_unserialize(retval, &p, p + buf_len, &var_hash)) {
+							if (!EG(exception)) {
+								php_error_docref(NULL, E_NOTICE, "Error at offset " ZEND_LONG_FMT " of %zd bytes", (zend_long)((char*)p - buf), buf_len);
+							}
+						} else {
+							trigger(PHP_SSP_SEND, c, retval);
+						}
+						PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
+					} while(0);
+				}
 
-		end:
-		free(ptr->rbuf);
-		ptr->rbuf = NULL;
-		ptr->rbytes = 0;
-		ptr->rsize = 0;
+				unref_conn(c);
+			}
+
+			end:
+			free(ptr->rbuf);
+			ptr->rbuf = NULL;
+			ptr->rbytes = 0;
+			ptr->rsize = 0;
+		}
 	}
 #if ASYNC_SEND
 	}
@@ -803,30 +831,6 @@ static PHP_FUNCTION(ssp_conv_connect)
 	}
 }
 
-void ssp_conv_disconnect(server_t *s) {
-	if(s->sockfd < 0) return;
-
-	vprintf("%s: %d, %d, %d, %d close\n", s->host, s->port, s->sid, ssp_server_id, ssp_server_max);
-
-	shutdown(s->sockfd, SHUT_RDWR);
-	close(s->sockfd);
-	if(s->event.ev_base) event_del(&s->event);
-
-	if(s->rbuf) {
-		free(s->rbuf);
-	}
-
-#if ASYNC_SEND
-	if(s->wbuf) {
-		free(s->wbuf);
-	}
-#endif
-
-	memset(s, 0, sizeof(server_t));
-
-	s->sockfd = -1;
-}
-
 static PHP_FUNCTION(ssp_conv_disconnect)
 {
 	int i;
@@ -866,52 +870,27 @@ static PHP_FUNCTION(ssp_send)
 		if(sid) {
 			convert_to_long_ex(sid);
 			zend_long i = Z_LVAL_P(sid);
-			if(i != ssp_server_id) {
-				RETVAL_NULL();
-				if(i >= 0 && i < ssp_server_max) {
-					server_t *s = &servers[i];
-
-					if(s->sockfd < 0) return;
-
-					do {
-						php_serialize_data_t var_hash;
-						smart_str buf = {0};
-						PHP_VAR_SERIALIZE_INIT(var_hash);
-						php_var_serialize(&buf, data, &var_hash);
-						PHP_VAR_SERIALIZE_DESTROY(var_hash);
-						if (EG(exception)) {
-							smart_str_free(&buf);
-							RETURN_FALSE;
-						} else if (buf.s) {
-							conv_server_t *c = (conv_server_t*) malloc(sizeof(conv_server_t) + ZSTR_LEN(buf.s));
-							c->ptr = s;
-							c->index = Z_LVAL_P(res)-1;
-							c->size = ZSTR_LEN(buf.s);
-							strncpy(c->buf, ZSTR_VAL(buf.s), ZSTR_LEN(buf.s));
-
-						#if ASYNC_SEND
-							queue_push(ssp_server_queue, c);
-
-							char chr = 's';
-							write(listen_thread.write_fd, &chr, 1);
-						#else
-							size_t plen = c->size + sizeof(int)*2;
-							int n = send(s->sockfd, &c->index, plen, MSG_WAITALL);
-							if(n != plen) {
-								ssp_conv_disconnect(s);
-							}
-
-							free(c);
-						#endif
-
-							smart_str_free(&buf);
-
-							RETVAL_TRUE;
-						}
-					} while(0);
-				}
-
+			if(SID_CONDITION(i)) {
+				do {
+					php_serialize_data_t var_hash;
+					smart_str buf = {0};
+					PHP_VAR_SERIALIZE_INIT(var_hash);
+					php_var_serialize(&buf, data, &var_hash);
+					PHP_VAR_SERIALIZE_DESTROY(var_hash);
+					if (EG(exception)) {
+						smart_str_free(&buf);
+						RETVAL_FALSE;
+					} else if (buf.s) {
+						conv_socket_send(i, Z_LVAL_P(res)-1, ZSTR_VAL(buf.s), ZSTR_LEN(buf.s));
+						smart_str_free(&buf);
+						RETVAL_TRUE;
+					} else {
+						RETVAL_NULL();
+					}
+				} while(0);
 				return;
+			} else if(i != ssp_server_id) {
+				RETURN_FALSE;
 			}
 		}
 		ptr = index_conn(Z_LVAL_P(res)-1);
@@ -943,37 +922,11 @@ static PHP_FUNCTION(ssp_close)
 		if(sid) {
 			convert_to_long_ex(sid);
 			zend_long i = Z_LVAL_P(sid);
-			if(i != ssp_server_id) {
-				RETVAL_NULL();
-				if(i >= 0 && i < ssp_server_max) {
-					server_t *s = &servers[i];
-					if(s->sockfd < 0) return;
-
-					conv_server_t *c = (conv_server_t*) malloc(sizeof(conv_server_t));
-					c->ptr = s;
-					c->index = Z_LVAL_P(res)-1;
-					c->size = 1;
-					c->buf[0] = '\0';
-
-				#if ASYNC_SEND
-					queue_push(ssp_server_queue, c);
-
-					char chr = 's';
-					write(listen_thread.write_fd, &chr, 1);
-				#else
-					size_t plen = c->size + sizeof(int)*2;
-					int n = send(s->sockfd, &c->index, plen, MSG_WAITALL);
-					if(n != plen) {
-						ssp_conv_disconnect(s);
-					}
-
-					free(c);
-				#endif
-
-					RETVAL_TRUE;
-				}
-
-				return;
+			if(SID_CONDITION(i)) {
+				conv_socket_send(i, Z_LVAL_P(res)-1, "x", 1);
+				RETURN_TRUE;
+			} else if(i != ssp_server_id) {
+				RETURN_FALSE;
 			}
 		}
 		ptr = index_conn(Z_LVAL_P(res)-1);
