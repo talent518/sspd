@@ -20,6 +20,8 @@ function ssp_connect_handler ( $ClientId ) {
 	global $db;
 	
 	$db->prepare('INSERT INTO ssp_conv (sid,id)VALUES(?,?)')->execute([I,ssp_info($ClientId, 'index')]);
+	
+	ssp_send($ClientId, date('H:i:s'));
 }
 
 function ssp_connect_denied_handler ( $ClientId ) {
@@ -33,7 +35,7 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 	$stmt = $db->prepare('SELECT sid, id FROM ssp_conv WHERE not (sid=? and id=?)');
 	$stmt->execute([I,$I]);
 	
-	// echo ssp_info($ClientId, 'index'), ', ', $xml, ', ', $stmt->rowCount(), PHP_EOL;
+	// echo $I, ', ', $xml, ', ', $stmt->rowCount(), PHP_EOL;
 	
 	while($row = $stmt->fetch(PDO::FETCH_NUM)) {
 		list($sid,$id) = $row;
