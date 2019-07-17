@@ -59,7 +59,7 @@ int socket_recv(conn_t *ptr, char **data, int *data_len) {
 	} else {
 		ret = recv(ptr->sockfd, ptr->rbuf + ptr->rbytes, ptr->rsize - ptr->rbytes, MSG_DONTWAIT);
 
-		if (ret < 0) return 0;
+		if (ret <= 0) return 0;
 
 		ptr->rbytes += ret;
 

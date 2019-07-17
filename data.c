@@ -58,7 +58,7 @@ conn_t *index_conn(int i){
 	BEGIN_READ_LOCK {
 		ptr=&iconns[i];
 
-		if(ptr && ptr->refable) {
+		if(ptr->refable) {
 			ref_conn(ptr);
 		} else {
 			ptr=NULL;
@@ -81,7 +81,7 @@ void ref_conn(conn_t *ptr) {
 
 void unref_conn(conn_t *ptr) {
 	pthread_mutex_lock(&ptr->lock);
-	ptr->ref_count--;
+	if(ptr->ref_count>0) ptr->ref_count--;
 	pthread_cond_signal(&ptr->cond);
 	pthread_mutex_unlock(&ptr->lock);
 }
@@ -98,6 +98,7 @@ static bool send_cmp(send_t *s, conn_t *ptr) {
 
 void clean_conn(conn_t *ptr) {
 	if(ptr->event.ev_base) event_del(&ptr->event);
+	ptr->event.ev_base = NULL;
 
 	shutdown(ptr->sockfd, SHUT_RDWR);
 	close(ptr->sockfd);

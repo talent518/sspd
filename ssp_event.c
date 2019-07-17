@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <fcntl.h>
 
 #include <sys/resource.h>
 #include <sys/time.h>
@@ -467,6 +466,8 @@ static void listen_notify_handler(const int fd, const short which, void *arg)
 				server_t *ptr = c->ptr;
 				size_t plen = c->size + sizeof(int)*2;
 
+				vprintf("conv send: %s\n", c->buf);
+
 				if(ptr->wbuf) {
 					int bn = ptr->wsize - ptr->wbytes;
 					char *data = (char*) malloc(plen + bn);
@@ -552,12 +553,9 @@ static void listen_handler(const int fd, const short which, void *arg)
 		return;
 	}
 
-	int send_timeout = 1000, recv_timeout = 1000;
+	int send_timeout = 10000, recv_timeout = 10000;
 	setsockopt(conn_fd, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
 	setsockopt(conn_fd, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int)); // 接收超时
-
-	int flags = fcntl(conn_fd, F_GETFL, 0);
-	fcntl(conn_fd, F_SETFL, flags|O_NONBLOCK);
 
 	conn_t *ptr;
 
@@ -791,7 +789,6 @@ void loop_event (int sockfd) {
 	attach_conn();
 
 	THREAD_STARTUP();
-
 
 	trigger(PHP_SSP_START);
 

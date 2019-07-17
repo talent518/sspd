@@ -7,7 +7,6 @@
 #include <malloc.h>
 #include <signal.h>
 #include <math.h>
-#include <fcntl.h>
 
 #include <standard/php_var.h>
 #include <zend_constants.h>
@@ -370,7 +369,7 @@ bool trigger(unsigned short type, ...) {
 		if (Z_TYPE_P(&retval) == IS_FALSE) {
 			retbool = false;
 		}
-		if (param_count > 1) {
+		if (param_count > 1 && Z_TYPE(retval) != IS_NULL) {
 			if(type == PHP_SSP_RECEIVE) {
 				retbool = trigger(PHP_SSP_SEND, ptr, &retval);
 			} else { // type == PHP_SSP_SEND
@@ -466,12 +465,9 @@ static PHP_FUNCTION(ssp_connect)
 			RETURN_FALSE;
 		}
 
-		int send_timeout = 1000, recv_timeout = 1000;
+		int send_timeout = 10000, recv_timeout = 10000;
 		setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
 		setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int)); // 接收超时
-
-		int flags = fcntl(s, F_GETFL, 0);
-		fcntl(s, F_SETFL, flags|O_NONBLOCK);
 
 		ptr = insert_conn();
 		ptr->sockfd = s;
@@ -523,12 +519,16 @@ void ssp_conv_disconnect(server_t *s) {
 #define SID_CONDITION(sid) (sid >= 0 && sid < ssp_server_max && sid != ssp_server_id && servers[sid].sockfd >= 0)
 
 static void conv_socket_send(int sid, int id, char *buf, int size) {
+	if(size <= 0) return;
+
 	server_t *s = &servers[sid];
 	conv_server_t *c = (conv_server_t*) malloc(sizeof(conv_server_t) + size);
+
 	c->ptr = s;
 	c->index = id;
 	c->size = size;
-	strncpy(c->buf, buf, size);
+	memcpy(c->buf, buf, size);
+	c->buf[size] = '\0';
 
 	vprintf("sid: %d, id: %d, size: %d, buf: %s\n", sid, id, size, buf);
 
@@ -586,19 +586,19 @@ static PHP_FUNCTION(ssp_conv_setup)
 }
 
 #if ASYNC_SEND
-static void read_write_handler(int sock, short event, void *arg);
+static void conv_read_write_handler(int sock, short event, void *arg);
 void is_writable_conv(server_t *ptr, bool iswrite) {
 	if(event_del(&ptr->event) == -1) perror("event_del");
 
-	if(iswrite) event_set(&ptr->event, ptr->sockfd, EV_READ|EV_WRITE|EV_PERSIST, read_write_handler, ptr);
-	else event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_write_handler, ptr);
+	if(iswrite) event_set(&ptr->event, ptr->sockfd, EV_READ|EV_WRITE|EV_PERSIST, conv_read_write_handler, ptr);
+	else event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, conv_read_write_handler, ptr);
 
 	event_base_set(listen_thread.base, &ptr->event);
 	event_add(&ptr->event, NULL);
 }
 #endif
 
-static void read_write_handler(int sock, short event, void *arg)
+static void conv_read_write_handler(int sock, short event, void *arg)
 {
 	server_t *ptr = arg;
 	int n = 0, ret;
@@ -606,7 +606,7 @@ static void read_write_handler(int sock, short event, void *arg)
 #if ASYNC_SEND
 	if(event & EV_WRITE) {
 		ret = send(ptr->sockfd, ptr->wbuf+ptr->wbytes, ptr->wsize - ptr->wbytes, MSG_DONTWAIT);
-		if(ret > 0) {
+		if(ret >= 0) {
 			ptr->wbytes += ret;
 			if(ptr->wsize == ptr->wbytes) {
 				free(ptr->wbuf);
@@ -625,32 +625,33 @@ static void read_write_handler(int sock, short event, void *arg)
 	if(ptr->rsize == 0) {
 		n = sizeof(int)*2;
 		ret = recv(ptr->sockfd, &ptr->index, n, MSG_WAITALL);
-		if(ret <= 0) {
+		if(ret < 0) {
 			// fprintf(stderr, "%s: recv package head error %d\n", __func__, ssp_server_id);
 
 			ssp_conv_disconnect(ptr);
 			return;
 		} else if(n != ret) {
-			fprintf(stderr, "%s: recv package head length error\n", __func__);
+			fprintf(stderr, "%s: recv package head length error, %d\n", __func__, ret);
 
 			ssp_conv_disconnect(ptr);
 			return;
 		} else {
-			ptr->rbuf = (char*) malloc(ptr->rsize);
+			ptr->rbuf = (char*) malloc(ptr->rsize+1);
 			ptr->rbytes = 0;
+			ptr->rbuf[ptr->rsize] = '\0';
 		}
 	} else {
 		ret = recv(ptr->sockfd, ptr->rbuf + ptr->rbytes, ptr->rsize - ptr->rbytes, MSG_DONTWAIT);
-		if(ret < 0) {
+		if(ret <= 0) {
 			fprintf(stderr, "%s: recv package data error\n", __func__);
 
 			ssp_conv_disconnect(ptr);
-		} else if(ret == 0) {
-			fprintf(stderr, "%s: recv package data length is zero\n", __func__);
 		} else {
 			ptr->rbytes += ret;
 
 			if(ptr->rsize != ptr->rbytes) return;
+
+			vprintf("conv recv: %s\n", ptr->rbuf);
 
 			if(ptr->rsize == 1 && ptr->rbuf[0] == 'w') {
 				vprintf("conv keep alive: %d, %d\n", ptr->sid, ssp_server_id);
@@ -695,7 +696,7 @@ static void read_write_handler(int sock, short event, void *arg)
 #endif
 }
 
-static void listen_handler(int sock, short event, void *arg)
+static void conv_listen_handler(int sock, short event, void *arg)
 {
 	server_t *ptr = arg;
 	struct sockaddr_in pin;
@@ -722,16 +723,13 @@ static void listen_handler(int sock, short event, void *arg)
 	inet_ntop(AF_INET, &pin.sin_addr, ptr->host, len);
 	ptr->port = ntohs(pin.sin_port);
 
-	int send_timeout = 1000, recv_timeout = 1000;
+	int send_timeout = 10000, recv_timeout = 10000;
 	setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
 	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int)); // 接收超时
 
-	int flags = fcntl(s, F_GETFL, 0);
-	fcntl(s, F_SETFL, flags|O_NONBLOCK);
-
 	ptr->sockfd = s;
 
-	event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_write_handler, ptr);
+	event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, conv_read_write_handler, ptr);
 	event_base_set(listen_thread.base, &ptr->event);
 	event_add(&ptr->event, NULL);
 }
@@ -770,7 +768,7 @@ static PHP_FUNCTION(ssp_conv_connect)
 		setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int));
 		setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(int));
 
-		int send_timeout = 1000, recv_timeout = 1000;
+		int send_timeout = 10000, recv_timeout = 10000;
 		setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int));
 		setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int));
 
@@ -803,7 +801,7 @@ static PHP_FUNCTION(ssp_conv_connect)
 
 		ptr->sockfd = s;
 
-		event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, listen_handler, ptr);
+		event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, conv_listen_handler, ptr);
 		event_base_set(listen_thread.base, &ptr->event);
 		event_add(&ptr->event, NULL);
 	} else {
@@ -820,12 +818,9 @@ static PHP_FUNCTION(ssp_conv_connect)
 
 		vprintf("%s: %ld, %ld connect\n", host, port, sid);
 
-		int flags = fcntl(s, F_GETFL, 0);
-		fcntl(s, F_SETFL, flags|O_NONBLOCK);
-
 		ptr->sockfd = s;
 
-		event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_write_handler, ptr);
+		event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, conv_read_write_handler, ptr);
 		event_base_set(listen_thread.base, &ptr->event);
 		event_add(&ptr->event, NULL);
 	}
