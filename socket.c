@@ -7,7 +7,6 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
-#include <assert.h>
 
 #include "ssp.h"
 #include "socket.h"
@@ -53,6 +52,8 @@ int socket_recv(conn_t *ptr, char **data, int *data_len) {
 			bzero(ptr->rbuf, ret + 1);
 			ptr->rsize = ret;
 			ptr->rbytes = 0;
+
+			return -1;
 		} else {
 			return ret;
 		}

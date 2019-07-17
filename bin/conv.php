@@ -37,7 +37,7 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 	
 	while($row = $stmt->fetch(PDO::FETCH_NUM)) {
 		list($sid,$id) = $row;
-		//echo $sid, ' ', $id, PHP_EOL;
+		// echo $sid, ' ', $id, PHP_EOL;
 		$row[] = $xml;
 		ssp_send($id, $row, $sid);
 	}

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <assert.h>
 
 #include <sys/resource.h>
 #include <sys/time.h>
@@ -128,6 +129,9 @@ void worker_create(void *(*func)(void *), void *arg)
 static void read_write_handler(int sock, short event, void* arg);
 
 void is_writable_conn(conn_t *ptr, bool iswrite) {
+	assert(ptr->refable);
+	assert(ptr->sockfd > 0);
+
 	dprintf("%s: %4d, %d, begin\n", __func__, ptr->index, iswrite);
 	if(event_del(&ptr->event) == -1) perror("event_del");
 
@@ -145,6 +149,9 @@ static void read_write_handler(int sock, short event, void* arg)
 	conn_t *ptr = (conn_t *) arg;
 	int data_len=0,ret;
 	char *data=NULL;
+
+	assert(ptr->refable);
+	assert(ptr->sockfd == sock);
 
 	conn_info(ptr);
 
@@ -170,6 +177,7 @@ static void read_write_handler(int sock, short event, void* arg)
 			remove_conn(ptr);
 
 			is_accept_conn(true);
+			return;
 		}
 	}
 	if(event & EV_READ) {
@@ -201,6 +209,8 @@ static void read_write_handler(int sock, short event, void* arg)
 
 #if ASYNC_SEND
 void socket_send_buf(conn_t *ptr, char *package, int plen) {
+	assert(ptr->refable);
+
 	if(ptr->wbuf) {
 		int bn = ptr->wsize - ptr->wbytes;
 		int n = plen + bn;
@@ -549,6 +559,8 @@ static void listen_handler(const int fd, const short which, void *arg)
 	socklen_t len = sizeof(pin);
 	conn_fd = accept(fd, (struct sockaddr *)&pin, &len);
 
+	// printf("accept: %d\n", conn_fd);
+
 	if(conn_fd <= 0) {
 		return;
 	}
@@ -575,7 +587,8 @@ static void listen_handler(const int fd, const short which, void *arg)
 
 		trigger(PHP_SSP_CONNECT_DENIED, ptr);
 
-		clean_conn(ptr);
+		shutdown(ptr->sockfd, SHUT_RDWR);
+		close(ptr->sockfd);
 	} else {
 		ptr = insert_conn();
 		ptr->sockfd = conn_fd;
@@ -630,10 +643,10 @@ static void signal_handler(const int fd, short event, void *arg) {
 
 		conn_info(ptr);
 
-		ptr->event.ev_base = NULL;
-		clean_conn(ptr);
-
 		trigger(PHP_SSP_CLOSE, ptr);
+
+		ptr->port = 0;
+		clean_conn(ptr);
 	}
 
 	dprintf("%s: exit main thread\n", __func__);

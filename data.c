@@ -7,11 +7,19 @@
 #include "ssp.h"
 #include "socket.h"
 
+typedef struct _conn_refcount_t {
+	int ref_count;
+
+	pthread_mutex_t lock;
+	pthread_cond_t cond;
+} conn_refcount_t;
+
 static int *indexs = NULL;
 volatile int iindex = -1;
 static conn_t *iconns = NULL;
 volatile unsigned int readers=0;
 volatile unsigned int conn_num=0;
+static conn_refcount_t *refcounts = NULL;
 
 pthread_mutex_t mx_reader,mx_writer;
 
@@ -39,6 +47,7 @@ void end_write_lock(){
 void attach_conn(){
 	assert(indexs==NULL);
 	assert(iconns==NULL);
+	assert(refcounts==NULL);
 
 	pthread_mutex_init(&mx_reader, NULL);
 	pthread_mutex_init(&mx_writer, NULL);
@@ -48,6 +57,15 @@ void attach_conn(){
 
 	iconns=(conn_t*)malloc(sizeof(conn_t) * ssp_maxclients);
 	memset(iconns, 0, sizeof(conn_t) * ssp_maxclients);
+
+	refcounts=(conn_refcount_t*)malloc(sizeof(conn_refcount_t) * ssp_maxclients);
+
+	register int i;
+	for(i=0; i<ssp_maxclients; i++) {
+		refcounts[i].ref_count = 0;
+		pthread_mutex_init(&refcounts[i].lock, NULL);
+		pthread_cond_init(&refcounts[i].cond, NULL);
+	}
 }
 
 conn_t *index_conn(int i){
@@ -56,9 +74,9 @@ conn_t *index_conn(int i){
 	if(i < 0 || i >= ssp_maxclients) return NULL;
 
 	BEGIN_READ_LOCK {
-		ptr=&iconns[i];
+		ptr = &iconns[i];
 
-		if(ptr->refable) {
+		if(ptr->index == i && ptr->refable) {
 			ref_conn(ptr);
 		} else {
 			ptr=NULL;
@@ -73,40 +91,37 @@ conn_t *index_conn_signal(int i) {
 }
 
 void ref_conn(conn_t *ptr) {
-    pthread_mutex_lock(&ptr->lock);
-    ptr->ref_count++;
-    pthread_cond_signal(&ptr->cond);
-    pthread_mutex_unlock(&ptr->lock);
+	assert(refcounts);
+
+	int i = ptr->index;
+	//printf("%s: %d lock\n", __func__, i);
+	pthread_mutex_lock(&refcounts[i].lock);
+	refcounts[i].ref_count++;
+	pthread_cond_signal(&refcounts[i].cond);
+	pthread_mutex_unlock(&refcounts[i].lock);
+	//printf("%s: %d unlock\n", __func__, i);
 }
 
 void unref_conn(conn_t *ptr) {
-	pthread_mutex_lock(&ptr->lock);
-	if(ptr->ref_count>0) ptr->ref_count--;
-	pthread_cond_signal(&ptr->cond);
-	pthread_mutex_unlock(&ptr->lock);
-}
+	assert(refcounts);
 
-static bool send_cmp(send_t *s, conn_t *ptr) {
-	if(s->ptr == ptr) {
-		free(s->str);
-		free(s);
-		return true;
-	} else {
-		return false;
-	}
+	int i = ptr->index;
+	//printf("%s: %d lock\n", __func__, i);
+	pthread_mutex_lock(&refcounts[i].lock);
+	assert(refcounts[i].ref_count > 0);
+	refcounts[i].ref_count--;
+	pthread_cond_signal(&refcounts[i].cond);
+	pthread_mutex_unlock(&refcounts[i].lock);
+	//printf("%s: %d unlock\n", __func__, i);
 }
 
 void clean_conn(conn_t *ptr) {
-	if(ptr->event.ev_base) event_del(&ptr->event);
-	ptr->event.ev_base = NULL;
+	ptr->refable = false;
+
+	if(ptr->port) event_del(&ptr->event);
 
 	shutdown(ptr->sockfd, SHUT_RDWR);
 	close(ptr->sockfd);
-
-	if(ptr->thread) {
-		queue_clean_ex(ptr->thread->write_queue, ptr, (queue_cmp_t) send_cmp);
-		queue_clean(ptr->thread->close_queue, ptr);
-	}
 
 	if(ptr->rbuf) {
 		free(ptr->rbuf);
@@ -114,8 +129,6 @@ void clean_conn(conn_t *ptr) {
 	}
 	ptr->rbytes = 0;
 	ptr->rsize = 0;
-
-	ptr->refable = false;
 
 #if ASYNC_SEND
 	if(ptr->wbuf) {
@@ -153,9 +166,6 @@ conn_t *insert_conn(){
 
 			conn_num++;
 
-			pthread_mutex_init(&ptr->lock, NULL);
-			pthread_cond_init(&ptr->cond, NULL);
-
 			ptr->refable = true;
 		}
 	} END_WRITE_LOCK;
@@ -163,23 +173,40 @@ conn_t *insert_conn(){
 	return ptr;
 }
 
+static bool send_cmp(send_t *s, conn_t *ptr) {
+	if(s->ptr == ptr) {
+		free(s->str);
+		free(s);
+		return true;
+	} else {
+		return false;
+	}
+}
+
 void remove_conn(conn_t *ptr){
 	assert(indexs);
 	assert(iconns);
+	assert(refcounts);
 
-	pthread_mutex_lock(&ptr->lock);
-	while (ptr->ref_count > 0) {
-		pthread_cond_wait(&ptr->cond, &ptr->lock);
+	int i = ptr->index;
+
+	//printf("lock: %d, %d\n", i, ptr->thread->id);
+	pthread_mutex_lock(&refcounts[i].lock);
+	while (refcounts[i].ref_count > 0) {
+		pthread_cond_wait(&refcounts[i].cond, &refcounts[i].lock);
 	}
-	pthread_mutex_unlock(&ptr->lock);
+	pthread_mutex_unlock(&refcounts[i].lock);
+	//printf("unlock: %d, %d\n", i, ptr->thread->id);
 
 	BEGIN_WRITE_LOCK {
 		conn_num--;
 
-		indexs[++iindex] = ptr->index;
+		indexs[++iindex] = i;
 
-		pthread_mutex_destroy(&ptr->lock);
-		pthread_cond_destroy(&ptr->cond);
+		if(ptr->thread) {
+			queue_clean_ex(ptr->thread->write_queue, ptr, (queue_cmp_t) send_cmp);
+			queue_clean(ptr->thread->close_queue, ptr);
+		}
 
 		memset(ptr, 0, sizeof(conn_t));
 	} END_WRITE_LOCK;
@@ -196,6 +223,13 @@ void detach_conn(){
 		indexs = NULL;
 		iconns = NULL;
 	} END_WRITE_LOCK;
+
+	register int i;
+	for(i=0; i<ssp_maxclients; i++) {
+		refcounts[i].ref_count = 0;
+		pthread_mutex_destroy(&refcounts[i].lock);
+		pthread_cond_destroy(&refcounts[i].cond);
+	}
 
 	pthread_mutex_destroy(&mx_reader);
 	pthread_mutex_destroy(&mx_writer);

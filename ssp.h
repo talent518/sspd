@@ -28,7 +28,7 @@
 
 #define _conn_info(ptr) _conn_info_ex(stdout,ptr,"[ _conn_info ] ")
 
-#define _conn_info_ex(fd,ptr,append) fprintf(fd,append" in %20s on line (%3d): ref_count(%5d), index(%5d), sockfd(%5d), host(%15s), port(%5d)!\n", __func__, __LINE__, ptr->ref_count, ptr->index, ptr->sockfd, ptr->host, ptr->port)
+#define _conn_info_ex(fd,ptr,append) fprintf(fd,append" in %20s on line (%3d): index(%5d), sockfd(%5d), host(%15s), port(%5d)!\n", __func__, __LINE__, ptr->index, ptr->sockfd, ptr->host, ptr->port)
 #define conn_info_ex(ptr,append) _conn_info_ex(stderr,ptr,append)
 
 extern unsigned int ssp_backlog;

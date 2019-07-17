@@ -5,10 +5,11 @@ define('TYPE_KEY', 0);
 define('TYPE_LOGIN', 1);
 define('TYPE_REQUEST', 2);
 
-define('COUNT_KEY', 0);
-define('COUNT_LOGIN', 1);
-define('COUNT_REQUEST', 2);
-define('COUNT_REQUEST_FAILURE', 3);
+define('COUNT_CONN', 0);
+define('COUNT_KEY', 1);
+define('COUNT_LOGIN', 2);
+define('COUNT_REQUEST', 3);
+define('COUNT_REQUEST_FAILURE', 4);
 
 import('lib.xml');
 import('mod.uc.base');
@@ -18,14 +19,12 @@ function ssp_start_handler () {
 }
 
 function ssp_bench_handler () {
-	$counts = ssp_counts();
-	@list($keys, $logins, $requests, $requestFailures) = $counts;
-	$conns = $counts['conns'];
-	
-	echo 'threads: ', SSP_NTHREADS, ', conns: ', $conns, ', keys: ', $keys, ', logins: ', $logins, ', requests: ', $requests, ', requestFailures: ', $requestFailures, PHP_EOL;
+	echo 'threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, -3), ', keys: ', ssp_counts(COUNT_KEY, 0), ', logins: ', ssp_counts(COUNT_LOGIN, 0), ', requests: ', ssp_counts(COUNT_REQUEST, 0), ', requestFailures: ', ssp_counts(COUNT_REQUEST_FAILURE, 0), PHP_EOL;
 }
 
 function ssp_connect_handler ( $ClientId ) {
+	ssp_counts(COUNT_CONN);
+
 	$info = ssp_info($ClientId);
 	$index = $sockfd = $host = $port = $tid = null;
 	extract($info,EXTR_OVERWRITE|EXTR_REFS);
@@ -158,13 +157,14 @@ function ssp_send_handler ( $ClientId, $xml ) {
 		$response->type = 'Connect.Data';
 		$response->setText(crypt_encode((string) $xml, $key));
 		
-		return $response;
+		return (string) $response;
 	} else {
-		return $xml;
+		return (string) $xml;
 	}
 }
 
 function ssp_close_handler ( $ClientId ) {
+	ssp_counts(COUNT_CONN, -2);
 	$info = ssp_info($ClientId);
 	$index = $sockfd = $host = $port = $tid = null;
 	extract($info,EXTR_OVERWRITE|EXTR_REFS);

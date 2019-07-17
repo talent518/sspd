@@ -158,9 +158,9 @@ function ssp_send_handler ( $ClientId, $xml ) {
 		$response->type = 'Connect.Data';
 		$response->setText(crypt_encode((string) $xml, $key));
 		
-		$return = $response;
+		$return = (string) $response;
 	} else {
-		$return = &$xml;
+		$return = (string) $xml;
 	}
 	/*MOD('user.online')->update(array(
 		'microtime' => microtime(true),

@@ -20,7 +20,7 @@
 #include <glibtop/procmem.h>
 #endif
 
-static pthread_mutex_t unique_lock;
+static pthread_mutex_t unique_lock, counts_lock;
 
 static char trigger_handlers[8][30] = {
 	"ssp_start_handler",
@@ -94,7 +94,8 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_stats, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_counts, 0, 0, 0)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_counts, 0, 0, 1)
+ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_requests, 0, 0, 1)
@@ -186,6 +187,7 @@ static PHP_MINIT_FUNCTION(ssp)
 	le_ssp_descriptor = zend_register_list_destructors_ex(php_destroy_ssp, NULL, PHP_SSP_DESCRIPTOR_RES_NAME, module_number);
 
 	pthread_mutex_init(&unique_lock, NULL);
+	pthread_mutex_init(&counts_lock, NULL);
 
 	zend_register_auto_global(zend_string_init_interned("_SSP", sizeof("_SSP") - 1, 1), 0, NULL);
 
@@ -212,6 +214,7 @@ static PHP_MSHUTDOWN_FUNCTION(ssp)
 	zend_hash_str_del(EG(zend_constants), "SETUP_RECEIVEKEY", sizeof("SETUP_RECEIVEKEY") - 1);
 
 	pthread_mutex_destroy(&unique_lock);
+	pthread_mutex_destroy(&counts_lock);
 
 #ifdef SSP_DEBUG_EXT
 	printf("module shutdown function for %s\n", __func__);
@@ -373,12 +376,12 @@ bool trigger(unsigned short type, ...) {
 			if(type == PHP_SSP_RECEIVE) {
 				retbool = trigger(PHP_SSP_SEND, ptr, &retval);
 			} else { // type == PHP_SSP_SEND
-				convert_to_string_ex(&retval);
-				retbool = Z_STRLEN_P(&retval)>0 ? socket_send(ptr, Z_STRVAL_P(&retval), Z_STRLEN_P(&retval)) > 0 : false;
+				if(Z_TYPE(retval) != IS_STRING) php_printf("function %s return value not is string type\n", trigger_handlers[type]);
+				retbool = (Z_TYPE(retval) == IS_STRING && Z_STRLEN(retval)>0) ? socket_send(ptr, Z_STRVAL(retval), Z_STRLEN(retval)) > 0 : false;
 			}
 		}
 	} else {
-		php_printf("\nUnable to call handler(%s)", trigger_handlers[type]);
+		php_printf("\nUnable to call handler(%s)\n", trigger_handlers[type]);
 	}
 	if (param_count > 0) {
 		int i;
@@ -616,8 +619,9 @@ static void conv_read_write_handler(int sock, short event, void *arg)
 				is_writable_conv(ptr, false);
 			}
 		} else {
-			fprintf(stderr, "%s: send error\n", __func__);
+			// fprintf(stderr, "%s: send error\n", __func__);
 			ssp_conv_disconnect(ptr);
+			return;
 		}
 	}
 	if(event & EV_READ) {
@@ -625,16 +629,14 @@ static void conv_read_write_handler(int sock, short event, void *arg)
 	if(ptr->rsize == 0) {
 		n = sizeof(int)*2;
 		ret = recv(ptr->sockfd, &ptr->index, n, MSG_WAITALL);
-		if(ret < 0) {
+		if(ret <= 0) {
 			// fprintf(stderr, "%s: recv package head error %d\n", __func__, ssp_server_id);
 
 			ssp_conv_disconnect(ptr);
-			return;
 		} else if(n != ret) {
 			fprintf(stderr, "%s: recv package head length error, %d\n", __func__, ret);
 
 			ssp_conv_disconnect(ptr);
-			return;
 		} else {
 			ptr->rbuf = (char*) malloc(ptr->rsize+1);
 			ptr->rbytes = 0;
@@ -643,7 +645,7 @@ static void conv_read_write_handler(int sock, short event, void *arg)
 	} else {
 		ret = recv(ptr->sockfd, ptr->rbuf + ptr->rbytes, ptr->rsize - ptr->rbytes, MSG_DONTWAIT);
 		if(ret <= 0) {
-			fprintf(stderr, "%s: recv package data error\n", __func__);
+			// fprintf(stderr, "%s: recv package data error\n", __func__);
 
 			ssp_conv_disconnect(ptr);
 		} else {
@@ -1050,34 +1052,45 @@ static PHP_FUNCTION(ssp_type) {
 static PHP_FUNCTION(ssp_requests) {
 	zval *res;
 	conn_t *ptr;
-	zend_long type = 0;
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "rl", &res, &type) == FAILURE) {
+	zend_long type = 1;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "r|l", &res, &type) == FAILURE) {
 		return;
 	}
 	ptr = (conn_t *) zend_fetch_resource_ex(res, PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
 	if(!ptr) RETURN_NULL();
 
-	++ptr->requests;
+	ptr->requests += type;
 
 	RETURN_LONG(ptr->requests);
 }
 
-unsigned int counts[10] = {0,0,0,0,0,0,0,0,0,0};
+unsigned int counts[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 static PHP_FUNCTION(ssp_counts) {
-	if(ZEND_NUM_ARGS() == 1) {
-		zend_long key = 0;
-		if (zend_parse_parameters(ZEND_NUM_ARGS(), "l", &key) == FAILURE || key < 0 || key >= 10) {
-			return;
-		}
-
-		__sync_fetch_and_add(&counts[key], 1);
-	} else {
-		array_init_size(return_value, 11);
-		for(int i=0; i<10; i++)
-			add_index_long(return_value, i, __sync_lock_test_and_set(&counts[i], 0));
-		add_assoc_long(return_value, "conns", CONN_NUM);
+	zend_long key = 0, type = -1;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l|l", &key, &type) == FAILURE || key < 0 || key >= 16) {
+		return;
 	}
+
+	pthread_mutex_lock(&counts_lock);
+	if(type <= -3) {
+		RETVAL_LONG(counts[key]);
+	} else if(type == -2) {
+		RETVAL_LONG(--counts[key]);
+	} else if(type == -1) {
+		RETVAL_LONG(++counts[key]);
+	} else if(type == 0) {
+		RETVAL_LONG(counts[key]);
+		counts[key] = 0;
+	} else {
+		if(++counts[key] == type) {
+			counts[key] = 0;
+			RETVAL_TRUE;
+		} else {
+			RETVAL_FALSE;
+		}
+	}
+	pthread_mutex_unlock(&counts_lock);
 }
 
 static PHP_FUNCTION(ssp_setup) {

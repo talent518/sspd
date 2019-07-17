@@ -110,12 +110,22 @@ function ssp_type($res, $type) {
 }
 
 /**
+ * 设置连接请求数
+ *
+ * @param resource $res
+ * @param integer $type 按连接requests(请求数)进行加$type存储并返回requests结果
+ */
+function ssp_requests($res, $type = 1) {
+}
+
+/**
  * 按指定的key进行计数
  *
  * @param integer $key
- * @return array|false $key==null返回所有
+ * @param integer $type 小于等于-3直接返回，等于-2则减1后返回，等于-1则加1后返回，等于0则返回后清零，大于0则加1后与$type比较是否相等返回bool
+ * @return integer|boolean|null $key小于0或$key大于等于16，则返回null
  */
-function ssp_counts($key = null) {
+function ssp_counts($key = null, $type = -1) {
 }
 
 /**

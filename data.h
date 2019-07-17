@@ -18,7 +18,6 @@ typedef struct _conn_t {
 	int port;
 
 	bool refable;
-	int ref_count;
 
 	char *rbuf;
 	int rbytes;
@@ -32,9 +31,6 @@ typedef struct _conn_t {
 #endif // ASYNC_SEND
 
 	worker_thread_t *thread;
-
-	pthread_mutex_t lock;
-	pthread_cond_t cond;
 
 	struct event event;
 
