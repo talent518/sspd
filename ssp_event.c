@@ -83,7 +83,7 @@ static void *worker_thread_handler(void *arg)
 
 	dprintf("thread %d created\n", me->id);
 
- 	THREAD_STARTUP();
+	THREAD_STARTUP();
 
 	pthread_mutex_lock(&init_lock);
 
@@ -111,8 +111,7 @@ static void *worker_thread_handler(void *arg)
 	return NULL;
 }
 
-void worker_create(void *(*func)(void *), void *arg)
-{
+void worker_create(void *(*func)(void *), void *arg) {
 	pthread_t       thread;
 	pthread_attr_t  attr;
 	int             ret;
@@ -374,8 +373,11 @@ static void notify_handler(const int fd, const short which, void *arg)
 				if(me->conn_num<=0) {
 					break;
 				}
-				gc_collect_cycles();
+
 				ssp_auto_globals_recreate();
+			#ifndef DISABLE_GC_COLLECT_CYCLES
+				gc_collect_cycles();
+			#endif
 
 				isglobal=true;
 		#endif
@@ -541,7 +543,11 @@ static void listen_notify_handler(const int fd, const short which, void *arg)
 				if(isglobal) {
 					break;
 				}
+
 				ssp_auto_globals_recreate();
+			#ifndef DISABLE_GC_COLLECT_CYCLES
+				gc_collect_cycles();
+			#endif
 				isglobal = true;
 		#endif
 				break;

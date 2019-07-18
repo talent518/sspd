@@ -53,5 +53,6 @@ extern worker_thread_t *worker_threads;
 
 void is_accept_conn(bool do_accept);
 void loop_event(int sockfd);
+void worker_create(void *(*func)(void *), void *arg);
 
 #endif

@@ -45,6 +45,7 @@ extern unsigned int ssp_vars_length;
 extern zend_module_entry ssp_module_entry;
 
 ZEND_BEGIN_MODULE_GLOBALS(ssp)
+	unsigned short trigger_type;
 	long trigger_count;
 	zval ssp_vars;
 ZEND_END_MODULE_GLOBALS(ssp)
@@ -59,6 +60,18 @@ ZEND_END_MODULE_GLOBALS(ssp)
 		#define TRIGGER_STARTUP()
 
 		#define TRIGGER_SHUTDOWN()
+
+		#define MSG_QUEUE_STARTUP() \
+			__time2 = microtime() - __time; \
+			if(__time2 > ssp_timeout) { \
+				ssp_request_shutdown();ssp_request_startup(); \
+			} else if(__time2 > ssp_global_timeout) { \
+				ssp_auto_globals_recreate(); \
+			}
+		#define MSG_QUEUE_SHUTDOWN() __time = microtime()
+
+		#define THREAD_STARTUP() ssp_request_startup();double __time = microtime(), __time2
+		#define THREAD_SHUTDOWN() ssp_request_shutdown()
 	#else
 		#define TRIGGER_STARTUP() \
 			if((SSP_G(trigger_count)++) == 0) {\
@@ -70,10 +83,13 @@ ZEND_END_MODULE_GLOBALS(ssp)
 			if((--SSP_G(trigger_count)) == 0) {\
 				dprintf("--------------------------------------------TRIGGER_SHUTDOWN---------------------------------------------------------------------------\n");\
 			}
-	#endif
 
-	#define THREAD_STARTUP() ssp_request_startup()
-	#define THREAD_SHUTDOWN() ssp_request_shutdown()
+		#define MSG_QUEUE_STARTUP() TRIGGER_STARTUP()
+		#define MSG_QUEUE_SHUTDOWN() TRIGGER_SHUTDOWN()
+
+		#define THREAD_STARTUP() ssp_request_startup()
+		#define THREAD_SHUTDOWN() ssp_request_shutdown()
+	#endif
 #else
 	#define TRIGGER_STARTUP() \
 		if((SSP_G(trigger_count)++) == 0) {\
@@ -86,6 +102,10 @@ ZEND_END_MODULE_GLOBALS(ssp)
 			dprintf("--------------------------------------------TRIGGER_SHUTDOWN---------------------------------------------------------------------------\n");\
 			ssp_request_shutdown();\
 		}
+
+	#define MSG_QUEUE_STARTUP() TRIGGER_STARTUP()
+	#define MSG_QUEUE_SHUTDOWN() TRIGGER_SHUTDOWN()
+
 
 	#define THREAD_STARTUP() ts_resource(0)
 	#define THREAD_SHUTDOWN() ts_resource(0)
@@ -168,5 +188,9 @@ static PHP_FUNCTION(ssp_conv_disconnect);
 #else
 #define vprintf(args...)
 #endif
+
+static PHP_FUNCTION(ssp_msg_queue_init);
+static PHP_FUNCTION(ssp_msg_queue_push);
+static PHP_FUNCTION(ssp_msg_queue_destory);
 
 #endif  /* PHP_EXT_H */

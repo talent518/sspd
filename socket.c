@@ -49,7 +49,7 @@ int socket_recv(conn_t *ptr, char **data, int *data_len) {
 				return 0;
 			}
 			ptr->rbuf = (char*) malloc(ret + 1);
-			bzero(ptr->rbuf, ret + 1);
+			ptr->rbuf[ret] = '\0';
 			ptr->rsize = ret;
 			ptr->rbytes = 0;
 

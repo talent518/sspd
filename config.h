@@ -9,4 +9,7 @@
 	#define SSP_CODE_TIMEOUT_GLOBAL
 	// #define SSP_RUNTIME
 	#define ASYNC_SEND 1 // equal 1 is async send socket data
+	#define DISABLE_GC_COLLECT_CYCLES
+	#define MSG_QUEUE_MAX_MSGS 10000 // message queue for max message number
+	#define MSG_QUEUE_NTHREADS 100 // message queue for max
 #endif

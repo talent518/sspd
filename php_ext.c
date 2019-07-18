@@ -116,6 +116,20 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_crypt_decode, 0, 0, 2)
 ZEND_ARG_INFO(0, str)
 ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_msg_queue_init, 0, 0, 2)
+ZEND_ARG_INFO(0, msgs)
+ZEND_ARG_INFO(0, nthreads)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_msg_queue_push, 0, 0, 3)
+ZEND_ARG_INFO(0, func)
+ZEND_ARG_INFO(0, what)
+ZEND_ARG_INFO(0, arg)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_msg_queue_destory, 0, 0, 0)
+ZEND_END_ARG_INFO()
 /* }}} */
 
 /* {{{ ssp_functions[] */
@@ -136,6 +150,9 @@ static const zend_function_entry ssp_functions[] = {
 	PHP_FE(ssp_setup, arginfo_ssp_setup)
 	PHP_FE(crypt_encode, arginfo_crypt_encode)
 	PHP_FE(crypt_decode, arginfo_crypt_decode)
+	PHP_FE(ssp_msg_queue_init, arginfo_ssp_msg_queue_init)
+	PHP_FE(ssp_msg_queue_push, arginfo_ssp_msg_queue_push)
+	PHP_FE(ssp_msg_queue_destory, arginfo_ssp_msg_queue_destory)
 	PHP_FE_END
 };
 /* }}} */
@@ -159,6 +176,48 @@ zend_module_entry ssp_module_entry = {
 	STANDARD_MODULE_PROPERTIES_EX
 };
 /* }}} */
+
+#define __NULL (void)0
+
+#define SERIALIZE(z,ok) SERIALIZE_EX(z,__NULL,ok,__NULL,__NULL)
+#define SERIALIZE_EX(z,r1,ok,r2,r3) \
+	do { \
+		php_serialize_data_t var_hash; \
+		smart_str buf = {0}; \
+		PHP_VAR_SERIALIZE_INIT(var_hash); \
+		php_var_serialize(&buf, z, &var_hash); \
+		PHP_VAR_SERIALIZE_DESTROY(var_hash); \
+		if (EG(exception)) { \
+			smart_str_free(&buf); \
+			r1; \
+		} else if (buf.s) { \
+			ok; \
+			smart_str_free(&buf); \
+			r2; \
+		} else { \
+			r3; \
+		} \
+	} while(0)
+
+#define UNSERIALIZE(s,l,ok) UNSERIALIZE_EX(s,l,__NULL,ok)
+#define UNSERIALIZE_EX(s,l,r,ok) \
+	do { \
+		php_unserialize_data_t var_hash; \
+		char *buf = s; \
+		const unsigned char *p = buf; \
+		size_t buf_len = l; \
+		PHP_VAR_UNSERIALIZE_INIT(var_hash); \
+		zval *retval = var_tmp_var(&var_hash); \
+		if(!php_var_unserialize(retval, &p, p + buf_len, &var_hash)) { \
+			if (!EG(exception)) { \
+				php_error_docref(NULL, E_NOTICE, "Error at offset " ZEND_LONG_FMT " of %zd bytes", (zend_long)((char*)p - buf), buf_len); \
+			} \
+			r; \
+		} else { \
+			ok; \
+		} \
+		PHP_VAR_UNSERIALIZE_DESTROY(var_hash); \
+	} while(0)
 
 #ifdef SSP_DEBUG_PRINTF
 static void php_destroy_ssp(zend_resource *rsrc) /* {{{ */
@@ -258,6 +317,7 @@ PHP_RSHUTDOWN_FUNCTION(ssp)
  */
 static PHP_GINIT_FUNCTION(ssp)
 {
+	ssp_globals->trigger_type = -1;
 	ssp_globals->trigger_count = 0;
 	ZVAL_UNDEF(&ssp_globals->ssp_vars);
 
@@ -361,7 +421,10 @@ bool trigger(unsigned short type, ...) {
 
 	ZVAL_UNDEF(&retval);
 
+	long __type = SSP_G(trigger_type);
+	SSP_G(trigger_type) = type;
 	ret = call_user_function(EG(function_table), NULL, &pfunc, &retval, param_count, params);
+	SSP_G(trigger_type) = __type;
 
 #ifdef SSP_DEBUG_TRIGGER
 	printf("after trigger: %s,%d\n", trigger_handlers[type], ret == SUCCESS);
@@ -442,6 +505,11 @@ static PHP_FUNCTION(ssp_info) {
 
 static PHP_FUNCTION(ssp_connect)
 {
+	if(SSP_G(trigger_type) != PHP_SSP_START) {
+		php_printf("The ssp_connect function can only be executed in the ssp_start_handler function\n");
+		return;
+	}
+
 	char *host;
 	size_t host_len;
 	zend_long port = ssp_port;
@@ -557,6 +625,11 @@ static void conv_timeout_handler(int sock, short event, void *arg) {
 
 static PHP_FUNCTION(ssp_conv_setup)
 {
+	if(SSP_G(trigger_type) != PHP_SSP_START) {
+		php_printf("The ssp_conv_setup function can only be executed in the ssp_start_handler function\n");
+		return;
+	}
+
 	zend_long sid, max_sid;
 	if (zend_parse_parameters(ZEND_NUM_ARGS(), "ll", &sid, &max_sid) == FAILURE || sid < 0 || max_sid <= 0 || servers) {
 		return;
@@ -665,22 +738,7 @@ static void conv_read_write_handler(int sock, short event, void *arg)
 				if(ptr->rsize == 1 && ptr->rbuf[0] == 'x') {
 					socket_close(c);
 				} else {
-					do {
-						php_unserialize_data_t var_hash;
-						char *buf = ptr->rbuf;
-						const unsigned char *p = buf;
-						size_t buf_len = ptr->rsize;
-						PHP_VAR_UNSERIALIZE_INIT(var_hash);
-						zval *retval = var_tmp_var(&var_hash);
-						if(!php_var_unserialize(retval, &p, p + buf_len, &var_hash)) {
-							if (!EG(exception)) {
-								php_error_docref(NULL, E_NOTICE, "Error at offset " ZEND_LONG_FMT " of %zd bytes", (zend_long)((char*)p - buf), buf_len);
-							}
-						} else {
-							trigger(PHP_SSP_SEND, c, retval);
-						}
-						PHP_VAR_UNSERIALIZE_DESTROY(var_hash);
-					} while(0);
+					UNSERIALIZE(ptr->rbuf, ptr->rsize, trigger(PHP_SSP_SEND, c, retval));
 				}
 
 				unref_conn(c);
@@ -738,6 +796,11 @@ static void conv_listen_handler(int sock, short event, void *arg)
 
 static PHP_FUNCTION(ssp_conv_connect)
 {
+	if(SSP_G(trigger_type) != PHP_SSP_START) {
+		php_printf("The ssp_conv_connect function can only be executed in the ssp_start_handler function\n");
+		return;
+	}
+
 	char *host;
 	size_t host_len;
 	zend_long port, sid;
@@ -833,6 +896,10 @@ static PHP_FUNCTION(ssp_conv_disconnect)
 	int i;
 	if(!servers) return;
 
+	if(SSP_G(trigger_type) != PHP_SSP_STOP) {
+		php_printf("The ssp_conv_disconnect function can only be executed in the ssp_stop_handler function\n");
+		return;
+	}
 
 	for(i=0; i<ssp_server_max; i++) {
 		ssp_conv_disconnect(&servers[i]);
@@ -868,23 +935,7 @@ static PHP_FUNCTION(ssp_send)
 			convert_to_long_ex(sid);
 			zend_long i = Z_LVAL_P(sid);
 			if(SID_CONDITION(i)) {
-				do {
-					php_serialize_data_t var_hash;
-					smart_str buf = {0};
-					PHP_VAR_SERIALIZE_INIT(var_hash);
-					php_var_serialize(&buf, data, &var_hash);
-					PHP_VAR_SERIALIZE_DESTROY(var_hash);
-					if (EG(exception)) {
-						smart_str_free(&buf);
-						RETVAL_FALSE;
-					} else if (buf.s) {
-						conv_socket_send(i, Z_LVAL_P(res)-1, ZSTR_VAL(buf.s), ZSTR_LEN(buf.s));
-						smart_str_free(&buf);
-						RETVAL_TRUE;
-					} else {
-						RETVAL_NULL();
-					}
-				} while(0);
+				SERIALIZE_EX(data,RETVAL_FALSE,conv_socket_send(i, Z_LVAL_P(res)-1, ZSTR_VAL(buf.s), ZSTR_LEN(buf.s)),RETVAL_TRUE,RETVAL_NULL());
 				return;
 			} else if(i != ssp_server_id) {
 				RETURN_FALSE;
@@ -1175,4 +1226,210 @@ static PHP_FUNCTION(crypt_decode) {
 		RETVAL_STRINGL(dec, key_len);
 		free(dec);
 	}
+}
+
+long ssp_msg_queue_max_msgs = -1;
+long ssp_msg_queue_nthreads = -1;
+long ssp_msg_queue_running = 0;
+bool ssp_msg_queue_stop = false;
+long ssp_msg_queue_msgs = 0;
+queue_t *ssp_msg_queue = NULL;
+pthread_mutex_t ssp_msg_queue_lock;
+pthread_cond_t ssp_msg_queue_cond;
+
+#define MSG_PARAM_COUNT 7
+typedef struct _ssp_msg_t {
+	char func[128];
+	long what;
+	long arg1;
+	long arg2;
+	long arg3;
+	long arg4;
+	long arg5;
+	unsigned short trigger_type;
+	int arglen;
+	char arg[1];
+} ssp_msg_t;
+
+static void *ssp_msg_queue_handler(void *arg) {
+	(void)arg;
+	ssp_msg_t *msg;
+	pthread_t tid = pthread_self();
+	zval pfunc, rv;
+	zval params[MSG_PARAM_COUNT];
+	int i;
+	unsigned short trigger_type;
+
+	pthread_mutex_lock(&ssp_msg_queue_lock);
+	ssp_msg_queue_running++;
+	pthread_cond_signal(&ssp_msg_queue_cond);
+	pthread_mutex_unlock(&ssp_msg_queue_lock);
+
+	THREAD_STARTUP();
+
+	for(;;) {
+		msg = NULL;
+		pthread_mutex_lock(&ssp_msg_queue_lock);
+		while(!ssp_msg_queue_msgs && !ssp_msg_queue_stop) pthread_cond_wait(&ssp_msg_queue_cond, &ssp_msg_queue_lock);
+		if(ssp_msg_queue_stop) {
+			pthread_cond_signal(&ssp_msg_queue_cond);
+		} else {
+			msg = queue_pop(ssp_msg_queue);
+			if(msg) {
+				ssp_msg_queue_msgs--;
+			}
+		}
+		pthread_mutex_unlock(&ssp_msg_queue_lock);
+
+		if(ssp_msg_queue_stop) break;
+		if(!msg) continue;
+
+		dprintf("msgs: %s, %ld, %s(%d), %ld, %ld, %ld, %ld, %ld\n", msg->func, msg->what, msg->arg, msg->arglen, msg->arg1, msg->arg2, msg->arg3, msg->arg4, msg->arg5);
+
+		MSG_QUEUE_STARTUP();
+
+		ZVAL_STRING(&pfunc, msg->func);
+		ZVAL_LONG(&params[0], msg->what);
+		ZVAL_NULL(&params[1]);
+		UNSERIALIZE(msg->arg, msg->arglen, ZVAL_COPY(&params[1], retval));
+		ZVAL_LONG(&params[2], msg->arg1);
+		ZVAL_LONG(&params[3], msg->arg2);
+		ZVAL_LONG(&params[4], msg->arg3);
+		ZVAL_LONG(&params[5], msg->arg4);
+		ZVAL_LONG(&params[6], msg->arg5);
+
+		trigger_type = SSP_G(trigger_type);
+		SSP_G(trigger_type) = msg->trigger_type;
+		call_user_function(EG(function_table), NULL, &pfunc, &rv, MSG_PARAM_COUNT, params);
+		SSP_G(trigger_type) = trigger_type;
+
+		zval_ptr_dtor(&pfunc);
+		zval_ptr_dtor(&rv);
+
+		for (i = 0; i < MSG_PARAM_COUNT; i++) {
+			zval_ptr_dtor(&params[i]);
+		}
+
+		MSG_QUEUE_SHUTDOWN();
+	}
+
+	THREAD_SHUTDOWN();
+
+	pthread_mutex_lock(&ssp_msg_queue_lock);
+	ssp_msg_queue_running--;
+	pthread_cond_signal(&ssp_msg_queue_cond);
+	pthread_mutex_unlock(&ssp_msg_queue_lock);
+
+	pthread_detach(tid);
+	pthread_exit(NULL);
+
+	return NULL;
+}
+
+static PHP_FUNCTION(ssp_msg_queue_init)
+{
+	if(SSP_G(trigger_type) != PHP_SSP_START) {
+		php_printf("The ssp_msg_queue_init function can only be executed in the ssp_start_handler function\n");
+		return;
+	}
+
+	zend_long msgs, nthreads;
+	if (ssp_msg_queue_running || ssp_msg_queue || zend_parse_parameters(ZEND_NUM_ARGS(), "ll", &msgs, &nthreads) == FAILURE || msgs <= 0 || msgs > MSG_QUEUE_MAX_MSGS || nthreads <= 0 || nthreads > MSG_QUEUE_NTHREADS) {
+		return;
+	}
+
+	ssp_msg_queue_max_msgs = msgs;
+	ssp_msg_queue_nthreads = nthreads;
+	ssp_msg_queue = queue_init();
+
+	pthread_mutex_init(&ssp_msg_queue_lock, NULL);
+	pthread_cond_init(&ssp_msg_queue_cond, NULL);
+
+	int i;
+	for(i=0; i<nthreads; i++) {
+		worker_create(ssp_msg_queue_handler, NULL);
+	}
+
+	pthread_mutex_lock(&ssp_msg_queue_lock);
+	while (ssp_msg_queue_running < nthreads) {
+		pthread_cond_wait(&ssp_msg_queue_cond, &ssp_msg_queue_lock);
+	}
+	pthread_mutex_unlock(&ssp_msg_queue_lock);
+}
+
+static PHP_FUNCTION(ssp_msg_queue_push)
+{
+	char *func;
+	size_t funclen;
+	zend_long what;
+	zval *arg;
+	zend_long arg1=0,arg2=0,arg3=0,arg4=0,arg5=0;
+	ssp_msg_t *msg = NULL;
+
+	if(zend_parse_parameters(ZEND_NUM_ARGS(), "slz|lllll", &func, &funclen, &what, &arg, &arg1, &arg2, &arg3, &arg4, &arg5) == FAILURE) return;
+	if(funclen >= 128) {
+		php_printf("ssp_msg_queue_push first argument too length(less 128)\n");
+		return;
+	}
+
+	#define __SERI_OK \
+		msg = (ssp_msg_t*) malloc(sizeof(ssp_msg_t)*ZSTR_LEN(buf.s)); \
+		memcpy(msg->arg, ZSTR_VAL(buf.s), ZSTR_LEN(buf.s)); \
+		msg->arglen = ZSTR_LEN(buf.s); \
+		msg->arg[msg->arglen] = '\0'
+	SERIALIZE(arg, __SERI_OK);
+	#undef __SERI_OK
+	
+	if(!msg) msg = (ssp_msg_t*) malloc(sizeof(ssp_msg_t));
+
+	strncpy(msg->func, func, funclen);
+	msg->func[funclen] = '\0';
+	msg->what = what;
+	msg->arg1 = arg1;
+	msg->arg2 = arg2;
+	msg->arg3 = arg3;
+	msg->arg4 = arg4;
+	msg->arg5 = arg5;
+	msg->trigger_type = SSP_G(trigger_type);
+
+	pthread_mutex_lock(&ssp_msg_queue_lock);
+	if(ssp_msg_queue_msgs >= ssp_msg_queue_max_msgs) {
+		php_printf("ssp_msg_queue_push: too many messages\n");
+	} else {
+		ssp_msg_queue_msgs++;
+		queue_push(ssp_msg_queue, msg);
+		pthread_cond_signal(&ssp_msg_queue_cond);
+	}
+	pthread_mutex_unlock(&ssp_msg_queue_lock);
+}
+
+static bool ssp_msg_queue_cmp(ssp_msg_t *s, void *ptr) {
+	free(s);
+	return true;
+}
+
+static PHP_FUNCTION(ssp_msg_queue_destory)
+{
+	if(SSP_G(trigger_type) != PHP_SSP_STOP) {
+		php_printf("The ssp_msg_queue_destory function can only be executed in the ssp_stop_handler function\n");
+		return;
+	}
+
+	if(!ssp_msg_queue_running || ssp_msg_queue_stop) return;
+
+	pthread_mutex_lock(&ssp_msg_queue_lock);
+	ssp_msg_queue_stop = true;
+	pthread_cond_signal(&ssp_msg_queue_cond);
+	pthread_mutex_unlock(&ssp_msg_queue_lock);
+
+	pthread_mutex_lock(&ssp_msg_queue_lock);
+	while(ssp_msg_queue_running > 0) {
+		pthread_cond_wait(&ssp_msg_queue_cond, &ssp_msg_queue_lock);
+	}
+	pthread_mutex_unlock(&ssp_msg_queue_lock);
+
+	pthread_mutex_destroy(&ssp_msg_queue_lock);
+	pthread_cond_destroy(&ssp_msg_queue_cond);
+
+	queue_clean_ex(ssp_msg_queue, NULL, (queue_cmp_t) ssp_msg_queue_cmp);
 }

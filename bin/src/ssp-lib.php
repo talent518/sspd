@@ -162,4 +162,31 @@ function crypt_encode ( $string, $key, $expiry = 0 ) {
 function crypt_decode ( $string, $key, $expiry = 0 ) {
 }
 
+/**
+ * 初始化消息队列(只能在ssp_start_handler中使用)
+ * @param integer $msgs
+ * @param integer $nthreads
+ */
+function ssp_msg_queue_init ( $msgs, $nthreads ) {
+}
 
+/**
+ * 添加消息到队列
+ *
+ * @param string $funcname
+ * @param integer $what
+ * @param mixed $arg
+ * @param integer $arg1
+ * @param integer $arg2
+ * @param integer $arg3
+ * @param integer $arg4
+ * @param integer $arg5
+ */
+function ssp_msg_queue_push ( $funcname, $what, $arg, $arg1 = 0, $arg2 = 0, $arg3 = 0, $arg4 = 0, $arg5 = 0 ) {
+}
+
+/**
+ * 回收消息队列(只能在ssp_stop_handler中使用)
+ */
+function ssp_msg_queue_destory () {
+}
