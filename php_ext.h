@@ -70,6 +70,15 @@ ZEND_END_MODULE_GLOBALS(ssp)
 			}
 		#define MSG_QUEUE_SHUTDOWN() __time = microtime()
 
+		#define DELAYED_STARTUP() \
+			double __time = microtime() - ssp_delayed_time; \
+			if(__time > ssp_timeout) { \
+				ssp_request_shutdown();ssp_request_startup(); \
+			} else if(__time > ssp_global_timeout) { \
+				ssp_auto_globals_recreate(); \
+			}
+		#define DELAYED_SHUTDOWN() ssp_delayed_time = microtime();
+
 		#define THREAD_STARTUP() ssp_request_startup();double __time = microtime(), __time2
 		#define THREAD_SHUTDOWN() ssp_request_shutdown()
 	#else
@@ -86,6 +95,9 @@ ZEND_END_MODULE_GLOBALS(ssp)
 
 		#define MSG_QUEUE_STARTUP() TRIGGER_STARTUP()
 		#define MSG_QUEUE_SHUTDOWN() TRIGGER_SHUTDOWN()
+
+		#define DELAYED_STARTUP() TRIGGER_STARTUP()
+		#define DELAYED_SHUTDOWN() TRIGGER_SHUTDOWN()
 
 		#define THREAD_STARTUP() ssp_request_startup()
 		#define THREAD_SHUTDOWN() ssp_request_shutdown()
@@ -106,6 +118,8 @@ ZEND_END_MODULE_GLOBALS(ssp)
 	#define MSG_QUEUE_STARTUP() TRIGGER_STARTUP()
 	#define MSG_QUEUE_SHUTDOWN() TRIGGER_SHUTDOWN()
 
+	#define DELAYED_STARTUP() TRIGGER_STARTUP()
+	#define DELAYED_SHUTDOWN() TRIGGER_SHUTDOWN()
 
 	#define THREAD_STARTUP() ts_resource(0)
 	#define THREAD_SHUTDOWN() ts_resource(0)
@@ -192,5 +206,10 @@ static PHP_FUNCTION(ssp_conv_disconnect);
 static PHP_FUNCTION(ssp_msg_queue_init);
 static PHP_FUNCTION(ssp_msg_queue_push);
 static PHP_FUNCTION(ssp_msg_queue_destory);
+
+static PHP_FUNCTION(ssp_delayed_init);
+static PHP_FUNCTION(ssp_delayed_set);
+static PHP_FUNCTION(ssp_delayed_del);
+static PHP_FUNCTION(ssp_delayed_destory);
 
 #endif  /* PHP_EXT_H */

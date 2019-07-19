@@ -816,7 +816,7 @@ void loop_event (int sockfd) {
 	THREAD_SHUTDOWN();
 
 	shutdown(sockfd, SHUT_RDWR);
-	close(sockfd);
+	if(sockfd >= 0) close(sockfd);
 
 	detach_conn();
 }

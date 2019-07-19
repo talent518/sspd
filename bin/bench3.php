@@ -6,12 +6,49 @@ define('COUNT_REQ2', 2);
 function connect_handler($what, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
 	for($i=0; $i<SSP_MAX_CLIENTS; $i++) ssp_connect('127.0.0.1', 8082 + ($i%3)*2);
 
-	echo 'connect usage time: ', round(microtime(true) - $arg, 3), PHP_EOL;
+	echo 'connect usage time: ', round(microtime(true) - $arg, 3), ' seconds', PHP_EOL;
+}
+
+function timeout1_handler($delay, $persist, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
+	echo 'timeout1_handler: ', $delay, ', ', $persist ? 'true' : 'false', PHP_EOL;
+}
+
+function timeout2_handler($delay, $persist, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
+	echo 'timeout2_handler: ', $delay, ', ', $persist ? 'true' : 'false', PHP_EOL;
+}
+
+function timeout3_handler($delay, $persist, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
+	echo 'timeout3_handler: ', $delay, ', ', $persist ? 'true' : 'false', ', ', microtime(true)-$arg, PHP_EOL;
+	
+	if($delay === 5000) return false;
+	ssp_delayed_set("timeout3_handler", 5000, true, microtime(true));
+}
+
+function timeout4_handler() {
+	ssp_delayed_del('timeout1_handler');
+	ssp_delayed_del('timeout2_handler');
+	ssp_delayed_del('timeout3_handler');
+	ssp_delayed_set('timeout3_handler', 10, false, microtime(true));
+}
+
+function timeout5_handler($delay, $persist, $arg) {
+	echo 'timeout5_handler: ', $delay, ', ', $persist ? 'true' : 'false', ', ', microtime(true)-$arg, PHP_EOL;
+	ssp_delayed_set("timeout6_handler", 10, false, microtime(true));
+}
+
+function timeout6_handler($delay, $persist, $arg) {
+	echo 'timeout6_handler: ', $delay, ', ', $persist ? 'true' : 'false', ', ', microtime(true)-$arg, PHP_EOL;
 }
 
 function ssp_start_handler () {
 	ssp_msg_queue_init(10000, 1);
 	ssp_msg_queue_push('connect_handler', 0, microtime(true));
+	ssp_delayed_init();
+	// ssp_delayed_set("timeout1_handler", 1000, true);
+	// ssp_delayed_set("timeout2_handler", 2000, true);
+	// ssp_delayed_set("timeout3_handler", 3000, false, microtime(true));
+	// ssp_delayed_set("timeout4_handler", 20000, false);
+	ssp_delayed_set("timeout5_handler", 5010, false, microtime(true));
 }
 
 function ssp_bench_handler () {
@@ -41,4 +78,5 @@ function ssp_close_handler ( $ClientId ) {
 
 function ssp_stop_handler () {
 	ssp_msg_queue_destory();
+	ssp_delayed_destory();
 }

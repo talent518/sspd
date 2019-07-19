@@ -131,6 +131,22 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_msg_queue_destory, 0, 0, 0)
 ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_delayed_init, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_delayed_set, 0, 0, 3)
+ZEND_ARG_INFO(0, func)
+ZEND_ARG_INFO(0, delay)
+ZEND_ARG_INFO(0, persist)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_delayed_del, 0, 0, 1)
+ZEND_ARG_INFO(0, func)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_delayed_destory, 0, 0, 0)
+ZEND_END_ARG_INFO()
 /* }}} */
 
 /* {{{ ssp_functions[] */
@@ -154,6 +170,10 @@ static const zend_function_entry ssp_functions[] = {
 	PHP_FE(ssp_msg_queue_init, arginfo_ssp_msg_queue_init)
 	PHP_FE(ssp_msg_queue_push, arginfo_ssp_msg_queue_push)
 	PHP_FE(ssp_msg_queue_destory, arginfo_ssp_msg_queue_destory)
+	PHP_FE(ssp_delayed_init, arginfo_ssp_delayed_init)
+	PHP_FE(ssp_delayed_set, arginfo_ssp_delayed_set)
+	PHP_FE(ssp_delayed_del, arginfo_ssp_delayed_del)
+	PHP_FE(ssp_delayed_destory, arginfo_ssp_delayed_destory)
 	PHP_FE_END
 };
 /* }}} */
@@ -506,11 +526,6 @@ static PHP_FUNCTION(ssp_info) {
 
 static PHP_FUNCTION(ssp_connect)
 {
-	if(SSP_G(trigger_type) != PHP_SSP_START) {
-		php_printf("The ssp_connect function can only be executed in the ssp_start_handler function\n");
-		return;
-	}
-
 	char *host;
 	size_t host_len;
 	zend_long port = ssp_port;
@@ -1207,14 +1222,14 @@ static PHP_FUNCTION(crypt_decode) {
 	}
 }
 
-long ssp_msg_queue_max_msgs = -1;
-long ssp_msg_queue_nthreads = -1;
-long ssp_msg_queue_running = 0;
-bool ssp_msg_queue_stop = false;
-long ssp_msg_queue_msgs = 0;
-queue_t *ssp_msg_queue = NULL;
-pthread_mutex_t ssp_msg_queue_lock;
-pthread_cond_t ssp_msg_queue_cond;
+static long ssp_msg_queue_max_msgs = -1;
+static long ssp_msg_queue_nthreads = -1;
+static long ssp_msg_queue_running = 0;
+static bool ssp_msg_queue_stop = false;
+static long ssp_msg_queue_msgs = 0;
+static queue_t *ssp_msg_queue = NULL;
+static pthread_mutex_t ssp_msg_queue_lock;
+static pthread_cond_t ssp_msg_queue_cond;
 
 #define MSG_PARAM_COUNT 7
 typedef struct _ssp_msg_t {
@@ -1225,7 +1240,6 @@ typedef struct _ssp_msg_t {
 	long arg3;
 	long arg4;
 	long arg5;
-	unsigned short trigger_type;
 	int arglen;
 	char arg[1];
 } ssp_msg_t;
@@ -1237,7 +1251,6 @@ static void *ssp_msg_queue_handler(void *arg) {
 	zval pfunc, rv;
 	zval params[MSG_PARAM_COUNT];
 	int i;
-	unsigned short trigger_type;
 
 	pthread_mutex_lock(&ssp_msg_queue_lock);
 	ssp_msg_queue_running++;
@@ -1270,17 +1283,16 @@ static void *ssp_msg_queue_handler(void *arg) {
 		ZVAL_STRING(&pfunc, msg->func);
 		ZVAL_LONG(&params[0], msg->what);
 		ZVAL_NULL(&params[1]);
-		UNSERIALIZE(msg->arg, msg->arglen, ZVAL_COPY(&params[1], retval));
+		if(msg->arglen) {
+			UNSERIALIZE(msg->arg, msg->arglen, ZVAL_COPY(&params[1], retval));
+		}
 		ZVAL_LONG(&params[2], msg->arg1);
 		ZVAL_LONG(&params[3], msg->arg2);
 		ZVAL_LONG(&params[4], msg->arg3);
 		ZVAL_LONG(&params[5], msg->arg4);
 		ZVAL_LONG(&params[6], msg->arg5);
 
-		trigger_type = SSP_G(trigger_type);
-		SSP_G(trigger_type) = msg->trigger_type;
 		call_user_function(EG(function_table), NULL, &pfunc, &rv, MSG_PARAM_COUNT, params);
-		SSP_G(trigger_type) = trigger_type;
 
 		zval_ptr_dtor(&pfunc);
 		zval_ptr_dtor(&rv);
@@ -1342,8 +1354,8 @@ static PHP_FUNCTION(ssp_msg_queue_push)
 {
 	char *func;
 	size_t funclen;
-	zend_long what;
-	zval *arg;
+	zend_long what = 0;
+	zval *arg = NULL;
 	zend_long arg1=0,arg2=0,arg3=0,arg4=0,arg5=0;
 	ssp_msg_t *msg = NULL;
 
@@ -1352,6 +1364,7 @@ static PHP_FUNCTION(ssp_msg_queue_push)
 		php_printf("ssp_msg_queue_push first argument too length(less 128)\n");
 		return;
 	}
+	if(!ssp_msg_queue_running || ssp_msg_queue_stop) return;
 
 	#define __SERI_OK \
 		msg = (ssp_msg_t*) malloc(sizeof(ssp_msg_t)*ZSTR_LEN(buf.s)); \
@@ -1361,7 +1374,11 @@ static PHP_FUNCTION(ssp_msg_queue_push)
 	SERIALIZE(arg, __SERI_OK);
 	#undef __SERI_OK
 	
-	if(!msg) msg = (ssp_msg_t*) malloc(sizeof(ssp_msg_t));
+	if(!msg) {
+		msg = (ssp_msg_t*) malloc(sizeof(ssp_msg_t));
+		msg->arg[0] = '\0';
+		msg->arglen = 0;
+	}
 
 	strncpy(msg->func, func, funclen);
 	msg->func[funclen] = '\0';
@@ -1371,7 +1388,6 @@ static PHP_FUNCTION(ssp_msg_queue_push)
 	msg->arg3 = arg3;
 	msg->arg4 = arg4;
 	msg->arg5 = arg5;
-	msg->trigger_type = SSP_G(trigger_type);
 
 	pthread_mutex_lock(&ssp_msg_queue_lock);
 	if(ssp_msg_queue_msgs >= ssp_msg_queue_max_msgs) {
@@ -1413,4 +1429,313 @@ static PHP_FUNCTION(ssp_msg_queue_destory)
 	pthread_cond_destroy(&ssp_msg_queue_cond);
 
 	queue_clean_ex(ssp_msg_queue, NULL, (queue_cmp_t) ssp_msg_queue_cmp);
+	queue_free(ssp_msg_queue);
+}
+
+typedef struct _ssp_delayed_t {
+	char func[128];
+	long delay;
+	bool persist;
+	long arg1;
+	long arg2;
+	long arg3;
+	long arg4;
+	long arg5;
+
+	struct event event;
+	struct timeval tv;
+
+	struct _ssp_delayed_t *prev;
+	struct _ssp_delayed_t *next;
+
+	int arglen;
+	char arg[1];
+} ssp_delayed_t;
+static ssp_delayed_t *ssp_delayed = NULL;
+static queue_t *ssp_delayed_queue = NULL;
+static int ssp_delayed_running = 0;
+static pthread_mutex_t ssp_delayed_lock;
+static pthread_cond_t ssp_delayed_cond;
+static int ssp_delayed_write_fd;
+static double ssp_delayed_time;
+static struct event_base *ssp_delayed_base;
+static queue_t *ssp_delayedel_queue = NULL;
+
+#define DELAYED_PARAM_COUNT 8
+#define DELAYED_DEL(dly) \
+	do { \
+		if(dly->prev == dly) { \
+			ssp_delayed = NULL; \
+		} else { \
+			dly->prev->next = dly->next; \
+			dly->next->prev = dly->prev; \
+			if(dly == ssp_delayed) ssp_delayed = dly->next; \
+		} \
+		event_del(&dly->event); \
+		free(dly); \
+	} while(0) \
+
+static void ssp_delayed_timeout_handler(evutil_socket_t fd, short event, void *arg) {
+	int i;
+	zval pfunc, rv;
+	zval params[DELAYED_PARAM_COUNT];
+	ssp_delayed_t *dly = arg;
+
+	DELAYED_STARTUP();
+
+	dprintf("delayed: %s, %ld, %d, %s(%d), %ld, %ld, %ld, %ld, %ld\n", dly->func, dly->delay, dly->persist, dly->arg, dly->arglen, dly->arg1, dly->arg2, dly->arg3, dly->arg4, dly->arg5);
+
+	ZVAL_STRING(&pfunc, dly->func);
+	ZVAL_LONG(&params[0], dly->delay);
+	ZVAL_BOOL(&params[1], dly->persist);
+	ZVAL_NULL(&params[2]);
+	if(dly->arglen) {
+		UNSERIALIZE(dly->arg, dly->arglen, ZVAL_COPY(&params[2], retval));
+	}
+	ZVAL_LONG(&params[3], dly->arg1);
+	ZVAL_LONG(&params[4], dly->arg2);
+	ZVAL_LONG(&params[5], dly->arg3);
+	ZVAL_LONG(&params[6], dly->arg4);
+	ZVAL_LONG(&params[7], dly->arg5);
+
+	ZVAL_NULL(&rv);
+
+	i = call_user_function(EG(function_table), NULL, &pfunc, &rv, DELAYED_PARAM_COUNT, params);
+
+	if(i == SUCCESS && Z_TYPE(rv) == IS_FALSE) dly->persist = false;
+
+	zval_ptr_dtor(&pfunc);
+	zval_ptr_dtor(&rv);
+
+	for (i = 0; i < DELAYED_PARAM_COUNT; i++) {
+		zval_ptr_dtor(&params[i]);
+	}
+
+	if(!dly->persist) {
+		DELAYED_DEL(dly);
+	}
+
+	DELAYED_SHUTDOWN();
+}
+
+static void delayed_notify_handler(const int fd, const short which, void *arg) {
+	ssp_delayed_t *dly, *tmp;
+	char buf[128], *str;
+	int i, ret;
+
+	ret = read(fd, buf, sizeof(buf));
+	for(i=0; i<ret; i++) {
+		switch(buf[i]) {
+		case 'x':
+			event_base_loopbreak(ssp_delayed_base);
+			return;
+		case 'd':
+			str = queue_pop(ssp_delayedel_queue);
+			if(!str) break;
+			if(!ssp_delayed) {
+				free(str);
+				break;
+			}
+			dly = ssp_delayed;
+			do {
+				if(!strcmp(dly->func, str)) {
+					tmp = dly->next;
+					DELAYED_DEL(dly);
+					if(!ssp_delayed) break;
+					dly = tmp;
+				} else {
+					dly = dly->next;
+				}
+			} while(dly != ssp_delayed);
+			free(str);
+			break;
+		case 's':
+			dly = queue_pop(ssp_delayed_queue);
+			if(!dly) break;
+
+			if(ssp_delayed) {
+				dly->next = ssp_delayed->next;
+				dly->prev = ssp_delayed;
+
+				ssp_delayed->next->prev = dly;
+				ssp_delayed->next = dly;
+			} else {
+				ssp_delayed = dly;
+				dly->next = dly;
+				dly->prev = dly;
+			}
+
+			evutil_timerclear(&dly->tv);
+			dly->tv.tv_sec = dly->delay / 1000;
+			dly->tv.tv_usec = (dly->delay % 1000) * 1000;
+			event_set(&dly->event, -1, EV_PERSIST, ssp_delayed_timeout_handler, dly);
+			event_base_set(ssp_delayed_base, &dly->event);
+			if(event_add(&dly->event, &dly->tv) == -1) perror("delayed event");
+		}
+	}
+}
+
+static void *ssp_delayed_handler(void *arg) {
+	(void)arg;
+	ssp_msg_t *msg;
+	pthread_t tid = pthread_self();
+	struct event event;
+
+	int fds[2];
+	if (pipe(fds)) {
+		perror("Can't create delayed pipe");
+		return NULL;
+	}
+
+	ssp_delayed_base = event_init();
+
+	ssp_delayed_write_fd = fds[1];
+	event_set(&event, fds[0], EV_READ | EV_PERSIST, delayed_notify_handler, NULL);
+	event_base_set(ssp_delayed_base, &event);
+	if (event_add(&event, NULL) == -1) {
+		perror("event_add()");
+		exit(1);
+	}
+
+	pthread_mutex_lock(&ssp_delayed_lock);
+	ssp_delayed_running++;
+	pthread_cond_signal(&ssp_delayed_cond);
+	pthread_mutex_unlock(&ssp_delayed_lock);
+
+	THREAD_STARTUP();
+
+	ssp_delayed_time = microtime();
+
+	event_base_loop(ssp_delayed_base, 0);
+
+	THREAD_SHUTDOWN();
+
+	pthread_mutex_lock(&ssp_delayed_lock);
+	ssp_delayed_running--;
+	pthread_cond_signal(&ssp_delayed_cond);
+	pthread_mutex_unlock(&ssp_delayed_lock);
+
+	pthread_detach(tid);
+	pthread_exit(NULL);
+
+	return NULL;
+}
+
+static PHP_FUNCTION(ssp_delayed_init)
+{
+	if(SSP_G(trigger_type) != PHP_SSP_START) {
+		php_printf("The ssp_delayed_init function can only be executed in the ssp_start_handler function\n");
+		return;
+	}
+
+	if (ssp_delayed_running || ssp_delayed_queue) {
+		return;
+	}
+
+	ssp_delayed_queue = queue_init();
+	ssp_delayedel_queue = queue_init();
+
+	pthread_mutex_init(&ssp_delayed_lock, NULL);
+	pthread_cond_init(&ssp_delayed_cond, NULL);
+
+	worker_create(ssp_delayed_handler, NULL);
+
+	pthread_mutex_lock(&ssp_delayed_lock);
+	while (ssp_delayed_running == 0) {
+		pthread_cond_wait(&ssp_delayed_cond, &ssp_delayed_lock);
+	}
+	pthread_mutex_unlock(&ssp_delayed_lock);
+}
+
+static PHP_FUNCTION(ssp_delayed_set)
+{
+	ssp_delayed_t *dly = NULL;
+	char *func;
+	size_t funclen;
+	zend_long delay;
+	zend_bool persist;
+	zval *arg = NULL;
+	zend_long arg1=0,arg2=0,arg3=0,arg4=0,arg5=0;
+	if(!ssp_delayed_queue || zend_parse_parameters(ZEND_NUM_ARGS(), "slb|zlllll", &func, &funclen, &delay, &persist, &arg, &arg1, &arg2, &arg3, &arg4, &arg5) == FAILURE) return;
+	if(funclen >= 128) {
+		php_printf("ssp_delayed_set first argument too length(less 128)\n");
+		return;
+	}
+
+	if(arg) {
+		#define __SERI_OK \
+			dly = (ssp_delayed_t*) malloc(sizeof(ssp_delayed_t)*ZSTR_LEN(buf.s)); \
+			memcpy(dly->arg, ZSTR_VAL(buf.s), ZSTR_LEN(buf.s)); \
+			dly->arglen = ZSTR_LEN(buf.s); \
+			dly->arg[dly->arglen] = '\0'
+		SERIALIZE(arg, __SERI_OK);
+		#undef __SERI_OK
+	}
+
+	if(!dly) {
+		dly = (ssp_delayed_t*) malloc(sizeof(ssp_delayed_t));
+		dly->arg[0] = '\0';
+		dly->arglen = 0;
+	}
+
+	strncpy(dly->func, func, funclen);
+	dly->func[funclen] = '\0';
+	dly->delay = delay;
+	dly->persist = persist;
+	dly->arg1 = arg1;
+	dly->arg2 = arg2;
+	dly->arg3 = arg3;
+	dly->arg4 = arg4;
+	dly->arg5 = arg5;
+
+	queue_push(ssp_delayed_queue, dly);
+	write(ssp_delayed_write_fd, "s", 1);
+}
+
+static PHP_FUNCTION(ssp_delayed_del)
+{
+	char *func;
+	size_t funclen;
+	if(!ssp_delayedel_queue || zend_parse_parameters(ZEND_NUM_ARGS(), "s", &func, &funclen) == FAILURE) return;
+	if(funclen >= 128) {
+		php_printf("ssp_delayed_set first argument too length(less 128)\n");
+		return;
+	}
+
+	queue_push(ssp_delayedel_queue, strndup(func, funclen));
+	write(ssp_delayed_write_fd, "d", 1);
+}
+
+static bool ssp_delayed_cmp(ssp_delayed_t *s, void *ptr) {
+	free(s);
+	return true;
+}
+
+static bool ssp_delayedel_cmp(void *s, void *ptr) {
+	free(s);
+	return true;
+}
+
+static PHP_FUNCTION(ssp_delayed_destory)
+{
+	if(SSP_G(trigger_type) != PHP_SSP_STOP) {
+		php_printf("The ssp_delayed_destory function can only be executed in the ssp_stop_handler function\n");
+		return;
+	}
+
+	write(ssp_delayed_write_fd, "x", 1);
+
+	pthread_mutex_lock(&ssp_delayed_lock);
+	while(ssp_delayed_running > 0) {
+		pthread_cond_wait(&ssp_delayed_cond, &ssp_delayed_lock);
+	}
+	pthread_mutex_unlock(&ssp_delayed_lock);
+
+	pthread_mutex_destroy(&ssp_delayed_lock);
+	pthread_cond_destroy(&ssp_delayed_cond);
+
+	queue_clean_ex(ssp_delayed_queue, NULL, (queue_cmp_t) ssp_delayed_cmp);
+	queue_free(ssp_delayed_queue);
+	queue_clean_ex(ssp_delayedel_queue, NULL, ssp_delayedel_cmp);
+	queue_free(ssp_delayedel_queue);
 }

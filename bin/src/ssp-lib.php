@@ -190,3 +190,40 @@ function ssp_msg_queue_push ( $funcname, $what, $arg, $arg1 = 0, $arg2 = 0, $arg
  */
 function ssp_msg_queue_destory () {
 }
+
+/**
+ * 初始化计时器(只能在ssp_start_handler中使用)
+ */
+function ssp_delayed_init () {
+}
+
+/**
+ * 添加计时器
+ *
+ * @param string $funcname
+ * @param integer $delay
+ * @param boolean $persist
+ * @param mixed $arg
+ * @param integer $arg1
+ * @param integer $arg2
+ * @param integer $arg3
+ * @param integer $arg4
+ * @param integer $arg5
+ */
+function ssp_delayed_set ( $funcname, $delay, $persist, $arg = null, $arg1 = 0, $arg2 = 0, $arg3 = 0, $arg4 = 0, $arg5 = 0 ) {
+}
+
+/**
+ * 删除计时器
+ *
+ * @param string $funcname
+ */
+function ssp_delayed_set ( $funcname ) {
+}
+
+/**
+ * 回收计时器(只能在ssp_stop_handler中使用)
+ */
+function ssp_delayed_destory () {
+}
+
