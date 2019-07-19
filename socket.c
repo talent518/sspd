@@ -134,3 +134,26 @@ void socket_close(conn_t *ptr) {
 	char buf = 'x';
 	write(ptr->thread->write_fd, &buf, 1);
 }
+
+void socket_set_listen(int s) {
+	int opt = 1;
+	setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int));
+}
+
+void socket_set_accept(int s, int send_timeout, int recv_timeout, int send_buffer, int recv_buffer) {
+	setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
+	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int)); // 接收超时
+
+	setsockopt(s, SOL_SOCKET, SO_SNDBUF, &send_buffer, sizeof(int));//发送缓冲区大小
+	setsockopt(s, SOL_SOCKET, SO_RCVBUF, &recv_buffer, sizeof(int));//接收缓冲区大小
+
+	typedef struct {
+		u_short l_onoff;
+		u_short l_linger;
+	} linger;
+	linger m_sLinger;
+	m_sLinger.l_onoff = 0;//(在closesocket()调用,但是还有数据没发送完毕的时候容许逗留)
+	// 如果m_sLinger.l_onoff=0;则功能和2.)作用相同;
+	m_sLinger.l_linger = 0;//(容许逗留的时间为5秒)
+	setsockopt(s, SOL_SOCKET, SO_LINGER, &m_sLinger, sizeof(linger));
+}

@@ -571,9 +571,7 @@ static void listen_handler(const int fd, const short which, void *arg)
 		return;
 	}
 
-	int send_timeout = 10000, recv_timeout = 10000;
-	setsockopt(conn_fd, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
-	setsockopt(conn_fd, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int)); // 接收超时
+	socket_set_accept(conn_fd,SOCKET_SNDTIMEO,SOCKET_RCVTIMEO,SOCKET_SNDBUF,SOCKET_RCVBUF);
 
 	conn_t *ptr;
 

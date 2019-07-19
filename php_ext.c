@@ -4,6 +4,7 @@
 #include "data.h"
 #include "api.h"
 #include "crypt.h"
+#include "socket.h"
 #include <malloc.h>
 #include <signal.h>
 #include <math.h>
@@ -530,15 +531,14 @@ static PHP_FUNCTION(ssp_connect)
 			perror("socket");
 			RETURN_FALSE;
 		}
+
 		if(connect(s, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
 			perror("connect");
 			close(s);
 			RETURN_FALSE;
 		}
 
-		int send_timeout = 10000, recv_timeout = 10000;
-		setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
-		setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int)); // 接收超时
+		socket_set_connect(s,SOCKET_SNDTIMEO,SOCKET_RCVTIMEO,SOCKET_SNDBUF,SOCKET_RCVBUF);
 
 		ptr = insert_conn();
 		ptr->sockfd = s;
@@ -767,6 +767,8 @@ static void conv_listen_handler(int sock, short event, void *arg)
 		return;
 	}
 
+	socket_set_accept(s,SOCKET_CONV_SNDTIMEO,SOCKET_CONV_RCVTIMEO,SOCKET_CONV_SNDBUF,SOCKET_CONV_RCVBUF);
+
 	if(recv(s, &n, sizeof(int), MSG_WAITALL) != sizeof(int)) {
 		perror("recv lenght no equal 4");
 		return;
@@ -782,10 +784,6 @@ static void conv_listen_handler(int sock, short event, void *arg)
 
 	inet_ntop(AF_INET, &pin.sin_addr, ptr->host, len);
 	ptr->port = ntohs(pin.sin_port);
-
-	int send_timeout = 10000, recv_timeout = 10000;
-	setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int)); // 发送超时
-	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int)); // 接收超时
 
 	ptr->sockfd = s;
 
@@ -829,27 +827,7 @@ static PHP_FUNCTION(ssp_conv_connect)
 	}
 
 	if(sid == ssp_server_id) {
-		int opt = 1;
-		setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int));
-		setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(int));
-
-		int send_timeout = 10000, recv_timeout = 10000;
-		setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(int));
-		setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(int));
-
-		typedef struct {
-			u_short l_onoff;
-			u_short l_linger;
-		} linger;
-		linger m_sLinger;
-		m_sLinger.l_onoff = 1;//(在closesocket()调用,但是还有数据没发送完毕的时候容许逗留)
-		// 如果m_sLinger.l_onoff=0;则功能和2.)作用相同;
-		m_sLinger.l_linger = 5;//(容许逗留的时间为5秒)
-		setsockopt(s, SOL_SOCKET, SO_LINGER, &m_sLinger, sizeof(linger));
-
-		int send_buffer = 0, recv_buffer = 0;
-		setsockopt(s, SOL_SOCKET, SO_SNDBUF, &send_buffer, sizeof(int));//发送缓冲区大小
-		setsockopt(s, SOL_SOCKET, SO_RCVBUF, &recv_buffer, sizeof(int));//接收缓冲区大小
+		socket_set_listen(s);
 
 		if(bind(s, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
 			perror("bind");
@@ -875,6 +853,7 @@ static PHP_FUNCTION(ssp_conv_connect)
 			close(s);
 			RETURN_FALSE;
 		}
+		socket_set_connect(s,SOCKET_CONV_SNDTIMEO,SOCKET_CONV_RCVTIMEO,SOCKET_CONV_SNDBUF,SOCKET_CONV_RCVBUF);
 		if(send(s, &ssp_server_id, sizeof(int), MSG_WAITALL) != sizeof(int)) {
 			perror("send");
 			close(s);
@@ -1309,6 +1288,8 @@ static void *ssp_msg_queue_handler(void *arg) {
 		for (i = 0; i < MSG_PARAM_COUNT; i++) {
 			zval_ptr_dtor(&params[i]);
 		}
+
+		free(msg);
 
 		MSG_QUEUE_SHUTDOWN();
 	}
