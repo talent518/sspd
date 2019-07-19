@@ -8,7 +8,7 @@ BUILD_DIR := build
 CFLAGS    := -O3 -Wno-unused-result -Wno-implicit-function-declaration -I$(INC_DIR) -I$(INC_DIR)/php -I$(INC_DIR)/php/main -I$(INC_DIR)/php/Zend -I$(INC_DIR)/php/TSRM -I$(INC_DIR)/php/ext -DZTS -DHAVE_LIBGTOP `pkg-config --cflags libgtop-2.0`
 LFLAGS    := -lstdc++ -L$(INST_DIR)/lib -lm -lpthread -lphp7 -levent -Wl,-rpath,$(INST_DIR)/lib -Wl,-rpath,/usr/lib `pkg-config --libs libgtop-2.0`
 
-all: $(BIN_DIR) $(BUILD_DIR) $(BIN_DIR)/ssp
+all: $(BIN_DIR) $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/cpu-memory-info
 
 $(BIN_DIR):
 	$(PWD)/reflib.sh
@@ -16,16 +16,19 @@ $(BIN_DIR):
 $(BUILD_DIR):
 	@mkdir $@
 
-SSP_SRCS := $(BUILD_DIR)/php_ext.o $(BUILD_DIR)/php_func.o $(BUILD_DIR)/socket.o $(BUILD_DIR)/queue.o $(BUILD_DIR)/ssp_event.o $(BUILD_DIR)/server.o $(BUILD_DIR)/data.o $(BUILD_DIR)/ssp.o $(BUILD_DIR)/api.o $(BUILD_DIR)/crypt.o $(BUILD_DIR)/base64.o $(BUILD_DIR)/md5.o
-$(BIN_DIR)/ssp: $(SSP_SRCS)
+$(BIN_DIR)/ssp: $(BUILD_DIR)/php_ext.o $(BUILD_DIR)/php_func.o $(BUILD_DIR)/socket.o $(BUILD_DIR)/queue.o $(BUILD_DIR)/ssp_event.o $(BUILD_DIR)/server.o $(BUILD_DIR)/data.o $(BUILD_DIR)/ssp.o $(BUILD_DIR)/api.o $(BUILD_DIR)/crypt.o $(BUILD_DIR)/base64.o $(BUILD_DIR)/md5.o
 	@echo LD ssp
-	@$(CC) -o $@ $(SSP_SRCS) $(LFLAGS)
+	@$(CC) -o $@ $^ $(LFLAGS)
 
 $(BUILD_DIR)/%.o: %.c %.h config.h
 	@echo CC $<
 	@$(CC) $(CFLAGS) -S $< -o $(@:.o=.s)
 	@$(CC) $(CFLAGS) -E $< -o $(@:.o=.e)
 	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(BIN_DIR)/cpu-memory-info: cpu-memory-info.c
+	@echo LD cpu-memory-info
+	@$(CC) -o $@ $^ -Wno-format -D_GNU_SOURCE -lm
 
 kill:
 	@echo $@
@@ -34,7 +37,7 @@ kill:
 clean:
 	@echo $@
 	@rm -rf $(BUILD_DIR)/*.e $(BUILD_DIR)/*.s $(BUILD_DIR)/*.o
-	@rm -rf $(BIN_DIR)/ssp
+	@rm -rf $(BIN_DIR)/ssp $(BIN_DIR)/cpu-memory-info
 
 rebuild: kill clean all
 	@echo $@
@@ -43,9 +46,9 @@ retest: kill all
 	@echo $@
 	@$(BIN_DIR)/ssp --port 8086 --nthreads 8 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp.pid --user $(USER) -f $(PWD)/bin/init.php -s start
 
-pidstat: retest
+monitor: $(BIN_DIR)/cpu-memory-info
 	@echo $@
-	@pidstat -r -p `cat $(PWD)/ssp.pid` 1
+	@test $(shell pgrep -c ssp) -gt 0 && $(BIN_DIR)/cpu-memory-info $(foreach i, $(shell pgrep ssp), -p $(i)) | tee cpu.log
 
 bench: all
 	@echo $@
