@@ -1112,8 +1112,8 @@ static PHP_FUNCTION(ssp_requests) {
 unsigned int counts[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 static PHP_FUNCTION(ssp_counts) {
-	zend_long key = 0, type = -1;
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l|l", &key, &type) == FAILURE || key < 0 || key >= 16) {
+	zend_long key = 0, type = -1, val = 0;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l|ll", &key, &type, &val) == FAILURE || key < 0 || key >= 16) {
 		return;
 	}
 
@@ -1126,10 +1126,10 @@ static PHP_FUNCTION(ssp_counts) {
 		RETVAL_LONG(++counts[key]);
 	} else if(type == 0) {
 		RETVAL_LONG(counts[key]);
-		counts[key] = 0;
+		counts[key] = val;
 	} else {
 		if(++counts[key] == type) {
-			counts[key] = 0;
+			counts[key] = val;
 			RETVAL_TRUE;
 		} else {
 			RETVAL_FALSE;
@@ -1234,13 +1234,13 @@ static pthread_cond_t ssp_msg_queue_cond;
 #define MSG_PARAM_COUNT 7
 typedef struct _ssp_msg_t {
 	char func[128];
-	long what;
-	long arg1;
-	long arg2;
-	long arg3;
-	long arg4;
-	long arg5;
-	int arglen;
+	zend_long what;
+	zend_long arg1;
+	zend_long arg2;
+	zend_long arg3;
+	zend_long arg4;
+	zend_long arg5;
+	size_t arglen;
 	char arg[1];
 } ssp_msg_t;
 
@@ -1434,13 +1434,13 @@ static PHP_FUNCTION(ssp_msg_queue_destory)
 
 typedef struct _ssp_delayed_t {
 	char func[128];
-	long delay;
-	bool persist;
-	long arg1;
-	long arg2;
-	long arg3;
-	long arg4;
-	long arg5;
+	zend_long delay;
+	zend_bool persist;
+	zend_long arg1;
+	zend_long arg2;
+	zend_long arg3;
+	zend_long arg4;
+	zend_long arg5;
 
 	struct event event;
 	struct timeval tv;
@@ -1448,7 +1448,7 @@ typedef struct _ssp_delayed_t {
 	struct _ssp_delayed_t *prev;
 	struct _ssp_delayed_t *next;
 
-	int arglen;
+	size_t arglen;
 	char arg[1];
 } ssp_delayed_t;
 static ssp_delayed_t *ssp_delayed = NULL;

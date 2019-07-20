@@ -2,6 +2,7 @@
 define('COUNT_CONN', 0);
 define('COUNT_REQ', 1);
 define('COUNT_REQ2', 2);
+define('COUNT_AVG', 3);
 
 function connect_handler($what, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
 	for($i=0; $i<SSP_MAX_CLIENTS; $i++) ssp_connect('127.0.0.1', 8082 + ($i%3)*2);
@@ -43,7 +44,19 @@ function timeout6_handler($delay, $persist, $arg) {
 }
 
 function count_handler($delay, $persist, $arg) {
-	echo gmdate('H:i:s', time()-$arg), ' - threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, -3), ', reqs: ', ssp_counts(COUNT_REQ2, 0), PHP_EOL;
+	$s = ssp_counts(COUNT_REQ2, 0);
+	$a = 0;
+	if($s) {
+		$a = ssp_counts(COUNT_AVG, -3);
+		if($a) {
+			$a = floor(($a+$s) / 2);
+			ssp_counts(COUNT_AVG, 0, $a);
+		} else {
+			$a = $s;
+			ssp_counts(COUNT_AVG, 0, $s);
+		}
+	}
+	echo gmdate('H:i:s', time()-$arg), ' - threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, -3), ', reqs: ', $s, '(', $a, ')', PHP_EOL;
 }
 
 function ssp_start_handler () {

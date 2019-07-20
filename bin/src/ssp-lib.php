@@ -122,10 +122,11 @@ function ssp_requests($res, $type = 1) {
  * 按指定的key进行计数
  *
  * @param integer $key
- * @param integer $type 小于等于-3直接返回，等于-2则减1后返回，等于-1则加1后返回，等于0则返回后清零，大于0则加1后与$type比较是否相等返回bool
+ * @param integer $type 等于-3直接返回，等于-2则减1后返回，等于-1则加1后返回，等于0则返回后设为$val，大于0则加1后与$type相等则设为$val并返回boolean
+ * @param integer $val
  * @return integer|boolean|null $key小于0或$key大于等于16，则返回null
  */
-function ssp_counts($key = null, $type = -1) {
+function ssp_counts($key = null, $type = -1, $val = 0) {
 }
 
 /**
