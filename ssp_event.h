@@ -3,6 +3,7 @@
 
 #include <pthread.h>
 #include <TSRM.h>
+#include <zend_types.h>
 #include <stdbool.h>
 #include <event.h>
 #include "queue.h"
@@ -81,5 +82,6 @@ typedef struct {
 	} pcpu; // process cpu persent
 } top_info_t;
 extern top_info_t top_info;
+void set_monitor_zval(zval *scpu, zval *pcpu, zval *smem, zval *pmem, zval *args);
 
 #endif

@@ -95,9 +95,9 @@ function ssp_unlock () {
 /**
  * 获取系统和服务占用系统资源情况
  *
- * @param integer $sleep_time
+ * @param boolean $isMonitor
  */
-function ssp_stats ( $sleep_time = 100000 ) {
+function ssp_stats ( $isMonitor = false ) {
 }
 
 /**

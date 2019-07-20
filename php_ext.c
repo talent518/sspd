@@ -988,38 +988,62 @@ static PHP_FUNCTION(ssp_unlock)
 
 static PHP_FUNCTION(ssp_stats)
 {
-	array_init_size(return_value, 2);
+	zend_bool monitor = false;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "|b", &monitor) == FAILURE) {
+		RETURN_FALSE;
+	}
 
-	zval *sysinfo;
-	MAKE_STD_ZVAL(sysinfo);
+	if(monitor) {
+		zval *scpu, *pcpu, *smem, *pmem, *args;
+		MAKE_STD_ZVAL(scpu);
+		MAKE_STD_ZVAL(pcpu);
+		MAKE_STD_ZVAL(smem);
+		MAKE_STD_ZVAL(pmem);
+		MAKE_STD_ZVAL(args);
+		set_monitor_zval(scpu, pcpu, smem, pmem, args);
 
-	add_assoc_long(sysinfo,"memTotal", top_info.mem.total);
-	add_assoc_long(sysinfo,"memUsed", top_info.mem.total - top_info.mem.free);
-	add_assoc_long(sysinfo,"memFree", top_info.mem.free);
-	add_assoc_long(sysinfo,"memShared", top_info.mem.shared);
-	add_assoc_long(sysinfo,"memBuffer", top_info.mem.buffers);
-	add_assoc_long(sysinfo,"memCached", top_info.mem.cached);
-	add_assoc_long(sysinfo,"memUser", top_info.mem.total - top_info.mem.free - top_info.mem.cached - top_info.mem.buffers);
-	add_assoc_long(sysinfo,"memLocked", top_info.mem.locked);
-	add_assoc_long(sysinfo,"swapTotal", top_info.mem.swapTotal);
-	add_assoc_long(sysinfo,"swapFree", top_info.mem.swapFree);
+		array_init_size(return_value, 7);
+		add_assoc_zval(return_value, "scpu", scpu);
+		add_assoc_zval(return_value, "pcpu", pcpu);
+		add_assoc_zval(return_value, "smem", smem);
+		add_assoc_zval(return_value, "pmem", pmem);
+		add_assoc_long(return_value, "threads", top_info.proc.threads);
+		add_assoc_long(return_value, "etime", top_info.proc.etime);
+		add_assoc_zval(return_value, "args", args);
+	} else {
+		array_init_size(return_value, 2);
 
-	add_assoc_zval(return_value, "sysinfo", sysinfo);
+		zval *sysinfo;
+		MAKE_STD_ZVAL(sysinfo);
 
-	zval *procinfo;
-	MAKE_STD_ZVAL(procinfo);
-	array_init_size(procinfo, 8);
+		add_assoc_long(sysinfo,"memTotal", top_info.mem.total);
+		add_assoc_long(sysinfo,"memUsed", top_info.mem.total - top_info.mem.free);
+		add_assoc_long(sysinfo,"memFree", top_info.mem.free);
+		add_assoc_long(sysinfo,"memShared", top_info.mem.shared);
+		add_assoc_long(sysinfo,"memBuffer", top_info.mem.buffers);
+		add_assoc_long(sysinfo,"memCached", top_info.mem.cached);
+		add_assoc_long(sysinfo,"memUser", top_info.mem.total - top_info.mem.free - top_info.mem.cached - top_info.mem.buffers);
+		add_assoc_long(sysinfo,"memLocked", top_info.mem.locked);
+		add_assoc_long(sysinfo,"swapTotal", top_info.mem.swapTotal);
+		add_assoc_long(sysinfo,"swapFree", top_info.mem.swapFree);
 
-	add_assoc_double(procinfo, "pcpu", top_info.pcpu.stime + top_info.pcpu.utime);
+		add_assoc_zval(return_value, "sysinfo", sysinfo);
 
-	add_assoc_long(procinfo, "size", top_info.proc.size); /* total # of pages of memory */
-	add_assoc_long(procinfo, "vsize", top_info.proc.size); /* number of pages of virtual memory ... */
-	add_assoc_long(procinfo, "resident", top_info.proc.rssFile); /* number of resident set (non-swapped) pages (4k) */
-	add_assoc_long(procinfo, "share", top_info.proc.share); /* number of pages of shared (mmap'd) memory */
-	add_assoc_long(procinfo, "rss", top_info.proc.resident); /* resident set size */
-	add_assoc_long(procinfo, "rss_rlim", 0); /* current limit (in bytes) of the rss of the process; usually 2,147,483,647 */
+		zval *procinfo;
+		MAKE_STD_ZVAL(procinfo);
+		array_init_size(procinfo, 8);
 
-	add_assoc_zval(return_value, "procinfo", procinfo);
+		add_assoc_double(procinfo, "pcpu", top_info.pcpu.stime + top_info.pcpu.utime);
+
+		add_assoc_long(procinfo, "size", top_info.proc.size); /* total # of pages of memory */
+		add_assoc_long(procinfo, "vsize", top_info.proc.size); /* number of pages of virtual memory ... */
+		add_assoc_long(procinfo, "resident", top_info.proc.rssFile); /* number of resident set (non-swapped) pages (4k) */
+		add_assoc_long(procinfo, "share", top_info.proc.share); /* number of pages of shared (mmap'd) memory */
+		add_assoc_long(procinfo, "rss", top_info.proc.resident); /* resident set size */
+		add_assoc_long(procinfo, "rss_rlim", 0); /* current limit (in bytes) of the rss of the process; usually 2,147,483,647 */
+
+		add_assoc_zval(return_value, "procinfo", procinfo);
+	}
 }
 
 static PHP_FUNCTION(ssp_type) {
