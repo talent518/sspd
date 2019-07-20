@@ -11,6 +11,8 @@ function connect_handler($what, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
 
 function timeout1_handler($delay, $persist, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
 	echo 'timeout1_handler: ', $delay, ', ', $persist ? 'true' : 'false', PHP_EOL;
+	// ssp_delayed_del("timeout2_handler");
+	// ssp_delayed_del("timeout3_handler");
 }
 
 function timeout2_handler($delay, $persist, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
@@ -40,19 +42,24 @@ function timeout6_handler($delay, $persist, $arg) {
 	echo 'timeout6_handler: ', $delay, ', ', $persist ? 'true' : 'false', ', ', microtime(true)-$arg, PHP_EOL;
 }
 
+function count_handler($delay, $persist, $arg) {
+	echo gmdate('H:i:s', time()-$arg), ' - threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, -3), ', reqs: ', ssp_counts(COUNT_REQ2, 0), PHP_EOL;
+}
+
 function ssp_start_handler () {
 	ssp_msg_queue_init(10000, 1);
 	ssp_msg_queue_push('connect_handler', 0, microtime(true));
 	ssp_delayed_init();
+	ssp_delayed_set("count_handler", 1000, true, time());
 	// ssp_delayed_set("timeout1_handler", 1000, true);
 	// ssp_delayed_set("timeout2_handler", 2000, true);
 	// ssp_delayed_set("timeout3_handler", 3000, false, microtime(true));
 	// ssp_delayed_set("timeout4_handler", 20000, false);
-	ssp_delayed_set("timeout5_handler", 5010, false, microtime(true));
+	// ssp_delayed_set("timeout5_handler", 5010, false, microtime(true));
 }
 
 function ssp_bench_handler () {
-	echo 'threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, -3), ', reqs: ', ssp_counts(COUNT_REQ2, 0), PHP_EOL;
+	// echo 'threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, -3), ', reqs: ', ssp_counts(COUNT_REQ2, 0), PHP_EOL;
 }
 
 function ssp_connect_handler ( $ClientId ) {

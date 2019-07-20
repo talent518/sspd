@@ -1473,6 +1473,7 @@ static queue_t *ssp_delayedel_queue = NULL;
 		} \
 		event_del(&dly->event); \
 		free(dly); \
+		dly = NULL; \
 	} while(0) \
 
 static void ssp_delayed_timeout_handler(evutil_socket_t fd, short event, void *arg) {
@@ -1519,7 +1520,7 @@ static void ssp_delayed_timeout_handler(evutil_socket_t fd, short event, void *a
 }
 
 static void delayed_notify_handler(const int fd, const short which, void *arg) {
-	ssp_delayed_t *dly, *tmp;
+	ssp_delayed_t *dly, *tmp, *tmp2;
 	char buf[128], *str;
 	int i, ret;
 
@@ -1537,16 +1538,16 @@ static void delayed_notify_handler(const int fd, const short which, void *arg) {
 				break;
 			}
 			dly = ssp_delayed;
+			tmp2 = ssp_delayed;
 			do {
 				if(!strcmp(dly->func, str)) {
 					tmp = dly->next;
 					DELAYED_DEL(dly);
-					if(!ssp_delayed) break;
 					dly = tmp;
 				} else {
 					dly = dly->next;
 				}
-			} while(dly != ssp_delayed);
+			} while(tmp2 != dly);
 			free(str);
 			break;
 		case 's':
@@ -1692,6 +1693,14 @@ static PHP_FUNCTION(ssp_delayed_set)
 	write(ssp_delayed_write_fd, "s", 1);
 }
 
+static bool ssp_delayedel2_cmp(ssp_delayed_t *s, char *ptr) {
+	if(!strcmp(s->func, ptr)) {
+		free(s);
+		return true;
+	}
+	return false;
+}
+
 static PHP_FUNCTION(ssp_delayed_del)
 {
 	char *func;
@@ -1702,7 +1711,11 @@ static PHP_FUNCTION(ssp_delayed_del)
 		return;
 	}
 
-	queue_push(ssp_delayedel_queue, strndup(func, funclen));
+	func = strndup(func, funclen);
+
+	queue_clean_ex(ssp_delayed_queue, func, (queue_cmp_t) ssp_delayedel2_cmp);
+
+	queue_push(ssp_delayedel_queue, func);
 	write(ssp_delayed_write_fd, "d", 1);
 }
 
