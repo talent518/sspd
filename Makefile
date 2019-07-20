@@ -5,10 +5,10 @@ INC_DIR   := $(INST_DIR)/include
 BIN_DIR   := $(INST_DIR)/bin
 BUILD_DIR := build
 
-CFLAGS    := -O3 -Wno-unused-result -Wno-implicit-function-declaration -I$(INC_DIR) -I$(INC_DIR)/php -I$(INC_DIR)/php/main -I$(INC_DIR)/php/Zend -I$(INC_DIR)/php/TSRM -I$(INC_DIR)/php/ext -DZTS -DHAVE_LIBGTOP `pkg-config --cflags libgtop-2.0`
-LFLAGS    := -lstdc++ -L$(INST_DIR)/lib -lm -lpthread -lphp7 -levent -Wl,-rpath,$(INST_DIR)/lib -Wl,-rpath,/usr/lib `pkg-config --libs libgtop-2.0`
+CFLAGS    := -O3 -Wno-unused-result -Wno-implicit-function-declaration -I$(INC_DIR) -I$(INC_DIR)/php -I$(INC_DIR)/php/main -I$(INC_DIR)/php/Zend -I$(INC_DIR)/php/TSRM -I$(INC_DIR)/php/ext -DZTS
+LFLAGS    := -lstdc++ -L$(INST_DIR)/lib -lm -lpthread -lphp7 -levent -Wl,-rpath,$(INST_DIR)/lib -Wl,-rpath,/usr/lib
 
-all: $(BIN_DIR) $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/cpu-memory-info
+all: $(BIN_DIR) $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/monitor
 
 $(BIN_DIR):
 	$(PWD)/reflib.sh
@@ -16,7 +16,7 @@ $(BIN_DIR):
 $(BUILD_DIR):
 	@mkdir $@
 
-$(BIN_DIR)/ssp: $(BUILD_DIR)/php_ext.o $(BUILD_DIR)/php_func.o $(BUILD_DIR)/socket.o $(BUILD_DIR)/queue.o $(BUILD_DIR)/ssp_event.o $(BUILD_DIR)/server.o $(BUILD_DIR)/data.o $(BUILD_DIR)/ssp.o $(BUILD_DIR)/api.o $(BUILD_DIR)/crypt.o $(BUILD_DIR)/base64.o $(BUILD_DIR)/md5.o
+$(BIN_DIR)/ssp: $(BUILD_DIR)/php_ext.o $(BUILD_DIR)/php_func.o $(BUILD_DIR)/socket.o $(BUILD_DIR)/queue.o $(BUILD_DIR)/ssp_event.o $(BUILD_DIR)/server.o $(BUILD_DIR)/data.o $(BUILD_DIR)/ssp.o $(BUILD_DIR)/api.o $(BUILD_DIR)/crypt.o $(BUILD_DIR)/base64.o $(BUILD_DIR)/md5.o $(BUILD_DIR)/top.o
 	@echo LD ssp
 	@$(CC) -o $@ $^ $(LFLAGS)
 
@@ -26,8 +26,8 @@ $(BUILD_DIR)/%.o: %.c %.h config.h
 	@$(CC) $(CFLAGS) -E $< -o $(@:.o=.e)
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-$(BIN_DIR)/cpu-memory-info: cpu-memory-info.c
-	@echo LD cpu-memory-info
+$(BIN_DIR)/monitor: $(BUILD_DIR)/top.o monitor.c
+	@echo LD monitor
 	@$(CC) -o $@ $^ -Wno-format -D_GNU_SOURCE -lm
 
 kill:
@@ -37,7 +37,7 @@ kill:
 clean:
 	@echo $@
 	@rm -rf $(BUILD_DIR)/*.e $(BUILD_DIR)/*.s $(BUILD_DIR)/*.o
-	@rm -rf $(BIN_DIR)/ssp $(BIN_DIR)/cpu-memory-info
+	@rm -rf $(BIN_DIR)/ssp $(BIN_DIR)/monitor
 
 rebuild: kill clean all
 	@echo $@
@@ -46,9 +46,9 @@ retest: kill all
 	@echo $@
 	@$(BIN_DIR)/ssp --port 8086 --nthreads 8 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp.pid --user $(USER) -f $(PWD)/bin/init.php -s start
 
-monitor: $(BIN_DIR)/cpu-memory-info
+monitor: $(BIN_DIR)/monitor
 	@echo $@
-	@test $(shell pgrep -c ssp) -gt 0 && $(BIN_DIR)/cpu-memory-info $(foreach i, $(shell pgrep ssp), -p $(i)) | tee cpu.log
+	@test $(shell pgrep -c ssp) -gt 0 && $(BIN_DIR)/monitor $(foreach i, $(shell pgrep ssp), -p $(i)) | tee cpu.log
 
 bench: all
 	@echo $@

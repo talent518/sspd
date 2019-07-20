@@ -100,29 +100,6 @@ if [ ! -f /usr/include/popt.h ]; then
     fi
 fi
 
-#libgtop
-if [ ! -d /usr/include/libgtop-2.0/ ]; then
-    echo Installing libgtop ...
-    if [ ! -d "/tmp/libgtop-2.6.0" ]; then
-        tar -zxvf libgtop-2.6.0.tar.gz -C /tmp/
-    fi
-    pushd /tmp/libgtop-2.6.0
-    
-    ./configure --prefix=/usr \
-    && make \
-    && make install
-    
-    if [ "$?" = "0" ]; then
-        popd
-        rm -rf /tmp/libgtop-2.6.0
-        echo Installed libgtop Success.
-    else
-        popd
-        echo Installed libgtop error.
-        exit 1
-    fi
-fi
-
 echo All library installation has been completed.
 
 #end reflib

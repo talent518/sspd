@@ -3,6 +3,9 @@ require dirname(__FILE__) . DIRECTORY_SEPARATOR . 'core.php';
 
 import('lib.xml');
 
+function ssp_monitor_handler(array $scpu, array $pcpu, array $smem, array $pmem, int $threads, int $etime, array $args) {
+}
+
 function ssp_start_handler () {
 	if(IS_DEBUG) {
 		echo PHP_EOL,'Server started at ', date('m-d H:i:s', time()), PHP_EOL, 'Listening on port ', SSP_PORT, PHP_EOL;

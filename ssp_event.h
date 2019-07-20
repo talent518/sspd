@@ -55,4 +55,31 @@ void is_accept_conn(bool do_accept);
 void loop_event(int sockfd);
 void worker_create(void *(*func)(void *), void *arg);
 
+#include "top.h"
+typedef struct {
+	cpu_t cpu;
+	mem_t mem;
+	process_t proc;
+
+	unsigned long int all;
+
+	struct {
+		double user;
+		double nice;
+		double system;
+		double idle;
+		double iowait;
+		double irq;
+		double softirq;
+		double stolen;
+		double guest;
+	} scpu; // system cpu persent
+
+	struct {
+		double utime;
+		double stime;
+	} pcpu; // process cpu persent
+} top_info_t;
+extern top_info_t top_info;
+
 #endif

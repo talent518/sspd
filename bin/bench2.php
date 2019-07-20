@@ -14,6 +14,9 @@ define('COUNT_REQUEST_FAILURE', 4);
 import('lib.xml');
 import('mod.uc.base');
 
+function ssp_monitor_handler(array $scpu, array $pcpu, array $smem, array $pmem, int $threads, int $etime, array $args) {
+}
+
 function ssp_start_handler () {
 	for($i=0; $i<SSP_MAX_CLIENTS; $i++) ssp_connect(SSP_HOST);
 }

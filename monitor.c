@@ -1,113 +1,15 @@
-// gcc -Wno-unused-result -O3 -o cpu-memory-info cpu-memory-info.c -lm && ./cpu-memory-info
-
 #include <stdio.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
 
+#include "top.h"
+
 #define LINES 20
 #define NPROC 100
 
 #define cpu_mem_head(c, m) if(hasCpu) {printf(c);} if(hasCpu && hasMem) {printf("|");} if(hasMem) {printf(m);} printf("\n")
-
-typedef struct {
-	unsigned long int user;
-	unsigned long int nice;
-	unsigned long int system;
-	unsigned long int idle;
-	unsigned long int iowait;
-	unsigned long int irq;
-	unsigned long int softirq;
-	unsigned long int stolen;
-	unsigned long int guest;
-} cpu_t;
-
-void getcpu(cpu_t *cpu) {
-	static char buff[128];
-	static char strcpu[8];
-	FILE *fp;
-	
-	memset(cpu, 0, sizeof(cpu_t));
-
-	fp = fopen("/proc/stat", "r");
-
-	memset(buff, 0, sizeof(buff));
-	fgets(buff, sizeof(buff) - 1, fp);
-
-	fclose(fp);
-	
-	sscanf(buff, "%s%ld%ld%ld%ld%ld%ld%ld%ld%ld", strcpu, &cpu->user, &cpu->nice, &cpu->system, &cpu->idle, &cpu->iowait, &cpu->irq, &cpu->softirq, &cpu->stolen, &cpu->guest);
-}
-
-typedef struct {
-	unsigned long int total; // MemTotal
-	unsigned long int free; // MemFree
-	unsigned long int cached; // Cached
-	unsigned long int buffers; // Buffers
-	unsigned long int swapTotal; // SwapTotal
-	unsigned long int swapFree; // SwapFree
-} mem_t;
-
-void getmem(mem_t *mem) {
-	static char buff[2048] = "";
-	static char key[20] = "";
-	static long int val = 0;
-	FILE *fp;
-	char *ptr;
-	int i = 077;
-	
-	memset(mem, 0, sizeof(mem_t));
-	
-	fp = fopen("/proc/meminfo", "r");
-
-	memset(buff, 0, sizeof(buff));
-	fread(buff, sizeof(buff) - 1, 1, fp);
-
-	fclose(fp);
-	
-	ptr = buff;
-	while(ptr && sscanf(ptr, "%[^:]: %ld", key, &val)) {
-		// printf("%s => %d\n", key, val);
-		
-		if(i & 01 && !strcmp(key, "MemTotal")) {
-			mem->total = val;
-			i ^= 01;
-			continue;
-		}
-		if(i & 02 && !strcmp(key, "MemFree")) {
-			mem->free = val;
-			i ^= 02;
-			continue;
-		}
-		if(i & 04 && !strcmp(key, "Buffers")) {
-			mem->buffers = val;
-			i ^= 04;
-			continue;
-		}
-		if(i & 010 && !strcmp(key, "Cached")) {
-			mem->cached = val;
-			i ^= 010;
-			continue;
-		}
-		if(i & 020 && !strcmp(key, "SwapTotal")) {
-			mem->swapTotal = val;
-			i ^= 020;
-			continue;
-		}
-		if(i & 040 && !strcmp(key, "SwapFree")) {
-			mem->swapFree = val;
-			i ^= 040;
-			continue;
-		}
-		
-		ptr = strchr(ptr, '\n');
-		if(ptr) {
-			ptr++;
-		}
-	}
-}
 
 char *fsize(unsigned long int size) {
 	static char buf[20];
@@ -117,7 +19,7 @@ char *fsize(unsigned long int size) {
 	if(!size) {
 		return "0K";
 	}
-	
+
 	unit = (int)(log(size)/log(1024));
 	if (unit > 3) {
 		unit=3;
@@ -128,185 +30,19 @@ char *fsize(unsigned long int size) {
 	return buf;
 }
 
-typedef struct {
-	// process memory
-	long int size; // total program size (same as VmSize in /proc/[pid]/status)
-	long int resident; // resident set size (same as VmRSS in /proc/[pid]/status)
-	long int share; // shared pages (i.e., backed by a file)
-	long int text; // text (code)
-	long int lib; // library (unused in Linux 2.6)
-	long int data; // data + stack
-	long int dirty; // dirty KB(unused in Linux 2.6)
-	long int rssFile; // resident - dirty KB
-
-	// process cpu
-	unsigned int threads; // Number of threads in this process (since Linux 2.6)
-	long int utime; // Amount  of  time that this process has been scheduled in user mode, measured in clock ticks
-	long int stime; // Amount of time that this process has been scheduled in kernel mode, measured in clock ticks
-	long int cutime; // Amount of time that this process's waited-for children have been scheduled in user mode, measured in clock ticks
-	long int cstime; // Amount of time that this process's waited-for children have been scheduled in kernel mode, measured in clock ticks
-	
-	unsigned long int etime; // runned time for seconds
-} process_t;
-
-//获取第N项开始的指针
-const char* get_items(const char*buffer ,unsigned int item){
-	const char *p =buffer;
-
-	register int len = strlen(buffer);
-	register int count = 0, i;
-
-	for (i=0; i<len;i++){
-		if (' ' == *p){
-			count ++;
-			if(count == item -1){
-				p++;
-				break;
-			}
-		}
-		p++;
-	}
-
-	return p;
-}
-
-unsigned int getprocessdirtys(int pid) {
-	static char buff[256*1024] = "";
-	static char fname[64] = "";
-	static char key[64] = "";
-	static long int val = 0;
-	FILE *fp;
-	char *ptr;
-	
-	snprintf(fname, sizeof(fname), "/proc/%d/smaps", pid);
-
-	fp = fopen(fname, "r");
-	if(!fp) {
-		return 0;
-	}
-
-	memset(buff, 0, sizeof(buff));
-	fread(buff, sizeof(buff) - 1, 1, fp);
-
-	fclose(fp);
-	
-	ptr = buff;
-	
-	unsigned int dirtys = 0;
-	while(ptr && sscanf(ptr, "%[^:]: %ld", key, &val)) {
-		if(!strcmp(key, "Private_Dirty") || !strcmp(key, "Shared_Dirty")) {
-			dirtys += val;
-		}
-		ptr = strchr(ptr, '\n');
-		if(ptr) {
-			ptr++;
-		}
-	}
-	
-	return dirtys;
-}
-
-int getprocessinfo(int pid, process_t *proc) {
-	static char buff[1024] = "";
-	static char fname[64] = "";
-	static char key[20] = "";
-	static long int val = 0;
-	FILE *fp;
-	char *ptr;
-
-	snprintf(fname, sizeof(fname), "/proc/%d/statm", pid);
-
-	fp = fopen(fname, "r");
-	if(!fp) {
-		return 0;
-	}
-
-	memset(buff, 0, sizeof(buff));
-	fgets(buff, sizeof(buff) - 1, fp);
-
-	fclose(fp);
-
-	sscanf(buff, "%ld%ld%ld%ld%ld%ld%ld", &proc->size, &proc->resident, &proc->share, &proc->text, &proc->lib, &proc->data, &proc->dirty);
-
-	snprintf(fname, sizeof(fname), "/proc/%d/stat", pid);
-
-	fp = fopen(fname, "r");
-	if(!fp) {
-		return 0;
-	}
-
-	memset(buff, 0, sizeof(buff));
-	fgets(buff, sizeof(buff) - 1, fp);
-
-	fclose(fp);
-
-	const char *q = get_items(buff, 14);
-	sscanf(q, "%ld%ld%ld%ld", &proc->utime, &proc->stime, &proc->cutime, &proc->cstime);
-	q = get_items(q, 7);
-	sscanf(q, "%u", &proc->threads);
-	q = get_items(q, 3);
-	
-	unsigned long int etime = 0;
-	sscanf(q, "%llu", &etime);
-	
-	fp = fopen("/proc/uptime", "r");
-	fgets(buff, sizeof(buff) - 1, fp);
-
-	fclose(fp);
-	
-	unsigned long int uptime = 0;
-	sscanf(buff, "%llu", &uptime);
-	
-	int tck = sysconf(_SC_CLK_TCK);
-	proc->etime = uptime - etime / tck;
-
-	snprintf(fname, sizeof(fname), "/proc/%d/status", pid);
-
-	fp = fopen(fname, "r");
-	if(!fp) {
-		return 0;
-	}
-
-	memset(buff, 0, sizeof(buff));
-	fread(buff, sizeof(buff) - 1, 1, fp);
-
-	fclose(fp);
-
-	ptr = buff;
-	proc->dirty = 0;
-	proc->rssFile = 0;
-	while(ptr && sscanf(ptr, "%[^:]: %ld", key, &val)) {
-		if(!strcmp(key, "RssFile")) {
-			proc->rssFile = val;
-			proc->dirty = proc->resident * 4 - val;
-		}
-		ptr = strchr(ptr, '\n');
-		if(ptr) {
-			ptr++;
-		}
-	}
-	
-	if(!proc->dirty || !proc->rssFile) {
-		proc->dirty = getprocessdirtys(pid);
-		proc->rssFile  = proc->resident * 4 - proc->dirty;
-	}
-
-	return 1;
-}
-
 int main(int argc, char *argv[]){
 	cpu_t cpu, cpu2;
 	mem_t mem;
 	int pid[NPROC];
 	process_t proc[NPROC], proc2[NPROC];
 
-	unsigned int all, all2, pall[NPROC], pall2[NPROC], i, delay = 1;
+	unsigned long int all, all2, i, delay = 1;
 
 	double total;
 	long int realUsed;
 	char hasCpu = 1, hasMem = 1;
 	int nproc = 0, n;
-	
+
 	for(i=1; i<argc; i++) {
 		switch(argv[i][0]) {
 			case '-':
@@ -326,8 +62,8 @@ int main(int argc, char *argv[]){
 							if(nproc<NPROC) {
 								pid[nproc++] = atoi(argv[i+1]);
 							}
-							break;
 						}
+						break;
 					case 'h':
 					case '?':
 						printf("Usage: %s [ -c | -m | -p <pid> | -h | -? ] [ delay]\n"
@@ -346,7 +82,7 @@ int main(int argc, char *argv[]){
 				break;
 		}
 	}
-	
+
 	i = LINES;
 
 	if(hasCpu) {
@@ -379,8 +115,6 @@ int main(int argc, char *argv[]){
 			pid[n] = 0;
 			continue;
 		}
-
-		pall[n] = proc[n].utime + proc[n].stime + proc[n].cutime + proc[n].cstime;
 	}
 
 	if(nproc>0) {
@@ -442,21 +176,21 @@ int main(int argc, char *argv[]){
 			all2 = cpu2.user + cpu2.nice + cpu2.system + cpu2.idle + cpu2.iowait + cpu2.irq + cpu2.softirq + cpu2.stolen + cpu2.guest;
 
 			total = (all2 - all) / 100.0;
-		
-			printf("%5.2f", (float)((double)(cpu2.user - cpu.user) / total));
-			printf("%6.2f", (float)((double)(cpu2.nice - cpu.nice) / total));
-			printf("%7.2f", (float)((double)(cpu2.system - cpu.system) / total));
-			printf("%7.2f", (float)((double)(cpu2.idle - cpu.idle) / total));
-			printf("%7.2f", (float)((double)(cpu2.iowait - cpu.iowait) / total));
-			printf("%6.2f", (float)((double)(cpu2.irq - cpu.irq) / total));
-			printf("%8.2f", (float)((double)(cpu2.softirq - cpu.softirq) / total));
-			printf("%7.2f", (float)((double)(cpu2.stolen - cpu.stolen) / total));
-			printf("%7.2f", (float)((double)(cpu2.guest - cpu.guest) / total));
-		
+
+			printf("%5.2f", (double)(cpu2.user - cpu.user) / total);
+			printf("%6.2f", (double)(cpu2.nice - cpu.nice) / total);
+			printf("%7.2f", (double)(cpu2.system - cpu.system) / total);
+			printf("%7.2f", (double)(cpu2.idle - cpu.idle) / total);
+			printf("%7.2f", (double)(cpu2.iowait - cpu.iowait) / total);
+			printf("%6.2f", (double)(cpu2.irq - cpu.irq) / total);
+			printf("%8.2f", (double)(cpu2.softirq - cpu.softirq) / total);
+			printf("%7.2f", (double)(cpu2.stolen - cpu.stolen) / total);
+			printf("%7.2f", (double)(cpu2.guest - cpu.guest) / total);
+
 			cpu = cpu2;
 			all = all2;
 		}
-		
+
 		if(hasCpu && hasMem) {
 			printf("|");
 		}
@@ -495,8 +229,6 @@ int main(int argc, char *argv[]){
 				continue;
 			}
 
-			pall2[n] = proc2[n].utime + proc2[n].stime + proc2[n].cutime + proc2[n].cstime;
-
 			printf("%8d|", pid[n]);
 			printf("%8s", fsize(proc2[n].size * 4));
 			printf("%9s", fsize(proc2[n].resident * 4));
@@ -521,7 +253,7 @@ int main(int argc, char *argv[]){
 		} else if(nn>1) {
 			printf("--------------------------------------------------------------------------------------------------------------------\n");
 		}
-		
+
 		fflush(stdout);
 	}
 

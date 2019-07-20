@@ -4,6 +4,9 @@ define('COUNT_REQ', 1);
 define('COUNT_REQ2', 2);
 define('COUNT_AVG', 3);
 
+function ssp_monitor_handler(array $scpu, array $pcpu, array $smem, array $pmem, int $threads, int $etime, array $args) {
+}
+
 function connect_handler($what, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
 	for($i=0; $i<SSP_MAX_CLIENTS; $i++) ssp_connect('127.0.0.1', 8082 + ($i%3)*2);
 

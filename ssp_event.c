@@ -702,6 +702,114 @@ static void bench_handler(evutil_socket_t fd, short event, void *arg) {
 	if(CONN_NUM <= 0) signal_handler(0, 0, NULL);
 }
 
+top_info_t top_info;
+#define MONITOR_PARAM_COUNT 7
+#define CPU_ALL(all,cpu) all = cpu.user + cpu.nice + cpu.system + cpu.idle + cpu.iowait + cpu.irq + cpu.softirq + cpu.stolen + cpu.guest
+#define MONITOR_FUNC_NAME "ssp_monitor_handler"
+
+static void timeout_monitor_handler(evutil_socket_t fd, short event, void *arg) {
+	unsigned long int all;
+	double total;
+	cpu_t cpu;
+	process_t proc;
+
+	getcpu(&cpu);
+	getmem(&top_info.mem);
+	getprocessinfo(getpid(), &proc);
+
+	CPU_ALL(all, cpu);
+	total                  = (double) (all - top_info.all) / 100.0;
+
+	top_info.scpu.user     = (double)(cpu.user - top_info.cpu.user) / total;
+	top_info.scpu.nice     = (double)(cpu.nice - top_info.cpu.nice) / total;
+	top_info.scpu.system   = (double)(cpu.system - top_info.cpu.system) / total;
+	top_info.scpu.idle     = (double)(cpu.idle - top_info.cpu.idle) / total;
+	top_info.scpu.iowait   = (double)(cpu.iowait - top_info.cpu.iowait) / total;
+	top_info.scpu.irq      = (double)(cpu.irq - top_info.cpu.irq) / total;
+	top_info.scpu.softirq  = (double)(cpu.softirq - top_info.cpu.softirq) / total;
+	top_info.scpu.stolen   = (double)(cpu.stolen - top_info.cpu.stolen) / total;
+	top_info.scpu.guest    = (double)(cpu.guest - top_info.cpu.guest) / total;
+	top_info.all           = all;
+	top_info.cpu           = cpu;
+
+	top_info.pcpu.utime    =  (double)(proc.utime - top_info.proc.utime + proc.cutime - top_info.proc.cutime) / total;
+	top_info.pcpu.stime    =  (double)(proc.stime - top_info.proc.stime + proc.cstime - top_info.proc.cstime) / total;
+	top_info.proc          = proc;
+
+	int i;
+	zval pfunc, rv;
+	zval params[MONITOR_PARAM_COUNT];
+
+	ZVAL_STRING(&pfunc, MONITOR_FUNC_NAME);
+
+	array_init_size(&params[0], 9); // scpu
+	add_assoc_double(&params[0], "user", top_info.scpu.user);
+	add_assoc_double(&params[0], "nice", top_info.scpu.nice);
+	add_assoc_double(&params[0], "system", top_info.scpu.system);
+	add_assoc_double(&params[0], "idle", top_info.scpu.idle);
+	add_assoc_double(&params[0], "iowait", top_info.scpu.iowait);
+	add_assoc_double(&params[0], "irq", top_info.scpu.irq);
+	add_assoc_double(&params[0], "softirq", top_info.scpu.softirq);
+	add_assoc_double(&params[0], "stolen", top_info.scpu.stolen);
+	add_assoc_double(&params[0], "guest", top_info.scpu.guest);
+
+	array_init_size(&params[1], 2); // pcpu
+	add_assoc_double(&params[1], "utime", top_info.pcpu.utime);
+	add_assoc_double(&params[1], "stime", top_info.pcpu.stime);
+
+	array_init_size(&params[2], 8); // smem
+	add_assoc_long(&params[2], "total", top_info.mem.total);
+	add_assoc_long(&params[2], "free", top_info.mem.free);
+	add_assoc_long(&params[2], "cached", top_info.mem.cached);
+	add_assoc_long(&params[2], "buffers", top_info.mem.buffers);
+	add_assoc_long(&params[2], "locked", top_info.mem.locked);
+	add_assoc_long(&params[2], "swapTotal", top_info.mem.swapTotal);
+	add_assoc_long(&params[2], "swapFree", top_info.mem.swapFree);
+	add_assoc_long(&params[2], "shared", top_info.mem.shared);
+
+	array_init_size(&params[3], 2); // pmem
+	add_assoc_long(&params[3], "size", top_info.proc.size);
+	add_assoc_long(&params[3], "resident", top_info.proc.resident);
+	add_assoc_long(&params[3], "share", top_info.proc.share);
+	add_assoc_long(&params[3], "text", top_info.proc.text);
+	add_assoc_long(&params[3], "lib", top_info.proc.lib);
+	add_assoc_long(&params[3], "data", top_info.proc.data);
+	add_assoc_long(&params[3], "dirty", top_info.proc.dirty);
+	add_assoc_long(&params[3], "rssFile", top_info.proc.rssFile);
+
+	ZVAL_LONG(&params[4], top_info.proc.threads); // threads
+	ZVAL_LONG(&params[5], top_info.proc.etime); // etime
+
+	array_init_size(&params[6], 32);
+	char buf[2048];
+	sprintf(buf, "/proc/%d/cmdline", getpid());
+	FILE *fp = fopen(buf, "r");
+	if(fp) {
+		i = fread(buf, 1, sizeof(buf), fp);
+		fclose(fp);
+
+		char *p = buf;
+		char *p2 = buf + i;
+		do {
+			i = strlen(p);
+			add_next_index_stringl(&params[6], p, i);
+			p += i+1;
+		} while(p < p2);
+	}
+
+	ZVAL_NULL(&rv);
+
+	i = call_user_function(EG(function_table), NULL, &pfunc, &rv, MONITOR_PARAM_COUNT, params);
+	if(i == FAILURE) php_printf("Unable to call function(%s)\n", MONITOR_FUNC_NAME);
+
+	zval_ptr_dtor(&pfunc);
+	zval_ptr_dtor(&rv);
+
+	for (i = 0; i < MONITOR_PARAM_COUNT; i++) {
+		zval_ptr_dtor(&params[i]);
+	}
+}
+
 void loop_event (int sockfd) {
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGURG, SIG_IGN);
@@ -797,11 +905,29 @@ void loop_event (int sockfd) {
 		event_set(&listen_thread.timeout_global_int, -1, EV_PERSIST, timeout_global_handler, NULL);
 		event_base_set(listen_thread.base, &listen_thread.timeout_global_int);
 		if (event_add(&listen_thread.timeout_global_int, &tv2) == -1) {
-			perror("timeout event");
+			perror("timeout global event");
 			exit(1);
 		}
 	#endif
 #endif
+
+	// timeout global event
+	struct event event;
+	struct timeval tv3;
+	evutil_timerclear(&tv3);
+	tv3.tv_sec = 1;
+	event_set(&event, -1, EV_PERSIST, timeout_monitor_handler, NULL);
+	event_base_set(listen_thread.base, &event);
+	if (event_add(&event, &tv3) == -1) {
+		perror("timeout monitor event");
+		exit(1);
+	}
+
+	memset(&top_info, 0, sizeof(top_info));
+	getcpu(&top_info.cpu);
+	getmem(&top_info.mem);
+	getprocessinfo(getpid(), &top_info.proc);
+	CPU_ALL(top_info.all, top_info.cpu);
 
 	attach_conn();
 

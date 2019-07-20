@@ -8,6 +8,56 @@ $recvStmt = $db->prepare('UPDATE ssp_conv SET recvs=recvs+? WHERE sid=? and id=?
 $sendStmt = $db->prepare('UPDATE ssp_conv SET sends=sends+? WHERE sid=? and id=?');
 $fetchStmt = $db->prepare('SELECT sid, id FROM ssp_conv');
 
+$names = ['scpu', 'pcpu', 'smem', 'pmem', 'threads', 'etime', 'args'];
+
+function ssp_monitor_handler(array $scpu, array $pcpu, array $smem, array $pmem, int $threads, int $etime, array $args) {
+	global $db, $names, $monitorStmt;
+	if(!$monitorStmt) {
+		$fieldstr = null;
+		$namestr = null;
+		$valuestr = null;
+		foreach(func_get_args() as $i=>$v) {
+			if(!isset($names[$i])) break;
+			$field = $names[$i];
+			if(is_array($v)) {
+				if(isset($v[0])) {
+					$fieldstr .= ',' . $field . ' VARCHAR(2048) NOT NULL';
+					$namestr .= ',' . $field;
+					$valuestr .= ',?';
+				} else {
+					foreach($v as $n=>$v2) {
+						$fieldstr .= ',' . $field . ucfirst($n) . ' ' . gettype($v2) . ' UNSIGNED NOT NULL';
+						$namestr .= ',' . $field . ucfirst($n);
+						$valuestr .= ',?';
+					}
+				}
+			} else {
+				$fieldstr .= ',' . $field . ' ' . gettype($v) . ' UNSIGNED NOT NULL';
+				$namestr .= ',' . $field;
+				$valuestr .= ',?';
+			}
+		}
+		$db->exec('CREATE TABLE IF NOT EXISTS ssp_monitor(sid INT(11) UNSIGNED NOT NULL' . $fieldstr . ') ENGINE=memory CHARSET=utf8');
+		$monitorStmt = $db->prepare('INSERT INTO ssp_monitor (sid' . $namestr . ')VALUES(?' . $valuestr . ')');
+	}
+	$params = [I];
+	foreach(func_get_args() as $i=>$v) {
+		if(!isset($names[$i])) break;
+		if(is_array($v)) {
+			if(isset($v[0])) {
+				$params[] = implode(' ', $v);
+			} else {
+				foreach($v as $v2) {
+					$params[] = $v2;
+				}
+			}
+		} else {
+			$params[] = $v;
+		}
+	}
+	$monitorStmt->execute($params);
+}
+
 function ssp_start_handler () {
 	global $db;
 	

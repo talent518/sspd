@@ -13,14 +13,6 @@
 #include <zend_constants.h>
 #include <zend_smart_str.h>
 
-#ifdef HAVE_LIBGTOP
-#include <glibtop.h>
-#include <glibtop/cpu.h>
-#include <glibtop/mem.h>
-#include <glibtop/proctime.h>
-#include <glibtop/procmem.h>
-#endif
-
 static pthread_mutex_t unique_lock, counts_lock;
 
 static char trigger_handlers[8][30] = {
@@ -465,7 +457,7 @@ bool trigger(unsigned short type, ...) {
 			}
 		}
 	} else {
-		php_printf("\nUnable to call handler(%s)\n", trigger_handlers[type]);
+		php_printf("Unable to call function(%s)\n", trigger_handlers[type]);
 	}
 	if (param_count > 0) {
 		int i;
@@ -996,90 +988,38 @@ static PHP_FUNCTION(ssp_unlock)
 
 static PHP_FUNCTION(ssp_stats)
 {
-	long sleep_time = 100000;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "|lb", &sleep_time) == FAILURE) {
-		return;
-	}
-	if (sleep_time <= 0) {
-		sleep_time = 100000;
-	}
-
-#ifdef HAVE_LIBGTOP
-	glibtop_cpu cpu_begin,cpu_end; /////////////////////////////
-	glibtop_proc_time proctime_begin,proctime_end;///Declare the CPU info and
-	glibtop_mem memory;///memory info struct
-	glibtop_proc_mem procmem;///////////////////////////////
-
-	double us,ni,sy,id;
-	int dpu,dps;
-	double cpurate,memrate,scale;
-
-	static int pid=0;
-	if(pid == 0) {
-		pid = getpid();
-	}
-
-	glibtop_get_cpu (&cpu_begin);
-	glibtop_get_proc_time(&proctime_begin,pid);
-
-	usleep(sleep_time); // 1s=1000000
-
-	glibtop_get_cpu (&cpu_end);
-	glibtop_get_proc_time(&proctime_end,pid);
-
-	us = cpu_end.user - cpu_begin.user;
-	ni = cpu_end.nice - cpu_begin.nice;
-	sy = cpu_end.sys - cpu_begin.sys;
-	id = cpu_end.idle - cpu_begin.idle;
-
-	dpu = proctime_end.utime - proctime_begin.utime;
-	dps = proctime_end.stime - proctime_begin.stime;
-
-	scale = 100.0/(cpu_end.total - cpu_begin.total);
-
-	glibtop_get_mem(&memory);
-	glibtop_get_proc_mem(&procmem,pid);
-
-	array_init_size(return_value,2);
+	array_init_size(return_value, 2);
 
 	zval *sysinfo;
 	MAKE_STD_ZVAL(sysinfo);
-	array_init_size(sysinfo,27);
 
-	add_assoc_double(sysinfo,"us", us*scale);
-	add_assoc_double(sysinfo,"ni", ni*scale);
-	add_assoc_double(sysinfo,"sy", sy*scale);
-	add_assoc_double(sysinfo,"id", id*scale);
-
-	add_assoc_long(sysinfo,"memTotal", memory.total);
-	add_assoc_long(sysinfo,"memUsed", memory.used);
-	add_assoc_long(sysinfo,"memFree", memory.free);
-	add_assoc_long(sysinfo,"memShared", memory.shared);
-	add_assoc_long(sysinfo,"memBuffer", memory.buffer);
-	add_assoc_long(sysinfo,"memCached", memory.cached);
-	add_assoc_long(sysinfo,"memUser", memory.user);
-	add_assoc_long(sysinfo,"memLocked", memory.locked);
+	add_assoc_long(sysinfo,"memTotal", top_info.mem.total);
+	add_assoc_long(sysinfo,"memUsed", top_info.mem.total - top_info.mem.free);
+	add_assoc_long(sysinfo,"memFree", top_info.mem.free);
+	add_assoc_long(sysinfo,"memShared", top_info.mem.shared);
+	add_assoc_long(sysinfo,"memBuffer", top_info.mem.buffers);
+	add_assoc_long(sysinfo,"memCached", top_info.mem.cached);
+	add_assoc_long(sysinfo,"memUser", top_info.mem.total - top_info.mem.free - top_info.mem.cached - top_info.mem.buffers);
+	add_assoc_long(sysinfo,"memLocked", top_info.mem.locked);
+	add_assoc_long(sysinfo,"swapTotal", top_info.mem.swapTotal);
+	add_assoc_long(sysinfo,"swapFree", top_info.mem.swapFree);
 
 	add_assoc_zval(return_value, "sysinfo", sysinfo);
 
 	zval *procinfo;
 	MAKE_STD_ZVAL(procinfo);
-	array_init_size(procinfo,74);
+	array_init_size(procinfo, 8);
 
-	add_assoc_double(procinfo,"pcpu", (dpu+dps)*scale);
+	add_assoc_double(procinfo, "pcpu", top_info.pcpu.stime + top_info.pcpu.utime);
 
-	add_assoc_long(procinfo,"size",procmem.size); /* total # of pages of memory */
-	add_assoc_long(procinfo,"vsize",procmem.vsize); /* number of pages of virtual memory ... */
-	add_assoc_long(procinfo,"resident",procmem.resident); /* number of resident set (non-swapped) pages (4k) */
-	add_assoc_long(procinfo,"share",procmem.share); /* number of pages of shared (mmap'd) memory */
-	add_assoc_long(procinfo,"rss",procmem.rss); /* resident set size */
-	add_assoc_long(procinfo,"rss_rlim",procmem.rss_rlim); /* current limit (in bytes) of the rss of the process; usually 2,147,483,647 */
+	add_assoc_long(procinfo, "size", top_info.proc.size); /* total # of pages of memory */
+	add_assoc_long(procinfo, "vsize", top_info.proc.size); /* number of pages of virtual memory ... */
+	add_assoc_long(procinfo, "resident", top_info.proc.rssFile); /* number of resident set (non-swapped) pages (4k) */
+	add_assoc_long(procinfo, "share", top_info.proc.share); /* number of pages of shared (mmap'd) memory */
+	add_assoc_long(procinfo, "rss", top_info.proc.resident); /* resident set size */
+	add_assoc_long(procinfo, "rss_rlim", 0); /* current limit (in bytes) of the rss of the process; usually 2,147,483,647 */
 
 	add_assoc_zval(return_value, "procinfo", procinfo);
-#else
-	RETURN_FALSE;
-#endif
 }
 
 static PHP_FUNCTION(ssp_type) {
@@ -1292,7 +1232,8 @@ static void *ssp_msg_queue_handler(void *arg) {
 		ZVAL_LONG(&params[5], msg->arg4);
 		ZVAL_LONG(&params[6], msg->arg5);
 
-		call_user_function(EG(function_table), NULL, &pfunc, &rv, MSG_PARAM_COUNT, params);
+		i = call_user_function(EG(function_table), NULL, &pfunc, &rv, MSG_PARAM_COUNT, params);
+		if(i == FAILURE) php_printf("Unable to call function(%s)\n", msg->func);
 
 		zval_ptr_dtor(&pfunc);
 		zval_ptr_dtor(&rv);
@@ -1502,7 +1443,7 @@ static void ssp_delayed_timeout_handler(evutil_socket_t fd, short event, void *a
 	ZVAL_NULL(&rv);
 
 	i = call_user_function(EG(function_table), NULL, &pfunc, &rv, DELAYED_PARAM_COUNT, params);
-
+	if(i == FAILURE) php_printf("Unable to call function(%s)\n", dly->func);
 	if(i == SUCCESS && Z_TYPE(rv) == IS_FALSE) dly->persist = false;
 
 	zval_ptr_dtor(&pfunc);

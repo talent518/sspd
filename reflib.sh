@@ -408,40 +408,6 @@ if [ ! -f "$INST_DIR/lib/libevent.so" ]; then
     fi
 fi
 
-if [ ! -d "/usr/lib" ] && [ -d "/usr/lib64" ]; then
-	ln -s /usr/lib64 /usr/lib
-elif [ ! -h "/usr/lib/pkgconfig" ] && [ -d "/usr/lib64/pkgconfig" ]; then
-	if [ -d "/usr/lib/pkgconfig" ]; then
-		cp /usr/lib/pkgconfig/* /usr/lib64/pkgconfig/
-		rm -rf /usr/lib/pkgconfig
-	fi
-	ln -s /usr/lib64/pkgconfig /usr/lib/pkgconfig
-fi
-
-#libgtop
-pkg-config --exists libgtop-2.0
-if [ "$?" != "0" ]; then
-    echo Installing libgtop ...
-    if [ ! -d "/tmp/libgtop-2.6.0" ]; then
-        tar -zxvf libgtop-2.6.0.tar.gz -C /tmp/
-    fi
-    pushd /tmp/libgtop-2.6.0
-    
-    ./configure --prefix=/usr \
-    && make \
-    && make install
-    
-    if [ "$?" = "0" ]; then
-        popd
-        rm -rf /tmp/libgtop-2.6.0
-        echo Installed libgtop Success.
-    else
-        popd
-        echo Installed libgtop error.
-        exit 1
-    fi
-fi
-
 echo All library installation has been completed.
 
 #end reflib
