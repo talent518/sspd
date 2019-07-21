@@ -501,7 +501,6 @@ static PHP_FUNCTION(ssp_info) {
 		add_assoc_string(return_value, "host", ptr->host);
 		add_assoc_long(return_value, "port", ptr->port);
 		add_assoc_long(return_value, "tid", ptr->thread->id);
-		if(listen_thread.sockfd < 0) add_assoc_long(return_value, "type", ptr->type);
 	} else {
 		if (!strcasecmp(key, "index")) {
 			RETURN_LONG(ptr->index+1);
@@ -513,8 +512,6 @@ static PHP_FUNCTION(ssp_info) {
 			RETURN_LONG(ptr->port);
 		} else if (!strcasecmp(key, "tid")) {
 			RETURN_LONG(ptr->thread->id);
-		} else if (!strcasecmp(key, "type")) {
-			RETURN_LONG(ptr->type);
 		} else {
 			RETURN_NULL();
 		}

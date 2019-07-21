@@ -33,12 +33,6 @@ typedef struct _conn_t {
 	worker_thread_t *thread;
 
 	struct event event;
-
-	int type;
-	int requests;
-	char username[64];
-	char sendKey[256];
-	char receiveKey[256];
 } conn_t;
 
 #define BEGIN_READ_LOCK		begin_read_lock();
