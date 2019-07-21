@@ -44,11 +44,6 @@ queue_t *ssp_server_queue = NULL;
 static struct event conv_timeout_int;
 
 /* {{{ arginfo */
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_type, 0, 0, 2)
-ZEND_ARG_INFO(0, res)
-ZEND_ARG_INFO(0, type)
-ZEND_END_ARG_INFO()
-
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 1)
 ZEND_ARG_INFO(0, res)
 ZEND_ARG_INFO(0, key)
@@ -92,15 +87,6 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_counts, 0, 0, 1)
 ZEND_ARG_INFO(0, key)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_requests, 0, 0, 1)
-ZEND_ARG_INFO(0, res)
-ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_setup, 0, 0, 2)
-ZEND_ARG_INFO(0, res)
-ZEND_ARG_INFO(0, type)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_crypt_encode, 0, 0, 2)
@@ -174,7 +160,6 @@ ZEND_END_ARG_INFO()
 
 /* {{{ ssp_functions[] */
 static const zend_function_entry ssp_functions[] = {
-	PHP_FE(ssp_type, arginfo_ssp_type)
 	PHP_FE(ssp_info, arginfo_ssp_info)
 	PHP_FE(ssp_connect, arginfo_ssp_connect)
 	PHP_FE(ssp_conv_setup, arginfo_ssp_conv_setup)
@@ -186,8 +171,6 @@ static const zend_function_entry ssp_functions[] = {
 	PHP_FE(ssp_unlock, arginfo_ssp_unlock)
 	PHP_FE(ssp_stats, arginfo_ssp_stats)
 	PHP_FE(ssp_counts, arginfo_ssp_counts)
-	PHP_FE(ssp_requests, arginfo_ssp_requests)
-	PHP_FE(ssp_setup, arginfo_ssp_setup)
 	PHP_FE(crypt_encode, arginfo_crypt_encode)
 	PHP_FE(crypt_decode, arginfo_crypt_decode)
 	PHP_FE(ssp_msg_queue_init, arginfo_ssp_msg_queue_init)
@@ -286,14 +269,6 @@ static PHP_MINIT_FUNCTION(ssp)
 {
 	REGISTER_STRING_CONSTANT("SSP_VERSION", PHP_SSP_VERSION, CONST_CS | CONST_PERSISTENT);
 
-	REGISTER_LONG_CONSTANT("SSP_RES_INDEX", PHP_SSP_RES_INDEX, CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_RES_SOCKFD", PHP_SSP_RES_SOCKFD, CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SSP_RES_PORT", PHP_SSP_RES_PORT, CONST_CS | CONST_PERSISTENT);
-
-	REGISTER_LONG_CONSTANT("SETUP_USERNAME", SETUP_USERNAME, CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SETUP_SENDKEY", SETUP_SENDKEY, CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("SETUP_RECEIVEKEY", SETUP_RECEIVEKEY, CONST_CS | CONST_PERSISTENT);
-
 	le_ssp_descriptor = zend_register_list_destructors_ex(php_destroy_ssp, NULL, PHP_SSP_DESCRIPTOR_RES_NAME, module_number);
 
 	pthread_mutex_init(&unique_lock, NULL);
@@ -314,14 +289,6 @@ static PHP_MINIT_FUNCTION(ssp)
 static PHP_MSHUTDOWN_FUNCTION(ssp)
 {
 	zend_hash_str_del(EG(zend_constants), "SSP_VERSION", sizeof("SSP_VERSION") - 1);
-
-	zend_hash_str_del(EG(zend_constants), "SSP_RES_INDEX", sizeof("SSP_RES_INDEX") - 1);
-	zend_hash_str_del(EG(zend_constants), "SSP_RES_SOCKFD", sizeof("SSP_RES_SOCKFD") - 1);
-	zend_hash_str_del(EG(zend_constants), "SSP_RES_PORT", sizeof("SSP_RES_PORT") - 1);
-
-	zend_hash_str_del(EG(zend_constants), "SETUP_USERNAME", sizeof("SETUP_USERNAME") - 1);
-	zend_hash_str_del(EG(zend_constants), "SETUP_SENDKEY", sizeof("SETUP_SENDKEY") - 1);
-	zend_hash_str_del(EG(zend_constants), "SETUP_RECEIVEKEY", sizeof("SETUP_RECEIVEKEY") - 1);
 
 	pthread_mutex_destroy(&unique_lock);
 	pthread_mutex_destroy(&counts_lock);
@@ -1084,33 +1051,6 @@ static PHP_FUNCTION(ssp_stats)
 	}
 }
 
-static PHP_FUNCTION(ssp_type) {
-	zval *res;
-	conn_t *ptr;
-	zend_long type = 0;
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "rl", &res, &type) == FAILURE) {
-		return;
-	}
-	ptr = (conn_t *) zend_fetch_resource_ex(res, PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
-	if(!ptr) RETURN_NULL();
-	ptr->type = type;
-}
-
-static PHP_FUNCTION(ssp_requests) {
-	zval *res;
-	conn_t *ptr;
-	zend_long type = 1;
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "r|l", &res, &type) == FAILURE) {
-		return;
-	}
-	ptr = (conn_t *) zend_fetch_resource_ex(res, PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
-	if(!ptr) RETURN_NULL();
-
-	ptr->requests += type;
-
-	RETURN_LONG(ptr->requests);
-}
-
 unsigned int counts[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 static PHP_FUNCTION(ssp_counts) {
@@ -1138,54 +1078,6 @@ static PHP_FUNCTION(ssp_counts) {
 		}
 	}
 	pthread_mutex_unlock(&counts_lock);
-}
-
-static PHP_FUNCTION(ssp_setup) {
-	zval *res;
-	conn_t *ptr;
-	zend_long type = 0;
-
-	char *str = NULL;
-	size_t str_len = 0;
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "rl|s", &res, &type, &str, &str_len) == FAILURE) {
-		return;
-	}
-	ptr = (conn_t *) zend_fetch_resource_ex(res, PHP_SSP_DESCRIPTOR_RES_NAME, le_ssp_descriptor);
-	if(!ptr) RETURN_NULL();
-
-	if(str) {
-		switch(type) {
-			case SETUP_USERNAME:
-				strncpy(ptr->username, str, str_len);
-				break;
-			case SETUP_SENDKEY:
-				strncpy(ptr->sendKey, str, str_len);
-				break;
-			case SETUP_RECEIVEKEY:
-				strncpy(ptr->receiveKey, str, str_len);
-				break;
-			default:
-				RETURN_FALSE;
-				break;
-		}
-
-		RETURN_TRUE;
-	} else {
-		switch(type) {
-			case SETUP_USERNAME:
-				RETURN_STRING(ptr->username);
-				break;
-			case SETUP_SENDKEY:
-				RETURN_STRING(ptr->sendKey);
-				break;
-			case SETUP_RECEIVEKEY:
-				RETURN_STRING(ptr->receiveKey);
-				break;
-			default:
-				RETURN_FALSE;
-				break;
-		}
-	}
 }
 
 static PHP_FUNCTION(crypt_encode) {
@@ -1786,7 +1678,7 @@ static PHP_FUNCTION(ssp_var_exists)
 	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
 	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
 
-	pthread_mutex_unlock(&ssp_var_lock);
+	pthread_mutex_lock(&ssp_var_lock);
 	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2 = {.type=NULL_T};
 	RETVAL_FALSE;
 	for(i=0; i<arg_num && v1.type == HT_T; i++) {
@@ -1919,7 +1811,7 @@ static PHP_FUNCTION(ssp_var_get)
 	if(!ssp_var_ht) return;
 
 	if(arg_num <= 0) {
-		pthread_mutex_unlock(&ssp_var_lock);
+		pthread_mutex_lock(&ssp_var_lock);
 		array_init_size(return_value, hash_table_num_elements(ssp_var_ht));
 		hash_table_apply_with_argument(ssp_var_ht, (hash_apply_func_arg_t) hash_table_to_zval, return_value);
 		pthread_mutex_unlock(&ssp_var_lock);
@@ -1929,7 +1821,7 @@ static PHP_FUNCTION(ssp_var_get)
 	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
 	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
 
-	pthread_mutex_unlock(&ssp_var_lock);
+	pthread_mutex_lock(&ssp_var_lock);
 	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2 = {.type=NULL_T};
 	for(i=0; i<arg_num && v1.type == HT_T; i++) {
 		if(Z_TYPE(arguments[i]) == IS_LONG) {
@@ -2077,7 +1969,7 @@ static PHP_FUNCTION(ssp_var_put)
 	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
 	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
 
-	pthread_mutex_unlock(&ssp_var_lock);
+	pthread_mutex_lock(&ssp_var_lock);
 	if(arg_num == 1) {
 		if(Z_TYPE(arguments[0]) == IS_ARRAY) {
 			zend_hash_apply_with_arguments(Z_ARR(arguments[0]), zval_array_to_hash_table, 1, ssp_var_ht);
@@ -2169,7 +2061,7 @@ static PHP_FUNCTION(ssp_var_del)
 	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
 	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
 
-	pthread_mutex_unlock(&ssp_var_lock);
+	pthread_mutex_lock(&ssp_var_lock);
 	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2 = {.type=NULL_T};
 	RETVAL_FALSE;
 	for(i=0; i<arg_num && v1.type == HT_T; i++) {
@@ -2199,7 +2091,7 @@ static PHP_FUNCTION(ssp_var_clean)
 	if(!ssp_var_ht) return;
 
 	int n;
-	pthread_mutex_unlock(&ssp_var_lock);
+	pthread_mutex_lock(&ssp_var_lock);
 	n = hash_table_num_elements(ssp_var_ht);
 	hash_table_clean(ssp_var_ht);
 	pthread_mutex_unlock(&ssp_var_lock);
@@ -2216,9 +2108,10 @@ static PHP_FUNCTION(ssp_var_destory)
 
 	if(!ssp_var_ht) return;
 
+	int n = hash_table_num_elements(ssp_var_ht);
 	pthread_mutex_destroy(&ssp_var_lock);
 	hash_table_destroy(ssp_var_ht);
 	ssp_var_ht = NULL;
 
-	RETVAL_TRUE;
+	RETVAL_LONG(n);
 }

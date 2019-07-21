@@ -1,6 +1,12 @@
 <?php
 require dirname(__FILE__) . DIRECTORY_SEPARATOR . 'core.php';
 
+define('SETUP_KEY', 0);
+define('SETUP_USERNAME', 1);
+define('SETUP_SENDKEY', 2);
+define('SETUP_RECEIVEKEY', 3);
+define('SETUP_REQUESTS', 4);
+
 define('TYPE_KEY', 0);
 define('TYPE_LOGIN', 1);
 define('TYPE_REQUEST', 2);
@@ -18,11 +24,12 @@ function ssp_monitor_handler(array $scpu, array $pcpu, array $smem, array $pmem,
 }
 
 function ssp_start_handler () {
+	ssp_var_init();
 	for($i=0; $i<SSP_MAX_CLIENTS; $i++) ssp_connect(SSP_HOST);
 }
 
 function ssp_bench_handler () {
-	echo 'threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, -3), ', keys: ', ssp_counts(COUNT_KEY, 0), ', logins: ', ssp_counts(COUNT_LOGIN, 0), ', requests: ', ssp_counts(COUNT_REQUEST, 0), ', requestFailures: ', ssp_counts(COUNT_REQUEST_FAILURE, 0), PHP_EOL;
+	echo 'threads: ', SSP_NTHREADS, ', conns: ', $s=ssp_counts(COUNT_CONN, -3), ', keys: ', ssp_counts(COUNT_KEY, 0), ', logins: ', ssp_counts(COUNT_LOGIN, 0), ', requests: ', ssp_counts(COUNT_REQUEST, 0), ', requestFailures: ', ssp_counts(COUNT_REQUEST_FAILURE, 0), PHP_EOL;
 }
 
 function ssp_connect_handler ( $ClientId ) {
@@ -44,8 +51,9 @@ function ssp_connect_handler ( $ClientId ) {
 	
 	$sendKey = LIB('string')->rand(128, STRING_RAND_BOTH);
 	
-	ssp_setup($ClientId, SETUP_SENDKEY, $sendKey);
-	ssp_setup($ClientId, SETUP_USERNAME, $username);
+	ssp_var_put($index, SETUP_SENDKEY, $sendKey);
+	ssp_var_put($index, SETUP_USERNAME, $username);
+	ssp_var_put($index, SETUP_KEY, TYPE_KEY);
 	
 	$request = new XML_Element('request');
 	$request->type = 'Connect.Key';
@@ -66,7 +74,7 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 	$request = xml_to_object($xml, false, $error);
 	if ( $request ) {
 		if($request->type === 'Connect.Data') {
-			$key = ssp_setup($ClientId, SETUP_RECEIVEKEY);
+			$key = ssp_var_get($index, SETUP_RECEIVEKEY);
 			if ( $key ) {
 				$request = xml_to_object(crypt_decode($request->getText(), $key));
 			} else {
@@ -77,18 +85,18 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 				return;
 			}
 		}
-		switch ( $type ) {
+		switch ( ssp_var_get($index, SETUP_KEY) ) {
 			case TYPE_KEY:
 				if($request->type === 'Connect.Key') {
 					ssp_counts(COUNT_KEY);
-					ssp_setup($ClientId, SETUP_RECEIVEKEY, $request->getText());
+					ssp_var_put($index, SETUP_RECEIVEKEY, $request->getText());
 
 					$request=new XML_Element('request');
 					$request->type='User.Login';
 					$request->is_simple=true;
-					$request->params=array_to_xml(array('username'=>ssp_setup($ClientId, SETUP_USERNAME),'password'=>'123456'),'params');
+					$request->params=array_to_xml(array('username'=>ssp_var_get($index, SETUP_USERNAME),'password'=>'123456'),'params');
 					
-					ssp_type($ClientId, TYPE_LOGIN);
+					ssp_var_put($index, SETUP_KEY, TYPE_LOGIN);
 					
 					return $request;
 				} else {
@@ -98,7 +106,7 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 			case TYPE_LOGIN:
 				if($request->type === 'User.Login.Succeed') {
 					ssp_counts(COUNT_LOGIN);
-					ssp_type($ClientId, TYPE_REQUEST);
+					ssp_var_put($index, SETUP_KEY, TYPE_REQUEST);
 					$request=new XML_Element('request');
 					$request->type='Gold.State';
 					return $request;
@@ -111,7 +119,9 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 			case TYPE_REQUEST:
 				if($request->type === 'Gold.State.Succeed') {
 					ssp_counts(COUNT_REQUEST);
-					if(ssp_requests($ClientId) >= SSP_REQUESTS) {
+					$s = ssp_var_get($index, SETUP_REQUESTS)+1;
+					ssp_var_put($index, SETUP_REQUESTS, $s);
+					if($s >= SSP_REQUESTS) {
 						ssp_close($ClientId);
 						return;
 					} else {
@@ -121,7 +131,9 @@ function ssp_receive_handler ( $ClientId, $xml ) {
 					}
 				} elseif($request->type === 'Gold.State.Failed') {
 					ssp_counts(COUNT_REQUEST_FAILURE);
-					if(ssp_requests($ClientId) >= SSP_REQUESTS) {
+					$s = ssp_var_get($index, SETUP_REQUESTS)+1;
+					ssp_var_put($index, SETUP_REQUESTS, $s);
+					if($s >= SSP_REQUESTS) {
 						ssp_close($ClientId);
 						return;
 					} else {
@@ -155,7 +167,7 @@ function ssp_send_handler ( $ClientId, $xml ) {
 	$index = ssp_info($ClientId, 'index');
 
 	if ( !is_string($xml) ) {
-		$key = ssp_setup($ClientId, SETUP_SENDKEY);
+		$key = ssp_var_get($index, SETUP_SENDKEY);
 		$response = new XML_Element('response');
 		$response->type = 'Connect.Data';
 		$response->setText(crypt_encode((string) $xml, $key));
@@ -176,5 +188,6 @@ function ssp_close_handler ( $ClientId ) {
 
 function ssp_stop_handler () {
 	DB()->close();
+	ssp_var_destory();
 }
 

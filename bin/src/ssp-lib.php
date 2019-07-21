@@ -101,24 +101,6 @@ function ssp_stats ( $isMonitor = false ) {
 }
 
 /**
- * 设置连接类型
- *
- * @param resource $res
- * @param integer $type
- */
-function ssp_type($res, $type) {
-}
-
-/**
- * 设置连接请求数
- *
- * @param resource $res
- * @param integer $type 按连接requests(请求数)进行加$type存储并返回requests结果
- */
-function ssp_requests($res, $type = 1) {
-}
-
-/**
  * 按指定的key进行计数
  *
  * @param integer $key
@@ -127,16 +109,6 @@ function ssp_requests($res, $type = 1) {
  * @return integer|boolean|null $key小于0或$key大于等于16，则返回null
  */
 function ssp_counts($key = null, $type = -1, $val = 0) {
-}
-
-/**
- * 设置连接连接参数
- *
- * @param resource $res
- * @param integer $type
- * @param string $str 不指定该参数则返回$type类型的值
- */
-function ssp_setup($res, $type, $str = null) {
 }
 
 /**
@@ -226,5 +198,55 @@ function ssp_delayed_set ( $funcname ) {
  * 回收计时器(只能在ssp_stop_handler中使用)
  */
 function ssp_delayed_destory () {
+}
+
+/**
+ * 初始化共享变量(只能在ssp_start_handler中使用)
+ */
+function ssp_var_init($size = SSP_MAX_CLIENTS) {
+}
+
+/**
+ * 是否存在指定的共享变量
+ *
+ * 至少一个参数，每个参数代码要查询的多维数组的key
+ */
+function ssp_var_exists($key1[,...]) {
+}
+
+/**
+ * 读取共享变量
+ *
+ * 每个参数代码要查询的多维数组的key
+ */
+function ssp_var_get([$key1,...]) {
+}
+
+/**
+ * 写入共享变量
+ *
+ * 至少一个参数，每个参数代码要查询的多维数组的key，最后一个是数组可与存在数组合并，否则则替换
+ */
+function ssp_var_put() {
+}
+
+/**
+ * 删除共享变量
+ *
+ * 至少一个参数，每个参数代码要查询的多维数组的key
+ */
+function ssp_var_del() {
+}
+
+/**
+ * 清空共享变量
+ */
+function ssp_var_clean() {
+}
+
+/**
+ * 回收共享变量(只能在ssp_stop_handler中使用)
+ */
+function ssp_var_destory() {
 }
 

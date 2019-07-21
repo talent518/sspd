@@ -146,14 +146,7 @@ static PHP_FUNCTION(ssp_unlock);
 static PHP_FUNCTION(ssp_stats);
 
 // bench usage
-static PHP_FUNCTION(ssp_type);
 static PHP_FUNCTION(ssp_counts);
-static PHP_FUNCTION(ssp_requests);
-
-#define SETUP_USERNAME 0
-#define SETUP_SENDKEY 1
-#define SETUP_RECEIVEKEY 2
-static PHP_FUNCTION(ssp_setup);
 // end bench usage
 
 static PHP_FUNCTION(crypt_encode);
