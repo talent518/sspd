@@ -1627,6 +1627,7 @@ static PHP_FUNCTION(ssp_delayed_destory)
 		php_printf("The ssp_delayed_destory function can only be executed in the ssp_stop_handler function\n");
 		return;
 	}
+	if(ssp_delayed_running == 0) return;
 
 	write(ssp_delayed_write_fd, "x", 1);
 
@@ -1646,7 +1647,26 @@ static PHP_FUNCTION(ssp_delayed_destory)
 }
 
 static hash_table_t *ssp_var_ht = NULL;
-static pthread_mutex_t ssp_var_lock;
+static pthread_mutex_t ssp_var_rlock;
+static pthread_mutex_t ssp_var_wlock;
+static int ssp_var_locks = 0;
+
+#define SSP_VAR_RLOCK() \
+	pthread_mutex_lock(&ssp_var_rlock); \
+	if ((++(ssp_var_locks)) == 1) { \
+		pthread_mutex_lock(&ssp_var_wlock); \
+	} \
+	pthread_mutex_unlock(&ssp_var_rlock)
+
+#define SSP_VAR_RUNLOCK() \
+	pthread_mutex_lock(&ssp_var_rlock); \
+	if ((--(ssp_var_locks)) == 0) { \
+		pthread_mutex_unlock(&ssp_var_wlock); \
+	} \
+	pthread_mutex_unlock(&ssp_var_rlock)
+
+#define SSP_VAR_WLOCK() pthread_mutex_lock(&ssp_var_wlock)
+#define SSP_VAR_WUNLOCK() pthread_mutex_unlock(&ssp_var_wlock)
 
 static PHP_FUNCTION(ssp_var_init)
 {
@@ -1654,12 +1674,21 @@ static PHP_FUNCTION(ssp_var_init)
 		php_printf("The ssp_var_init function can only be executed in the ssp_start_handler function\n");
 		return;
 	}
+	if(ssp_msg_queue_running) {
+		php_printf("Call the ssp_msg_queue_init function before calling the ssp_var_init function");
+		return;
+	}
+	if(ssp_delayed_running) {
+		php_printf("Call the ssp_delayed_init function before calling the ssp_var_init function");
+		return;
+	}
 	if(ssp_var_ht) return;
 
 	zend_long size = ssp_maxclients;
 	if(zend_parse_parameters(ZEND_NUM_ARGS(), "|l", &size) == FAILURE) return;
 
-	pthread_mutex_init(&ssp_var_lock, NULL);
+	pthread_mutex_init(&ssp_var_rlock, NULL);
+	pthread_mutex_init(&ssp_var_wlock, NULL);
 	ssp_var_ht = (hash_table_t*) malloc(sizeof(hash_table_t));
 
 	RETVAL_BOOL(hash_table_init(ssp_var_ht, size) == SUCCESS);
@@ -1675,7 +1704,7 @@ static PHP_FUNCTION(ssp_var_exists)
 	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
 	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
 
-	pthread_mutex_lock(&ssp_var_lock);
+	SSP_VAR_RLOCK();
 	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2 = {.type=NULL_T};
 	RETVAL_FALSE;
 	for(i=0; i<arg_num && v1.type == HT_T; i++) {
@@ -1694,7 +1723,7 @@ static PHP_FUNCTION(ssp_var_exists)
 		}
 		v1 = v2;
 	}
-	pthread_mutex_unlock(&ssp_var_lock);
+	SSP_VAR_RUNLOCK();
 
 	end:
 	efree(arguments);
@@ -1808,17 +1837,17 @@ static PHP_FUNCTION(ssp_var_get)
 	if(!ssp_var_ht) return;
 
 	if(arg_num <= 0) {
-		pthread_mutex_lock(&ssp_var_lock);
+		SSP_VAR_RLOCK();
 		array_init_size(return_value, hash_table_num_elements(ssp_var_ht));
 		hash_table_apply_with_argument(ssp_var_ht, (hash_apply_func_arg_t) hash_table_to_zval, return_value);
-		pthread_mutex_unlock(&ssp_var_lock);
+		SSP_VAR_RUNLOCK();
 		return;
 	}
 
 	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
 	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
 
-	pthread_mutex_lock(&ssp_var_lock);
+	SSP_VAR_RLOCK();
 	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2 = {.type=NULL_T};
 	for(i=0; i<arg_num && v1.type == HT_T; i++) {
 		if(Z_TYPE(arguments[i]) == IS_LONG) {
@@ -1871,7 +1900,7 @@ static PHP_FUNCTION(ssp_var_get)
 				break;
 		}
 	}
-	pthread_mutex_unlock(&ssp_var_lock);
+	SSP_VAR_RUNLOCK();
 
 	end:
 	efree(arguments);
@@ -1966,7 +1995,7 @@ static PHP_FUNCTION(ssp_var_put)
 	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
 	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
 
-	pthread_mutex_lock(&ssp_var_lock);
+	SSP_VAR_WLOCK();
 	if(arg_num == 1) {
 		if(Z_TYPE(arguments[0]) == IS_ARRAY) {
 			zend_hash_apply_with_arguments(Z_ARR(arguments[0]), zval_array_to_hash_table, 1, ssp_var_ht);
@@ -2040,7 +2069,7 @@ static PHP_FUNCTION(ssp_var_put)
 			v1 = v2;
 		}
 	}
-	pthread_mutex_unlock(&ssp_var_lock);
+	SSP_VAR_WUNLOCK();
 
 	end:
 	efree(arguments);
@@ -2058,7 +2087,7 @@ static PHP_FUNCTION(ssp_var_del)
 	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
 	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
 
-	pthread_mutex_lock(&ssp_var_lock);
+	SSP_VAR_WLOCK();
 	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2 = {.type=NULL_T};
 	RETVAL_FALSE;
 	for(i=0; i<arg_num && v1.type == HT_T; i++) {
@@ -2077,7 +2106,7 @@ static PHP_FUNCTION(ssp_var_del)
 		}
 		v1 = v2;
 	}
-	pthread_mutex_unlock(&ssp_var_lock);
+	SSP_VAR_WUNLOCK();
 
 	end:
 	efree(arguments);
@@ -2088,10 +2117,10 @@ static PHP_FUNCTION(ssp_var_clean)
 	if(!ssp_var_ht) return;
 
 	int n;
-	pthread_mutex_lock(&ssp_var_lock);
+	SSP_VAR_WLOCK();
 	n = hash_table_num_elements(ssp_var_ht);
 	hash_table_clean(ssp_var_ht);
-	pthread_mutex_unlock(&ssp_var_lock);
+	SSP_VAR_WUNLOCK();
 
 	RETVAL_LONG(n);
 }
@@ -2102,11 +2131,20 @@ static PHP_FUNCTION(ssp_var_destory)
 		php_printf("The ssp_var_destory function can only be executed in the ssp_stop_handler function\n");
 		return;
 	}
+	if(ssp_msg_queue_running) {
+		php_printf("Call the ssp_msg_queue_destory function after calling the ssp_var_destory function");
+		return;
+	}
+	if(ssp_delayed_running) {
+		php_printf("Call the ssp_delayed_destory function after calling the ssp_var_destory function");
+		return;
+	}
 
 	if(!ssp_var_ht) return;
 
 	int n = hash_table_num_elements(ssp_var_ht);
-	pthread_mutex_destroy(&ssp_var_lock);
+	pthread_mutex_destroy(&ssp_var_rlock);
+	pthread_mutex_destroy(&ssp_var_wlock);
 	hash_table_destroy(ssp_var_ht);
 	ssp_var_ht = NULL;
 

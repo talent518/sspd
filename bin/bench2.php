@@ -23,9 +23,16 @@ import('mod.uc.base');
 function ssp_monitor_handler(array $scpu, array $pcpu, array $smem, array $pmem, int $threads, int $etime, array $args) {
 }
 
+function connect_handler($what, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
+	for($i=0; $i<SSP_MAX_CLIENTS; $i++) ssp_connect(SSP_HOST);
+
+	echo 'connect usage time: ', round(microtime(true) - $arg, 3), ' seconds', PHP_EOL;
+}
+
 function ssp_start_handler () {
 	ssp_var_init();
-	for($i=0; $i<SSP_MAX_CLIENTS; $i++) ssp_connect(SSP_HOST);
+	ssp_msg_queue_init(10000, 1);
+	ssp_msg_queue_push('connect_handler', 0, microtime(true));
 }
 
 function ssp_bench_handler () {
@@ -188,6 +195,7 @@ function ssp_close_handler ( $ClientId ) {
 
 function ssp_stop_handler () {
 	DB()->close();
+	ssp_msg_queue_destory();
 	ssp_var_destory();
 }
 
