@@ -197,7 +197,7 @@ function ssp_delayed_destory () {
 }
 
 /**
- * 初始化共享变量(只能在ssp_start_handler中使用)
+ * 初始化共享变量(只能在ssp_start_handler中使用)，要求ssp_var_init必需在ssp_msg_queue_init和ssp_delayed_init前调用
  */
 function ssp_var_init($size = SSP_MAX_CLIENTS) {
 }
@@ -241,7 +241,7 @@ function ssp_var_clean() {
 }
 
 /**
- * 回收共享变量(只能在ssp_stop_handler中使用)
+ * 回收共享变量(只能在ssp_stop_handler中使用)，要求ssp_var_destory必需在ssp_msg_queue_destory和ssp_delayed_destory后调用
  */
 function ssp_var_destory() {
 }
