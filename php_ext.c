@@ -1,3 +1,12 @@
+#include <malloc.h>
+#include <signal.h>
+#include <math.h>
+
+#include <php.h>
+#include <zend_constants.h>
+#include <zend_smart_str.h>
+#include <standard/php_var.h>
+
 #include "php_func.h"
 #include "php_ext.h"
 #include "ssp.h"
@@ -5,13 +14,7 @@
 #include "api.h"
 #include "crypt.h"
 #include "socket.h"
-#include <malloc.h>
-#include <signal.h>
-#include <math.h>
-
-#include <standard/php_var.h>
-#include <zend_constants.h>
-#include <zend_smart_str.h>
+#include "hash.h"
 
 static pthread_mutex_t unique_lock, counts_lock;
 
@@ -139,6 +142,34 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_delayed_destory, 0, 0, 0)
 ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_init, 0, 0, 1)
+ZEND_ARG_INFO(0, size)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_exists, 0, 0, 1)
+ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_get, 0, 0, 0)
+ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_put, 0, 0, 1)
+ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_del, 0, 0, 1)
+ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_clean, 0, 0, 0)
+ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_destory, 0, 0, 0)
+ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
 /* }}} */
 
 /* {{{ ssp_functions[] */
@@ -166,6 +197,13 @@ static const zend_function_entry ssp_functions[] = {
 	PHP_FE(ssp_delayed_set, arginfo_ssp_delayed_set)
 	PHP_FE(ssp_delayed_del, arginfo_ssp_delayed_del)
 	PHP_FE(ssp_delayed_destory, arginfo_ssp_delayed_destory)
+	PHP_FE(ssp_var_init, arginfo_ssp_var_init)
+	PHP_FE(ssp_var_exists, arginfo_ssp_var_exists)
+	PHP_FE(ssp_var_get, arginfo_ssp_var_get)
+	PHP_FE(ssp_var_put, arginfo_ssp_var_put)
+	PHP_FE(ssp_var_del, arginfo_ssp_var_del)
+	PHP_FE(ssp_var_clean, arginfo_ssp_var_clean)
+	PHP_FE(ssp_var_destory, arginfo_ssp_var_destory)
 	PHP_FE_END
 };
 /* }}} */
@@ -216,14 +254,14 @@ zend_module_entry ssp_module_entry = {
 #define UNSERIALIZE_EX(s,l,r,ok) \
 	do { \
 		php_unserialize_data_t var_hash; \
-		char *buf = s; \
-		const unsigned char *p = buf; \
-		size_t buf_len = l; \
+		char *__buf = s; \
+		const unsigned char *__p = __buf; \
+		size_t __buflen = l; \
 		PHP_VAR_UNSERIALIZE_INIT(var_hash); \
 		zval *retval = var_tmp_var(&var_hash); \
-		if(!php_var_unserialize(retval, &p, p + buf_len, &var_hash)) { \
+		if(!php_var_unserialize(retval, &__p, __p + __buflen, &var_hash)) { \
 			if (!EG(exception)) { \
-				php_error_docref(NULL, E_NOTICE, "Error at offset " ZEND_LONG_FMT " of %zd bytes", (zend_long)((char*)p - buf), buf_len); \
+				php_error_docref(NULL, E_NOTICE, "Error at offset " ZEND_LONG_FMT " of %zd bytes", (zend_long)((char*)__p - __buf), __buflen); \
 			} \
 			r; \
 		} else { \
@@ -1338,7 +1376,7 @@ static PHP_FUNCTION(ssp_msg_queue_push)
 		msg->arg[msg->arglen] = '\0'
 	SERIALIZE(arg, __SERI_OK);
 	#undef __SERI_OK
-	
+
 	if(!msg) {
 		msg = (ssp_msg_t*) malloc(sizeof(ssp_msg_t));
 		msg->arg[0] = '\0';
@@ -1716,4 +1754,471 @@ static PHP_FUNCTION(ssp_delayed_destory)
 	queue_free(ssp_delayed_queue);
 	queue_clean_ex(ssp_delayedel_queue, NULL, ssp_delayedel_cmp);
 	queue_free(ssp_delayedel_queue);
+}
+
+static hash_table_t *ssp_var_ht = NULL;
+static pthread_mutex_t ssp_var_lock;
+
+static PHP_FUNCTION(ssp_var_init)
+{
+	if(SSP_G(trigger_type) != PHP_SSP_START) {
+		php_printf("The ssp_var_init function can only be executed in the ssp_start_handler function\n");
+		return;
+	}
+	if(ssp_var_ht) return;
+
+	zend_long size = ssp_maxclients;
+	if(zend_parse_parameters(ZEND_NUM_ARGS(), "|l", &size) == FAILURE) return;
+
+	pthread_mutex_init(&ssp_var_lock, NULL);
+	ssp_var_ht = (hash_table_t*) malloc(sizeof(hash_table_t));
+
+	RETVAL_BOOL(hash_table_init(ssp_var_ht, size) == SUCCESS);
+}
+
+static PHP_FUNCTION(ssp_var_exists)
+{
+	zval *arguments;
+	int arg_num = ZEND_NUM_ARGS(), i;
+	if(arg_num <= 0) return;
+	if(!ssp_var_ht) return;
+
+	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
+	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
+
+	pthread_mutex_unlock(&ssp_var_lock);
+	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2 = {.type=NULL_T};
+	RETVAL_FALSE;
+	for(i=0; i<arg_num && v1.type == HT_T; i++) {
+		if(i+1 == arg_num) {
+			if(Z_TYPE(arguments[i]) == IS_LONG) {
+				RETVAL_BOOL(hash_table_index_exists((hash_table_t*) v1.ptr, Z_LVAL(arguments[i])));
+			} else {
+				convert_to_string(&arguments[i]);
+				RETVAL_BOOL(hash_table_exists((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i])));
+			}
+		} else if(Z_TYPE(arguments[i]) == IS_LONG) {
+			if(hash_table_index_find((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2) == FAILURE) break;
+		} else {
+			convert_to_string(&arguments[0]);
+			if(hash_table_find((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2) == FAILURE) break;
+		}
+		v1 = v2;
+	}
+	pthread_mutex_unlock(&ssp_var_lock);
+
+	end:
+	efree(arguments);
+}
+
+static void hash_table_to_zval(bucket_t *p, zval *a) {
+	if(p->nKeyLength == 0) {
+		switch(p->value.type) {
+			case NULL_T:
+				add_index_null(a, p->h);
+				break;
+			case BOOL_T:
+				add_index_bool(a, p->h, p->value.b);
+				break;
+			case CHAR_T:
+				add_index_long(a, p->h, p->value.c);
+				break;
+			case SHORT_T:
+				add_index_long(a, p->h, p->value.s);
+				break;
+			case INT_T:
+				add_index_long(a, p->h, p->value.i);
+				break;
+			case LONG_T:
+				add_index_long(a, p->h, p->value.l);
+				break;
+			case FLOAT_T:
+				add_index_double(a, p->h, p->value.f);
+				break;
+			case DOUBLE_T:
+				add_index_double(a, p->h, p->value.d);
+				break;
+			case STR_T:
+				add_index_stringl(a, p->h, p->value.str->str, p->value.str->len);
+				break;
+			case HT_T: {
+				zval *z;
+				MAKE_STD_ZVAL(z);
+				array_init_size(z, hash_table_num_elements(p->value.ptr));
+				hash_table_apply_with_argument(p->value.ptr, (hash_apply_func_arg_t) hash_table_to_zval, z);
+				add_index_zval(a, p->h, z);
+				break;
+			}
+			case SERI_T: {
+				UNSERIALIZE(p->value.str->str, p->value.str->len, add_index_zval(a, p->h, retval));
+				break;
+			}
+			case PTR_T:
+				add_index_long(a, p->h, (zend_long) p->value.ptr);
+				break;
+		}
+	} else {
+		switch(p->value.type) {
+			case NULL_T:
+				add_assoc_null_ex(a, p->arKey, p->nKeyLength);
+				break;
+			case BOOL_T:
+				add_assoc_bool_ex(a, p->arKey, p->nKeyLength, p->value.b);
+				break;
+			case CHAR_T:
+				add_assoc_long_ex(a, p->arKey, p->nKeyLength, p->value.c);
+				break;
+			case SHORT_T:
+				add_assoc_long_ex(a, p->arKey, p->nKeyLength, p->value.s);
+				break;
+			case INT_T:
+				add_assoc_long_ex(a, p->arKey, p->nKeyLength, p->value.i);
+				break;
+			case LONG_T:
+				add_assoc_long_ex(a, p->arKey, p->nKeyLength, p->value.l);
+				break;
+			case FLOAT_T:
+				add_assoc_double_ex(a, p->arKey, p->nKeyLength, p->value.f);
+				break;
+			case DOUBLE_T:
+				add_assoc_double_ex(a, p->arKey, p->nKeyLength, p->value.d);
+				break;
+			case STR_T:
+				add_assoc_stringl_ex(a, p->arKey, p->nKeyLength, p->value.str->str, p->value.str->len);
+				break;
+			case HT_T: {
+				zval *z;
+				MAKE_STD_ZVAL(z);
+				array_init_size(z, hash_table_num_elements(p->value.ptr));
+				hash_table_apply_with_argument(p->value.ptr, (hash_apply_func_arg_t) hash_table_to_zval, z);
+				add_assoc_zval_ex(a, p->arKey, p->nKeyLength, z);
+				break;
+			}
+			case SERI_T: {
+				#define __SERI_OK3 \
+					zval *z; \
+					MAKE_STD_ZVAL(z); \
+					ZVAL_COPY(z, retval); \
+					add_assoc_zval_ex(a, p->arKey, p->nKeyLength, z)
+				UNSERIALIZE(p->value.str->str, p->value.str->len, __SERI_OK3);
+				#undef __SERI_OK2
+				break;
+			}
+			case PTR_T:
+				add_assoc_long_ex(a, p->arKey, p->nKeyLength, (zend_long) p->value.ptr);
+				break;
+		}
+	}
+}
+
+static PHP_FUNCTION(ssp_var_get)
+{
+	zval *arguments;
+	int arg_num = ZEND_NUM_ARGS(), i;
+
+	if(!ssp_var_ht) return;
+
+	if(arg_num <= 0) {
+		pthread_mutex_unlock(&ssp_var_lock);
+		array_init_size(return_value, hash_table_num_elements(ssp_var_ht));
+		hash_table_apply_with_argument(ssp_var_ht, (hash_apply_func_arg_t) hash_table_to_zval, return_value);
+		pthread_mutex_unlock(&ssp_var_lock);
+		return;
+	}
+
+	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
+	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
+
+	pthread_mutex_unlock(&ssp_var_lock);
+	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2 = {.type=NULL_T};
+	for(i=0; i<arg_num && v1.type == HT_T; i++) {
+		if(Z_TYPE(arguments[i]) == IS_LONG) {
+			if(hash_table_index_find((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2) == FAILURE) break;
+		} else {
+			convert_to_string(&arguments[0]);
+			if(hash_table_find((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2) == FAILURE) break;
+		}
+		v1 = v2;
+	}
+	if(i == arg_num) {
+		switch(v2.type) {
+			case NULL_T:
+				RETVAL_NULL();
+				break;
+			case BOOL_T:
+				RETVAL_BOOL(v2.b);
+				break;
+			case CHAR_T:
+				RETVAL_LONG(v2.c);
+				break;
+			case SHORT_T:
+				RETVAL_LONG(v2.s);
+				break;
+			case INT_T:
+				RETVAL_LONG(v2.i);
+				break;
+			case LONG_T:
+				RETVAL_LONG(v2.l);
+				break;
+			case FLOAT_T:
+				RETVAL_DOUBLE(v2.f);
+				break;
+			case DOUBLE_T:
+				RETVAL_DOUBLE(v2.d);
+				break;
+			case STR_T:
+				RETVAL_STRINGL(v2.str->str, v2.str->len);
+				break;
+			case HT_T:
+				array_init_size(return_value, hash_table_num_elements(v2.ptr));
+				hash_table_apply_with_argument(v2.ptr, (hash_apply_func_arg_t) hash_table_to_zval, return_value);
+				break;
+			case SERI_T: {
+				UNSERIALIZE(v2.str->str, v2.str->len, ZVAL_COPY(return_value, retval));
+				break;
+			}
+			case PTR_T:
+				RETVAL_LONG((zend_long) v2.ptr);
+				break;
+		}
+	}
+	pthread_mutex_unlock(&ssp_var_lock);
+
+	end:
+	efree(arguments);
+}
+
+static int zval_array_to_hash_table(zval *pDest, int num_args, va_list args, zend_hash_key *hash_key);
+static void zval_to_value(zval *z, value_t *v) {
+	switch(Z_TYPE_P(z)) {
+		case IS_FALSE:
+		case IS_TRUE:
+			v->type = BOOL_T;
+			v->b = Z_TYPE_P(z) == IS_TRUE;
+			break;
+		case IS_LONG:
+			v->type = LONG_T;
+			v->l = Z_LVAL_P(z);
+			break;
+		case IS_DOUBLE:
+			v->type = DOUBLE_T;
+			v->d = Z_DVAL_P(z);
+			break;
+		case IS_STRING:
+			v->type = STR_T;
+			v->str = (string_t*) malloc(sizeof(string_t)+Z_STRLEN_P(z));
+			memcpy(v->str->str, Z_STRVAL_P(z), Z_STRLEN_P(z));
+			v->str->str[Z_STRLEN_P(z)] = '\0';
+			v->str->len = Z_STRLEN_P(z);
+			break;
+		case IS_ARRAY:
+			v->type = HT_T;
+			v->ptr = malloc(sizeof(hash_table_t));
+			hash_table_init((hash_table_t*) v->ptr, 2);
+			zend_hash_apply_with_arguments(Z_ARR_P(z), zval_array_to_hash_table, 1, v->ptr);
+			break;
+		case IS_OBJECT:
+			#define __SERI_OK2 \
+				v->type = SERI_T; \
+				v->str = (string_t*) malloc(sizeof(string_t)+ZSTR_LEN(buf.s)); \
+				memcpy(v->str->str, ZSTR_VAL(buf.s), ZSTR_LEN(buf.s)); \
+				v->str->str[ZSTR_LEN(buf.s)] = '\0'; \
+				v->str->len = ZSTR_LEN(buf.s)
+			SERIALIZE(z, __SERI_OK2);
+			#undef __SERI_OK2
+			break;
+		default:
+			v->type = NULL_T;
+			break;
+	}
+}
+
+static int zval_array_to_hash_table(zval *pDest, int num_args, va_list args, zend_hash_key *hash_key) {
+	value_t v={.type=NULL_T};
+	hash_table_t *ht = va_arg(args, hash_table_t*);
+
+	if(hash_key->key) {
+		if(Z_TYPE_P(pDest) == IS_ARRAY) {
+			if(hash_table_find(ht, ZSTR_VAL(hash_key->key), ZSTR_LEN(hash_key->key), &v) == FAILURE || v.type != HT_T) {
+				zval_to_value(pDest, &v);
+				hash_table_update(ht, ZSTR_VAL(hash_key->key), ZSTR_LEN(hash_key->key), &v, NULL);
+			} else {
+				zend_hash_apply_with_arguments(Z_ARR_P(pDest), zval_array_to_hash_table, 1, v.ptr);
+			}
+		} else {
+			zval_to_value(pDest, &v);
+			hash_table_update(ht, ZSTR_VAL(hash_key->key), ZSTR_LEN(hash_key->key), &v, NULL);
+		}
+	} else {
+		if(Z_TYPE_P(pDest) == IS_ARRAY) {
+			if(hash_table_index_find(ht, hash_key->h, &v) == FAILURE || v.type != HT_T) {
+				zval_to_value(pDest, &v);
+				hash_table_index_update(ht, hash_key->h, &v, NULL);
+			} else {
+				zend_hash_apply_with_arguments(Z_ARR_P(pDest), zval_array_to_hash_table, 1, v.ptr);
+			}
+		} else {
+			zval_to_value(pDest, &v);
+			hash_table_index_update(ht, hash_key->h, &v, NULL);
+		}
+	}
+
+	return ZEND_HASH_APPLY_KEEP;
+}
+
+static PHP_FUNCTION(ssp_var_put)
+{
+	zval *arguments;
+	int arg_num = ZEND_NUM_ARGS(), i;
+	if(arg_num <= 0) return;
+
+	if(!ssp_var_ht) return;
+
+	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
+	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
+
+	pthread_mutex_unlock(&ssp_var_lock);
+	if(arg_num == 1) {
+		if(Z_TYPE(arguments[0]) == IS_ARRAY) {
+			zend_hash_apply_with_arguments(Z_ARR(arguments[0]), zval_array_to_hash_table, 1, ssp_var_ht);
+		} else {
+			value_t v3;
+			zval_to_value(&arguments[0], &v3);
+			hash_table_next_index_insert(ssp_var_ht, &v3, NULL);
+		}
+	} else {
+		value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2;
+		for(i=0; i<arg_num; i++) {
+			v2.type = NULL_T;
+			if(i+2 == arg_num) {
+				if(Z_TYPE(arguments[i+1]) == IS_ARRAY) {
+					if(Z_TYPE(arguments[i]) == IS_LONG) {
+						if(hash_table_index_find((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2) == FAILURE || v2.type != HT_T) {
+							zval_to_value(&arguments[i+1], &v2);
+							hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL);
+						} else {
+							zend_hash_apply_with_arguments(Z_ARR(arguments[i+1]), zval_array_to_hash_table, 1, v2.ptr);
+						}
+					} else {
+						convert_to_string(&arguments[i]);
+						if(hash_table_find((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2) == FAILURE || v2.type != HT_T) {
+							zval_to_value(&arguments[i+1], &v2);
+							hash_table_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2, NULL);
+						} else {
+							zend_hash_apply_with_arguments(Z_ARR(arguments[i+1]), zval_array_to_hash_table, 1, v2.ptr);
+						}
+					}
+				} else {
+					zval_to_value(&arguments[i+1], &v2);
+					if(Z_TYPE(arguments[i]) == IS_LONG) {
+						hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL);
+					} else {
+						convert_to_string(&arguments[i]);
+						hash_table_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2, NULL);
+					}
+				}
+				break;
+			} else if(Z_TYPE(arguments[i]) == IS_LONG) {
+				if(hash_table_index_find((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2) == FAILURE) {
+					v2.type = HT_T;
+					v2.ptr = malloc(sizeof(hash_table_t));
+					hash_table_init(v2.ptr, 2);
+					hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL);
+				} else {
+					if(v2.type != HT_T) {
+						v2.type = HT_T;
+						v2.ptr = malloc(sizeof(hash_table_t));
+						hash_table_init(v2.ptr, 2);
+						hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL);
+					}
+				}
+			} else {
+				convert_to_string(&arguments[0]);
+				if(hash_table_find((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2) == FAILURE) {
+					v2.type = HT_T;
+					v2.ptr = malloc(sizeof(hash_table_t));
+					hash_table_init(v2.ptr, 2);
+					hash_table_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2, NULL);
+				} else {
+					if(v2.type != HT_T) {
+						v2.type = HT_T;
+						v2.ptr = malloc(sizeof(hash_table_t));
+						hash_table_init(v2.ptr, 2);
+						hash_table_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2, NULL);
+					}
+				}
+			}
+			v1 = v2;
+		}
+	}
+	pthread_mutex_unlock(&ssp_var_lock);
+
+	end:
+	efree(arguments);
+
+	RETVAL_TRUE;
+}
+
+static PHP_FUNCTION(ssp_var_del)
+{
+	zval *arguments;
+	int arg_num = ZEND_NUM_ARGS(), i;
+	if(arg_num <= 0) return;
+	if(!ssp_var_ht) return;
+
+	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
+	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
+
+	pthread_mutex_unlock(&ssp_var_lock);
+	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2 = {.type=NULL_T};
+	RETVAL_FALSE;
+	for(i=0; i<arg_num && v1.type == HT_T; i++) {
+		if(i+1 == arg_num) {
+			if(Z_TYPE(arguments[i]) == IS_LONG) {
+				RETVAL_BOOL(hash_table_index_del((hash_table_t*) v1.ptr, Z_LVAL(arguments[i])) == SUCCESS);
+			} else {
+				convert_to_string(&arguments[i]);
+				RETVAL_BOOL(hash_table_del((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i])) == SUCCESS);
+			}
+		} else if(Z_TYPE(arguments[i]) == IS_LONG) {
+			if(hash_table_index_find((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2) == FAILURE) break;
+		} else {
+			convert_to_string(&arguments[0]);
+			if(hash_table_find((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2) == FAILURE) break;
+		}
+		v1 = v2;
+	}
+	pthread_mutex_unlock(&ssp_var_lock);
+
+	end:
+	efree(arguments);
+}
+
+static PHP_FUNCTION(ssp_var_clean)
+{
+	if(!ssp_var_ht) return;
+
+	int n;
+	pthread_mutex_unlock(&ssp_var_lock);
+	n = hash_table_num_elements(ssp_var_ht);
+	hash_table_clean(ssp_var_ht);
+	pthread_mutex_unlock(&ssp_var_lock);
+
+	RETVAL_LONG(n);
+}
+
+static PHP_FUNCTION(ssp_var_destory)
+{
+	if(SSP_G(trigger_type) != PHP_SSP_STOP) {
+		php_printf("The ssp_var_destory function can only be executed in the ssp_stop_handler function\n");
+		return;
+	}
+
+	if(!ssp_var_ht) return;
+
+	pthread_mutex_destroy(&ssp_var_lock);
+	hash_table_destroy(ssp_var_ht);
+	ssp_var_ht = NULL;
+
+	RETVAL_TRUE;
 }

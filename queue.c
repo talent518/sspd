@@ -88,7 +88,7 @@ void queue_clean_ex(queue_t *queue, void *data, queue_cmp_t cmp) {
 	pthread_mutex_unlock(&queue->lock);
 }
 
-bool queue_free(queue_t *queue) {
+void queue_free(queue_t *queue) {
 	queue_item_t *ptr = queue->head, *tmp;
 	while (ptr) {
 		tmp = ptr;
