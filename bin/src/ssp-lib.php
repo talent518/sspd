@@ -11,10 +11,6 @@ define('SSP_NTHREADS', 10);
 define('SSP_BACKLOG', 1024);
 define('SSP_TIMEOUT', time());
 
-define('SETUP_USERNAME', 0);
-define('SETUP_SENDKEY', 1);
-define('SETUP_RECEIVEKEY', 2);
-
 /* @var array $_SSP */
 /* @global array $_SSP */
 // @var array $_SSP
