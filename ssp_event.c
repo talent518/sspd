@@ -739,12 +739,12 @@ void set_monitor_zval(zval *scpu, zval *pcpu, zval *smem, zval *pmem, zval *args
 	add_assoc_long(smem, "shared", top_info.mem.shared);
 
 	array_init_size(pmem, 2);
-	add_assoc_long(pmem, "size", top_info.proc.size);
-	add_assoc_long(pmem, "resident", top_info.proc.resident);
-	add_assoc_long(pmem, "share", top_info.proc.share);
-	add_assoc_long(pmem, "text", top_info.proc.text);
-	add_assoc_long(pmem, "lib", top_info.proc.lib);
-	add_assoc_long(pmem, "data", top_info.proc.data);
+	add_assoc_long(pmem, "size", top_info.proc.size * 4);
+	add_assoc_long(pmem, "resident", top_info.proc.resident * 4);
+	add_assoc_long(pmem, "share", top_info.proc.share * 4);
+	add_assoc_long(pmem, "text", top_info.proc.text * 4);
+	add_assoc_long(pmem, "lib", top_info.proc.lib * 4);
+	add_assoc_long(pmem, "data", top_info.proc.data * 4);
 	add_assoc_long(pmem, "dirty", top_info.proc.dirty);
 	add_assoc_long(pmem, "rssFile", top_info.proc.rssFile);
 

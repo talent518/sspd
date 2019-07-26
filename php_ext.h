@@ -52,7 +52,6 @@ ZEND_END_MODULE_GLOBALS(ssp)
 
 #define SSP_G(v) TSRMG(ssp_globals_id, zend_ssp_globals *, v)
 
-#define MAKE_STD_ZVAL(vars) vars = (zval *) emalloc(sizeof(zval))
 #define ZEND_REGISTER_RESOURCE(var, ctx, le_inflate) ZVAL_RES(var, zend_register_resource(ctx, le_inflate))
 
 #ifdef SSP_CODE_TIMEOUT

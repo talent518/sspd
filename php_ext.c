@@ -996,55 +996,49 @@ static PHP_FUNCTION(ssp_stats)
 	}
 
 	if(monitor) {
-		zval *scpu, *pcpu, *smem, *pmem, *args;
-		MAKE_STD_ZVAL(scpu);
-		MAKE_STD_ZVAL(pcpu);
-		MAKE_STD_ZVAL(smem);
-		MAKE_STD_ZVAL(pmem);
-		MAKE_STD_ZVAL(args);
-		set_monitor_zval(scpu, pcpu, smem, pmem, args);
+		zval scpu, pcpu, smem, pmem, args;
+		set_monitor_zval(&scpu, &pcpu, &smem, &pmem, &args);
 
 		array_init_size(return_value, 7);
-		add_assoc_zval(return_value, "scpu", scpu);
-		add_assoc_zval(return_value, "pcpu", pcpu);
-		add_assoc_zval(return_value, "smem", smem);
-		add_assoc_zval(return_value, "pmem", pmem);
+		add_assoc_zval(return_value, "scpu", &scpu);
+		add_assoc_zval(return_value, "pcpu", &pcpu);
+		add_assoc_zval(return_value, "smem", &smem);
+		add_assoc_zval(return_value, "pmem", &pmem);
 		add_assoc_long(return_value, "threads", top_info.proc.threads);
 		add_assoc_long(return_value, "etime", top_info.proc.etime);
-		add_assoc_zval(return_value, "args", args);
+		add_assoc_zval(return_value, "args", &args);
 	} else {
 		array_init_size(return_value, 2);
 
-		zval *sysinfo;
-		MAKE_STD_ZVAL(sysinfo);
+		zval sysinfo;
+		array_init_size(&sysinfo, 10);
 
-		add_assoc_long(sysinfo,"memTotal", top_info.mem.total);
-		add_assoc_long(sysinfo,"memUsed", top_info.mem.total - top_info.mem.free);
-		add_assoc_long(sysinfo,"memFree", top_info.mem.free);
-		add_assoc_long(sysinfo,"memShared", top_info.mem.shared);
-		add_assoc_long(sysinfo,"memBuffer", top_info.mem.buffers);
-		add_assoc_long(sysinfo,"memCached", top_info.mem.cached);
-		add_assoc_long(sysinfo,"memUser", top_info.mem.total - top_info.mem.free - top_info.mem.cached - top_info.mem.buffers);
-		add_assoc_long(sysinfo,"memLocked", top_info.mem.locked);
-		add_assoc_long(sysinfo,"swapTotal", top_info.mem.swapTotal);
-		add_assoc_long(sysinfo,"swapFree", top_info.mem.swapFree);
+		add_assoc_long(&sysinfo,"memTotal", top_info.mem.total);
+		add_assoc_long(&sysinfo,"memUsed", top_info.mem.total - top_info.mem.free);
+		add_assoc_long(&sysinfo,"memFree", top_info.mem.free);
+		add_assoc_long(&sysinfo,"memShared", top_info.mem.shared);
+		add_assoc_long(&sysinfo,"memBuffer", top_info.mem.buffers);
+		add_assoc_long(&sysinfo,"memCached", top_info.mem.cached);
+		add_assoc_long(&sysinfo,"memUser", top_info.mem.total - top_info.mem.free - top_info.mem.cached - top_info.mem.buffers);
+		add_assoc_long(&sysinfo,"memLocked", top_info.mem.locked);
+		add_assoc_long(&sysinfo,"swapTotal", top_info.mem.swapTotal);
+		add_assoc_long(&sysinfo,"swapFree", top_info.mem.swapFree);
 
-		add_assoc_zval(return_value, "sysinfo", sysinfo);
+		add_assoc_zval(return_value, "sysinfo", &sysinfo);
 
-		zval *procinfo;
-		MAKE_STD_ZVAL(procinfo);
-		array_init_size(procinfo, 8);
+		zval procinfo;
+		array_init_size(&procinfo, 8);
 
-		add_assoc_double(procinfo, "pcpu", top_info.pcpu.stime + top_info.pcpu.utime);
+		add_assoc_double(&procinfo, "pcpu", top_info.pcpu.stime + top_info.pcpu.utime);
 
-		add_assoc_long(procinfo, "size", top_info.proc.size); /* total # of pages of memory */
-		add_assoc_long(procinfo, "vsize", top_info.proc.size); /* number of pages of virtual memory ... */
-		add_assoc_long(procinfo, "resident", top_info.proc.rssFile); /* number of resident set (non-swapped) pages (4k) */
-		add_assoc_long(procinfo, "share", top_info.proc.share); /* number of pages of shared (mmap'd) memory */
-		add_assoc_long(procinfo, "rss", top_info.proc.resident); /* resident set size */
-		add_assoc_long(procinfo, "rss_rlim", 0); /* current limit (in bytes) of the rss of the process; usually 2,147,483,647 */
+		add_assoc_long(&procinfo, "size", top_info.proc.size); /* total # of pages of memory */
+		add_assoc_long(&procinfo, "vsize", top_info.proc.size); /* number of pages of virtual memory ... */
+		add_assoc_long(&procinfo, "resident", top_info.proc.rssFile); /* number of resident set (non-swapped) pages (4k) */
+		add_assoc_long(&procinfo, "share", top_info.proc.share); /* number of pages of shared (mmap'd) memory */
+		add_assoc_long(&procinfo, "rss", top_info.proc.resident); /* resident set size */
+		add_assoc_long(&procinfo, "rss_rlim", 0); /* current limit (in bytes) of the rss of the process; usually 2,147,483,647 */
 
-		add_assoc_zval(return_value, "procinfo", procinfo);
+		add_assoc_zval(return_value, "procinfo", &procinfo);
 	}
 }
 
@@ -1119,8 +1113,8 @@ static long ssp_msg_queue_running = 0;
 static bool ssp_msg_queue_stop = false;
 static long ssp_msg_queue_msgs = 0;
 static queue_t *ssp_msg_queue = NULL;
-static pthread_mutex_t ssp_msg_queue_lock;
-static pthread_cond_t ssp_msg_queue_cond;
+static pthread_mutex_t ssp_msg_queue_lock, ssp_msg_queue_lock2;
+static pthread_cond_t ssp_msg_queue_cond, ssp_msg_queue_cond2;
 
 #define MSG_PARAM_COUNT 7
 typedef struct _ssp_msg_t {
@@ -1152,17 +1146,15 @@ static void *ssp_msg_queue_handler(void *arg) {
 
 	for(;;) {
 		msg = NULL;
-		pthread_mutex_lock(&ssp_msg_queue_lock);
-		while(!ssp_msg_queue_msgs && !ssp_msg_queue_stop) pthread_cond_wait(&ssp_msg_queue_cond, &ssp_msg_queue_lock);
-		if(ssp_msg_queue_stop) {
-			pthread_cond_signal(&ssp_msg_queue_cond);
-		} else {
+		pthread_mutex_lock(&ssp_msg_queue_lock2);
+		while(!ssp_msg_queue_msgs && !ssp_msg_queue_stop) pthread_cond_wait(&ssp_msg_queue_cond2, &ssp_msg_queue_lock2);
+		if(!ssp_msg_queue_stop) {
 			msg = queue_pop(ssp_msg_queue);
 			if(msg) {
 				ssp_msg_queue_msgs--;
 			}
 		}
-		pthread_mutex_unlock(&ssp_msg_queue_lock);
+		pthread_mutex_unlock(&ssp_msg_queue_lock2);
 
 		if(ssp_msg_queue_stop) break;
 		if(!msg) continue;
@@ -1228,7 +1220,9 @@ static PHP_FUNCTION(ssp_msg_queue_init)
 	ssp_msg_queue = queue_init();
 
 	pthread_mutex_init(&ssp_msg_queue_lock, NULL);
+	pthread_mutex_init(&ssp_msg_queue_lock2, NULL);
 	pthread_cond_init(&ssp_msg_queue_cond, NULL);
+	pthread_cond_init(&ssp_msg_queue_cond2, NULL);
 
 	int i;
 	for(i=0; i<nthreads; i++) {
@@ -1281,15 +1275,15 @@ static PHP_FUNCTION(ssp_msg_queue_push)
 	msg->arg4 = arg4;
 	msg->arg5 = arg5;
 
-	pthread_mutex_lock(&ssp_msg_queue_lock);
+	pthread_mutex_lock(&ssp_msg_queue_lock2);
 	if(ssp_msg_queue_msgs >= ssp_msg_queue_max_msgs) {
 		php_printf("ssp_msg_queue_push: too many messages\n");
 	} else {
 		ssp_msg_queue_msgs++;
 		queue_push(ssp_msg_queue, msg);
-		pthread_cond_signal(&ssp_msg_queue_cond);
+		pthread_cond_signal(&ssp_msg_queue_cond2);
 	}
-	pthread_mutex_unlock(&ssp_msg_queue_lock);
+	pthread_mutex_unlock(&ssp_msg_queue_lock2);
 }
 
 static bool ssp_msg_queue_cmp(ssp_msg_t *s, void *ptr) {
@@ -1307,18 +1301,20 @@ static PHP_FUNCTION(ssp_msg_queue_destory)
 	if(!ssp_msg_queue_running || ssp_msg_queue_stop) return;
 
 	pthread_mutex_lock(&ssp_msg_queue_lock);
-	ssp_msg_queue_stop = true;
-	pthread_cond_signal(&ssp_msg_queue_cond);
-	pthread_mutex_unlock(&ssp_msg_queue_lock);
-
-	pthread_mutex_lock(&ssp_msg_queue_lock);
 	while(ssp_msg_queue_running > 0) {
+		pthread_mutex_lock(&ssp_msg_queue_lock2);
+		ssp_msg_queue_stop = true;
+		pthread_cond_signal(&ssp_msg_queue_cond2);
+		pthread_mutex_unlock(&ssp_msg_queue_lock2);
+
 		pthread_cond_wait(&ssp_msg_queue_cond, &ssp_msg_queue_lock);
 	}
 	pthread_mutex_unlock(&ssp_msg_queue_lock);
 
 	pthread_mutex_destroy(&ssp_msg_queue_lock);
+	pthread_mutex_destroy(&ssp_msg_queue_lock2);
 	pthread_cond_destroy(&ssp_msg_queue_cond);
+	pthread_cond_destroy(&ssp_msg_queue_cond2);
 
 	queue_clean_ex(ssp_msg_queue, NULL, (queue_cmp_t) ssp_msg_queue_cmp);
 	queue_free(ssp_msg_queue);
@@ -1760,11 +1756,10 @@ static void hash_table_to_zval(bucket_t *p, zval *a) {
 				add_index_stringl(a, p->h, p->value.str->str, p->value.str->len);
 				break;
 			case HT_T: {
-				zval *z;
-				MAKE_STD_ZVAL(z);
-				array_init_size(z, hash_table_num_elements(p->value.ptr));
-				hash_table_apply_with_argument(p->value.ptr, (hash_apply_func_arg_t) hash_table_to_zval, z);
-				add_index_zval(a, p->h, z);
+				zval z;
+				array_init_size(&z, hash_table_num_elements(p->value.ptr));
+				hash_table_apply_with_argument(p->value.ptr, (hash_apply_func_arg_t) hash_table_to_zval, &z);
+				add_index_zval(a, p->h, &z);
 				break;
 			}
 			case SERI_T: {
@@ -1805,21 +1800,14 @@ static void hash_table_to_zval(bucket_t *p, zval *a) {
 				add_assoc_stringl_ex(a, p->arKey, p->nKeyLength, p->value.str->str, p->value.str->len);
 				break;
 			case HT_T: {
-				zval *z;
-				MAKE_STD_ZVAL(z);
-				array_init_size(z, hash_table_num_elements(p->value.ptr));
-				hash_table_apply_with_argument(p->value.ptr, (hash_apply_func_arg_t) hash_table_to_zval, z);
-				add_assoc_zval_ex(a, p->arKey, p->nKeyLength, z);
+				zval z;
+				array_init_size(&z, hash_table_num_elements(p->value.ptr));
+				hash_table_apply_with_argument(p->value.ptr, (hash_apply_func_arg_t) hash_table_to_zval, &z);
+				add_assoc_zval_ex(a, p->arKey, p->nKeyLength, &z);
 				break;
 			}
 			case SERI_T: {
-				#define __SERI_OK3 \
-					zval *z; \
-					MAKE_STD_ZVAL(z); \
-					ZVAL_COPY(z, retval); \
-					add_assoc_zval_ex(a, p->arKey, p->nKeyLength, z)
-				UNSERIALIZE(p->value.str->str, p->value.str->len, __SERI_OK3);
-				#undef __SERI_OK2
+				UNSERIALIZE(p->value.str->str, p->value.str->len, add_assoc_zval_ex(a, p->arKey, p->nKeyLength, retval));
 				break;
 			}
 			case PTR_T:
