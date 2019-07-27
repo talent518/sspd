@@ -11,7 +11,6 @@
 typedef unsigned long int ulong;
 
 typedef struct string_t {
-	unsigned int size;
 	unsigned int len;
 	char str[1];
 } string_t;

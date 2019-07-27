@@ -8,7 +8,8 @@ function ssp_monitor_handler(array $scpu, array $pcpu, array $smem, array $pmem,
 }
 
 function connect_handler($what, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
-	for($i=0; $i<SSP_MAX_CLIENTS; $i++) ssp_connect('127.0.0.1', 8082 + ($i%3)*2);
+	for($i=0; $i<SSP_MAX_CLIENTS/2; $i++) ssp_connect('127.0.0.1', 8082 + ($i%3)*2);
+	for($i=0; $i<SSP_MAX_CLIENTS/2; $i++) ssp_connect('192.168.1.200', 8082 + ($i%3)*2);
 
 	echo 'connect usage time: ', round(microtime(true) - $arg, 3), ' seconds', PHP_EOL;
 }
@@ -47,19 +48,20 @@ function timeout6_handler($delay, $persist, $arg) {
 }
 
 function count_handler($delay, $persist, $arg) {
+	$n = time() - $arg;
 	$s = ssp_counts(COUNT_REQ2, 0);
-	$a = 0;
-	if($s) {
-		$a = ssp_counts(COUNT_AVG, -3);
-		if($a) {
-			$a = floor(($a+$s) / 2);
-			ssp_counts(COUNT_AVG, 0, $a);
-		} else {
-			$a = $s;
-			ssp_counts(COUNT_AVG, 0, $s);
-		}
+	$a = ssp_counts(COUNT_AVG, -3);
+	$a += $s;
+	if($n <= 10) {
+		ssp_counts(COUNT_AVG, 0, $a);
+		ssp_counts(COUNT_AVG + $n, 0, $s);
+		$a /= $n;
+	} else {
+		$a -= ssp_counts(COUNT_AVG + ($n - 1) % 10 + 1, 0, $s);
+		ssp_counts(COUNT_AVG, 0, $a);
+		$a /= 10;
 	}
-	echo gmdate('H:i:s', time()-$arg), ' - threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, -3), ', reqs: ', $s, '(', $a, ')', PHP_EOL;
+	echo gmdate('H:i:s', $n), ' - threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, -3), ', reqs: ', $s, '(', floor($a), ')', PHP_EOL;
 }
 
 function ssp_start_handler () {
