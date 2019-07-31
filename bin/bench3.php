@@ -8,8 +8,7 @@ function ssp_monitor_handler(array $scpu, array $pcpu, array $smem, array $pmem,
 }
 
 function connect_handler($what, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
-	for($i=0; $i<SSP_MAX_CLIENTS/2; $i++) ssp_connect('127.0.0.1', 8082 + ($i%3)*2);
-	for($i=0; $i<SSP_MAX_CLIENTS/2; $i++) ssp_connect('192.168.1.200', 8082 + ($i%3)*2);
+	for($i=0; $i<SSP_MAX_CLIENTS; $i++) ssp_connect('127.0.0.1', 8082 + ($i%3)*2);
 
 	echo 'connect usage time: ', round(microtime(true) - $arg, 3), ' seconds', PHP_EOL;
 }

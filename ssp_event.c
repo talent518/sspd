@@ -25,57 +25,6 @@ int ssp_nthreads = 10;
 listen_thread_t listen_thread;
 worker_thread_t *worker_threads;
 
-#if 0
-static void listen_handler(const int fd, const short which, void *arg);
-bool update_accept_event(short new_flags) {
-	if(listen_thread.ev_flags==new_flags) {
-		return false;
-	}
-
-    if (event_del(&listen_thread.listen_ev) == -1) {
-		return false;
-	}
-
-	listen_thread.ev_flags=new_flags;
-
-	event_set(&listen_thread.listen_ev, listen_thread.sockfd, new_flags, listen_handler, NULL);
-	event_base_set(listen_thread.base, &listen_thread.listen_ev);
-    event_add(&listen_thread.listen_ev, NULL);
-
-	return true;
-}
-
-void is_accept_conn_ex(bool do_accept) {
-	if(listen_thread.sockfd < 0) {
-		// bench_event ignore
-	} else if (do_accept) {
-		if (update_accept_event(EV_READ | EV_PERSIST) && listen(listen_thread.sockfd, ssp_backlog) != 0) {
-			perror("listen");
-		}
-	} else {
-		if (update_accept_event(0) && listen(listen_thread.sockfd, 0) != 0) {
-			perror("listen");
-		}
-	}
-}
-
-void is_accept_conn(bool do_accept) {
-	char chr;
-	if(listen_thread.sockfd < 0) {
-		return;
-	} else if (do_accept) {
-		chr='e'; // enable
-	} else {
-		chr='d'; // disable
-	}
-
-	write(listen_thread.write_fd, &chr, 1);
-}
-#else
-#define is_accept_conn_ex(a)
-#define is_accept_conn(a)
-#endif
-
 static void *worker_thread_handler(void *arg)
 {
 	worker_thread_t *me = arg;
@@ -128,11 +77,10 @@ void worker_create(void *(*func)(void *), void *arg) {
 static void read_write_handler(int sock, short event, void* arg);
 
 void is_writable_conn(conn_t *ptr, bool iswrite) {
-	assert(ptr->refable);
-	assert(ptr->sockfd > 0);
+	if(ptr->sockfd < 0) return;
 
 	dprintf("%s: %4d, %d, begin\n", __func__, ptr->index, iswrite);
-	if(event_del(&ptr->event) == -1) perror("event_del");
+	event_del(&ptr->event);
 
 	if(iswrite) event_set(&ptr->event, ptr->sockfd, EV_READ|EV_WRITE|EV_PERSIST, read_write_handler, ptr);
 	else event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, read_write_handler, ptr);
@@ -174,8 +122,6 @@ static void read_write_handler(int sock, short event, void* arg)
 			clean_conn(ptr);
 			trigger(PHP_SSP_CLOSE,ptr);
 			remove_conn(ptr);
-
-			is_accept_conn(true);
 			return;
 		}
 	}
@@ -191,8 +137,6 @@ static void read_write_handler(int sock, short event, void* arg)
 		clean_conn(ptr);
 		trigger(PHP_SSP_CLOSE,ptr);
 		remove_conn(ptr);
-
-		is_accept_conn(true);
 	} else { // 接收数据成功
 		INIT_RUNTIME();
 		trigger(PHP_SSP_RECEIVE,ptr,data,data_len);
@@ -242,8 +186,6 @@ void socket_send_buf(conn_t *ptr, char *package, int plen) {
 			clean_conn(ptr);
 			trigger(PHP_SSP_CLOSE, ptr);
 			remove_conn(ptr);
-
-			is_accept_conn(true);
 		}
 	#else
 		ptr->wbuf = package;
@@ -315,8 +257,6 @@ static void notify_handler(const int fd, const short which, void *arg)
 				remove_conn(ptr);
 
 				me->conn_num--;
-
-				is_accept_conn(true);
 				break;
 			case '-': // 结束worker/notify线程
 				event_base_loopbreak(me->base);
@@ -464,12 +404,6 @@ static void listen_notify_handler(const int fd, const short which, void *arg)
 		dprintf("%s(%c)\n", __func__, buf[i]);
 
 		switch(buf[i]) {
-			case 'e': // 接受连接(enable)
-				is_accept_conn_ex(true);
-				break;
-			case 'd': // 禁止连接(disable)
-				is_accept_conn_ex(false);
-				break;
 		#if ASYNC_SEND
 			case 's': {
 				conv_server_t *c = queue_pop(ssp_server_queue);
@@ -524,8 +458,8 @@ static void listen_notify_handler(const int fd, const short which, void *arg)
 				free(c);
 				break;
 			}
-#endif // ASYNC_SEND
-	#ifdef SSP_CODE_TIMEOUT
+		#endif // ASYNC_SEND
+		#ifdef SSP_CODE_TIMEOUT
 			case 't':
 				if(isclean) {
 					break;
@@ -549,9 +483,9 @@ static void listen_notify_handler(const int fd, const short which, void *arg)
 				gc_collect_cycles();
 			#endif
 				isglobal = true;
-		#endif
+		#endif // SSP_CODE_TIMEOUT_GLOBAL
 				break;
-	#endif
+		#endif // SSP_CODE_TIMEOUT
 			default:
 				break;
 		}
@@ -577,8 +511,6 @@ static void listen_handler(const int fd, const short which, void *arg)
 
 	if(CONN_NUM >= ssp_maxclients) {
 		conn_t conn;
-		is_accept_conn_ex(false);
-
 		ptr = &conn;
 
 		bzero(ptr, sizeof(conn_t));
@@ -617,8 +549,7 @@ static void signal_handler(const int fd, short event, void *arg) {
 	dprintf("%s: got signal %d\n", __func__, EVENT_SIGNAL(&listen_thread.signal_int));
 
 	event_del(&listen_thread.signal_int);
-
-	is_accept_conn_ex(false);
+	if(listen_thread.sockfd >= 0) event_del(&listen_thread.listen_ev);
 
 	register int i;
 	char chr = '-';

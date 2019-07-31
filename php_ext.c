@@ -579,7 +579,7 @@ void ssp_conv_disconnect(server_t *s) {
 
 	shutdown(s->sockfd, SHUT_RDWR);
 	close(s->sockfd);
-	if(s->event.ev_base) event_del(&s->event);
+	event_del(&s->event);
 
 	if(s->rbuf) {
 		free(s->rbuf);
@@ -673,7 +673,9 @@ static PHP_FUNCTION(ssp_conv_setup)
 #if ASYNC_SEND
 static void conv_read_write_handler(int sock, short event, void *arg);
 void is_writable_conv(server_t *ptr, bool iswrite) {
-	if(event_del(&ptr->event) == -1) perror("event_del");
+	if(ptr->sockfd < 0) return;
+
+	event_del(&ptr->event);
 
 	if(iswrite) event_set(&ptr->event, ptr->sockfd, EV_READ|EV_WRITE|EV_PERSIST, conv_read_write_handler, ptr);
 	else event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, conv_read_write_handler, ptr);
@@ -812,7 +814,7 @@ static PHP_FUNCTION(ssp_conv_connect)
 	size_t host_len;
 	zend_long port, sid;
 	server_t *ptr;
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "sll", &host, &host_len, &port, &sid) == FAILURE || sid < 0 || sid >= ssp_server_max) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "sll", &host, &host_len, &port, &sid) == FAILURE || sid < 0 || sid >= ssp_server_max || servers[sid].sockfd >= 0) {
 		return;
 	}
 
@@ -821,7 +823,6 @@ static PHP_FUNCTION(ssp_conv_connect)
 
 	strncpy(ptr->host, host, host_len);
 	ptr->port = port;
-	ptr->sockfd = -1;
 
 	int s;
 	struct sockaddr_in addr;

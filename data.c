@@ -45,9 +45,9 @@ void end_write_lock(){
 }
 
 void attach_conn(){
-	assert(indexs==NULL);
-	assert(iconns==NULL);
-	assert(refcounts==NULL);
+	assert(indexs == NULL);
+	assert(iconns == NULL);
+	assert(refcounts == NULL);
 
 	pthread_mutex_init(&mx_reader, NULL);
 	pthread_mutex_init(&mx_writer, NULL);
@@ -55,13 +55,14 @@ void attach_conn(){
 	indexs = (int*)malloc(sizeof(int) * ssp_maxclients);
 	memset(indexs, 0, sizeof(int) * ssp_maxclients);
 
-	iconns=(conn_t*)malloc(sizeof(conn_t) * ssp_maxclients);
+	iconns = (conn_t*)malloc(sizeof(conn_t) * ssp_maxclients);
 	memset(iconns, 0, sizeof(conn_t) * ssp_maxclients);
 
-	refcounts=(conn_refcount_t*)malloc(sizeof(conn_refcount_t) * ssp_maxclients);
+	refcounts = (conn_refcount_t*)malloc(sizeof(conn_refcount_t) * ssp_maxclients);
 
 	register int i;
 	for(i=0; i<ssp_maxclients; i++) {
+		iconns[i].sockfd = -1;
 		refcounts[i].ref_count = 0;
 		pthread_mutex_init(&refcounts[i].lock, NULL);
 		pthread_cond_init(&refcounts[i].cond, NULL);
@@ -69,7 +70,7 @@ void attach_conn(){
 }
 
 conn_t *index_conn(int i){
-	conn_t *ptr=NULL;
+	conn_t *ptr = NULL;
 
 	if(i < 0 || i >= ssp_maxclients) return NULL;
 
@@ -79,7 +80,7 @@ conn_t *index_conn(int i){
 		if(ptr->index == i && ptr->refable) {
 			ref_conn(ptr);
 		} else {
-			ptr=NULL;
+			ptr = NULL;
 		}
 	} END_READ_LOCK;
 
@@ -118,10 +119,14 @@ void unref_conn(conn_t *ptr) {
 void clean_conn(conn_t *ptr) {
 	ptr->refable = false;
 
-	if(ptr->port) event_del(&ptr->event);
+	if(ptr->sockfd >= 0) {
+		event_del(&ptr->event);
 
-	shutdown(ptr->sockfd, SHUT_RDWR);
-	close(ptr->sockfd);
+		shutdown(ptr->sockfd, SHUT_RDWR);
+		close(ptr->sockfd);
+
+		ptr->sockfd = -1;
+	}
 
 	if(ptr->rbuf) {
 		free(ptr->rbuf);
@@ -209,6 +214,8 @@ void remove_conn(conn_t *ptr){
 		}
 
 		memset(ptr, 0, sizeof(conn_t));
+
+		ptr->sockfd = -1;
 	} END_WRITE_LOCK;
 }
 
@@ -226,7 +233,6 @@ void detach_conn(){
 
 	register int i;
 	for(i=0; i<ssp_maxclients; i++) {
-		refcounts[i].ref_count = 0;
 		pthread_mutex_destroy(&refcounts[i].lock);
 		pthread_cond_destroy(&refcounts[i].cond);
 	}

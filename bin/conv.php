@@ -37,7 +37,7 @@ function ssp_monitor_handler(array $scpu, array $pcpu, array $smem, array $pmem,
 				$valuestr .= ',?';
 			}
 		}
-		$db->exec('CREATE TABLE IF NOT EXISTS ssp_monitor(id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,sid INT(11) UNSIGNED NOT NULL' . $fieldstr . ',createTime TIMESTAMP,PRIMARY KEY (id)) ENGINE=memory CHARSET=utf8');
+		$db->exec('CREATE TABLE IF NOT EXISTS ssp_monitor(id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,sid INT(11) UNSIGNED NOT NULL' . $fieldstr . ',createTime TIMESTAMP,PRIMARY KEY (id)) ENGINE=Innodb CHARSET=utf8');
 		$monitorStmt = $db->prepare('INSERT INTO ssp_monitor (sid' . $namestr . ',createTime)VALUES(?' . $valuestr . ',NOW())');
 	}
 	$params = [I];
