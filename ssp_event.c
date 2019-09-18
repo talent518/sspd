@@ -707,8 +707,10 @@ static void timeout_monitor_handler(evutil_socket_t fd, short event, void *arg) 
 	zval params[MONITOR_PARAM_COUNT];
 
 	getcpu(&cpu);
-	getmem(&top_info.mem);
 	getprocessinfo(getpid(), &proc);
+
+	SSP_STATS_WLOCK();
+	getmem(&top_info.mem);
 
 	// system cpu persent calculate ==========================
 
@@ -730,15 +732,18 @@ static void timeout_monitor_handler(evutil_socket_t fd, short event, void *arg) 
 	top_info.pcpu.utime    =  (double)(proc.utime - top_info.proc.utime + proc.cutime - top_info.proc.cutime) / total;
 	top_info.pcpu.stime    =  (double)(proc.stime - top_info.proc.stime + proc.cstime - top_info.proc.cstime) / total;
 	top_info.proc          = proc;
+	SSP_STATS_WUNLOCK();
 
 	// php function call =====================================
 
 	ZVAL_STRING(&pfunc, MONITOR_FUNC_NAME);
 
+	SSP_STATS_RLOCK();
 	set_monitor_zval(&params[0], &params[1], &params[2], &params[3], &params[6]);
 
 	ZVAL_LONG(&params[4], top_info.proc.threads); // threads
 	ZVAL_LONG(&params[5], top_info.proc.etime); // etime
+	SSP_STATS_RUNLOCK();
 
 	ZVAL_NULL(&rv);
 
@@ -866,6 +871,9 @@ void loop_event (int sockfd) {
 		exit(1);
 	}
 
+	pthread_mutex_init(&ssp_stats_rlock, NULL);
+	pthread_mutex_init(&ssp_stats_wlock, NULL);
+
 	memset(&top_info, 0, sizeof(top_info));
 	getcpu(&top_info.cpu);
 	getmem(&top_info.mem);
@@ -888,4 +896,7 @@ void loop_event (int sockfd) {
 	if(sockfd >= 0) close(sockfd);
 
 	detach_conn();
+
+	pthread_mutex_destroy(&ssp_stats_rlock);
+	pthread_mutex_destroy(&ssp_stats_wlock);
 }

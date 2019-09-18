@@ -989,6 +989,27 @@ static PHP_FUNCTION(ssp_unlock)
 	pthread_mutex_unlock(&unique_lock);
 }
 
+pthread_mutex_t ssp_stats_rlock;
+pthread_mutex_t ssp_stats_wlock;
+int ssp_stats_locks = 0;
+
+#define SSP_STATS_RLOCK() \
+	pthread_mutex_lock(&ssp_stats_rlock); \
+	if ((++(ssp_stats_locks)) == 1) { \
+		pthread_mutex_lock(&ssp_stats_wlock); \
+	} \
+	pthread_mutex_unlock(&ssp_stats_rlock)
+
+#define SSP_STATS_RUNLOCK() \
+	pthread_mutex_lock(&ssp_stats_rlock); \
+	if ((--(ssp_stats_locks)) == 0) { \
+		pthread_mutex_unlock(&ssp_stats_wlock); \
+	} \
+	pthread_mutex_unlock(&ssp_stats_rlock)
+
+#define SSP_STATS_WLOCK() pthread_mutex_lock(&ssp_stats_wlock)
+#define SSP_STATS_WUNLOCK() pthread_mutex_unlock(&ssp_stats_wlock)
+
 static PHP_FUNCTION(ssp_stats)
 {
 	zend_bool monitor = false;
@@ -996,6 +1017,7 @@ static PHP_FUNCTION(ssp_stats)
 		RETURN_FALSE;
 	}
 
+	SSP_STATS_RLOCK();
 	if(monitor) {
 		zval scpu, pcpu, smem, pmem, args;
 		set_monitor_zval(&scpu, &pcpu, &smem, &pmem, &args);
@@ -1041,6 +1063,7 @@ static PHP_FUNCTION(ssp_stats)
 
 		add_assoc_zval(return_value, "procinfo", &procinfo);
 	}
+	SSP_STATS_RUNLOCK();
 }
 
 unsigned int counts[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};

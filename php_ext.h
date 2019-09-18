@@ -142,7 +142,30 @@ static PHP_FUNCTION(ssp_close);
 static PHP_FUNCTION(ssp_lock);
 static PHP_FUNCTION(ssp_unlock);
 
+// begin stats
+extern pthread_mutex_t ssp_stats_rlock;
+extern pthread_mutex_t ssp_stats_wlock;
+extern int ssp_stats_locks;
+
+#define SSP_STATS_RLOCK() \
+	pthread_mutex_lock(&ssp_stats_rlock); \
+	if ((++(ssp_stats_locks)) == 1) { \
+		pthread_mutex_lock(&ssp_stats_wlock); \
+	} \
+	pthread_mutex_unlock(&ssp_stats_rlock)
+
+#define SSP_STATS_RUNLOCK() \
+	pthread_mutex_lock(&ssp_stats_rlock); \
+	if ((--(ssp_stats_locks)) == 0) { \
+		pthread_mutex_unlock(&ssp_stats_wlock); \
+	} \
+	pthread_mutex_unlock(&ssp_stats_rlock)
+
+#define SSP_STATS_WLOCK() pthread_mutex_lock(&ssp_stats_wlock)
+#define SSP_STATS_WUNLOCK() pthread_mutex_unlock(&ssp_stats_wlock)
+
 static PHP_FUNCTION(ssp_stats);
+// end stats
 
 // bench usage
 static PHP_FUNCTION(ssp_counts);

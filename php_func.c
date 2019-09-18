@@ -349,6 +349,9 @@ void ssp_request_startup(){
 	REGISTER_MAIN_LONG_CONSTANT("SSP_BACKLOG",ssp_backlog,CONST_CS | CONST_PERSISTENT);
 #ifdef SSP_CODE_TIMEOUT
 	REGISTER_MAIN_LONG_CONSTANT("SSP_TIMEOUT",ssp_timeout,CONST_CS | CONST_PERSISTENT);
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+		REGISTER_MAIN_LONG_CONSTANT("SSP_CODE_TIMEOUT_GLOBAL",ssp_global_timeout,CONST_CS | CONST_PERSISTENT);
+	#endif
 #endif
 
 	zend_is_auto_global_str(ZEND_STRL("_SERVER"));
@@ -368,6 +371,9 @@ void ssp_request_shutdown(){
 
 #ifdef SSP_CODE_TIMEOUT
 	zend_hash_str_del(EG(zend_constants), "SSP_TIMEOUT", sizeof("SSP_TIMEOUT")-1);
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+		zend_hash_str_del(EG(zend_constants), "SSP_CODE_TIMEOUT_GLOBAL", sizeof("SSP_CODE_TIMEOUT_GLOBAL")-1);
+	#endif
 #endif
 
 	php_request_shutdown(NULL);
