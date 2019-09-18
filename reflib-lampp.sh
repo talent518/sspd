@@ -78,29 +78,6 @@ elif [ ! -h "/usr/lib/pkgconfig" -a -d "/usr/lib64/pkgconfig" ]; then
 	ln -s /usr/lib64/pkgconfig /usr/lib/pkgconfig
 fi
 
-#libpopt
-if [ ! -f /usr/include/popt.h ]; then
-    echo Installing libpopt ...
-    if [ ! -d "/tmp/popt-1.7" ]; then
-        tar -xvf popt-1.7.tar.gz -C /tmp/
-    fi
-    pushd /tmp/popt-1.7
-    
-    ./configure --prefix=/usr \
-    && make \
-    && make install
-    
-    if [ "$?" = "0" ]; then
-        popd
-        rm -rf /tmp/popt-1.7
-        echo Installed libpopt Success.
-    else
-        popd
-        echo Installed libpopt error.
-        exit 1
-    fi
-fi
-
 echo All library installation has been completed.
 
 #end reflib
