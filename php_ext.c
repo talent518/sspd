@@ -1305,9 +1305,32 @@ static PHP_FUNCTION(ssp_msg_queue_push)
 	} else {
 		ssp_msg_queue_msgs++;
 		queue_push(ssp_msg_queue, msg);
+		msg = NULL;
 		pthread_cond_signal(&ssp_msg_queue_cond2);
 	}
 	pthread_mutex_unlock(&ssp_msg_queue_lock2);
+
+	if(msg) {
+		free(msg);
+
+		zval retval;
+		zend_fcall_info fci;
+		zend_fcall_info_cache fci_cache;
+
+		ZEND_PARSE_PARAMETERS_START(1, -1)
+			Z_PARAM_FUNC(fci, fci_cache)
+			Z_PARAM_VARIADIC('*', fci.params, fci.param_count)
+		ZEND_PARSE_PARAMETERS_END();
+
+		fci.retval = &retval;
+
+        if (zend_call_function(&fci, &fci_cache) == SUCCESS && Z_TYPE(retval) != IS_UNDEF) {
+			if (Z_ISREF(retval)) {
+				zend_unwrap_reference(&retval);
+			}
+			ZVAL_COPY_VALUE(return_value, &retval);
+        }
+	}
 }
 
 static bool ssp_msg_queue_cmp(ssp_msg_t *s, void *ptr) {
