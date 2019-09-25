@@ -187,7 +187,7 @@ function ssp_delayed_set ( $funcname, $delay, $persist, $arg = null, $arg1 = 0, 
  *
  * @param string $funcname
  */
-function ssp_delayed_set ( $funcname ) {
+function ssp_delayed_del ( $funcname ) {
 }
 
 /**

@@ -110,7 +110,7 @@ class CtlUser extends CtlBase {
 			ssp_unlock();
 
 			foreach($list as $exitId){
-				ssp_send($exitId, $exitLogin); ssp_close($exitId);
+				ssp_send($exitId, $exitLogin); // ssp_delayed_set('ssp_delay_close', 100, false, $exitId);
 			}
 
 			if ( UGK($uid, 'consult_reply') ) {
