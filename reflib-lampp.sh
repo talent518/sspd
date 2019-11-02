@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash --login
 
 cpus=$(cat /proc/cpuinfo | grep processor | wc -l)
 alias make="make -j$cpus"

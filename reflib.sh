@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash --login
 
 INST_DIR=/opt/ssp7
 
