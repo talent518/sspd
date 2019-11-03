@@ -338,6 +338,8 @@ static PHP_GINIT_FUNCTION(ssp)
 	ssp_globals->trigger_type = -1;
 	ssp_globals->trigger_count = 0;
 	ZVAL_UNDEF(&ssp_globals->ssp_vars);
+	memset(ssp_globals->threadname, 0, sizeof(ssp_globals->threadname));
+	memset(ssp_globals->strftime, 0, sizeof(ssp_globals->strftime));
 
 #ifdef SSP_DEBUG_EXT
 	printf("globals constructor function for %s\n", __func__);
@@ -1161,6 +1163,9 @@ static void *ssp_msg_queue_handler(void *arg) {
 	zval params[MSG_PARAM_COUNT];
 	int i;
 
+	ts_resource(0);
+	sprintf(SSP_G(threadname), "queue %lu thread", (ulong) arg);
+
 	pthread_mutex_lock(&ssp_msg_queue_lock);
 	ssp_msg_queue_running++;
 	pthread_cond_signal(&ssp_msg_queue_cond);
@@ -1248,9 +1253,9 @@ static PHP_FUNCTION(ssp_msg_queue_init)
 	pthread_cond_init(&ssp_msg_queue_cond, NULL);
 	pthread_cond_init(&ssp_msg_queue_cond2, NULL);
 
-	int i;
+	ulong i;
 	for(i=0; i<nthreads; i++) {
-		worker_create(ssp_msg_queue_handler, NULL);
+		worker_create(ssp_msg_queue_handler, (void*) i);
 	}
 
 	pthread_mutex_lock(&ssp_msg_queue_lock);
@@ -1532,6 +1537,9 @@ static void *ssp_delayed_handler(void *arg) {
 		perror("event_add()");
 		exit(1);
 	}
+
+	ts_resource(0);
+	strcpy(SSP_G(threadname), "delayed thread");
 
 	pthread_mutex_lock(&ssp_delayed_lock);
 	ssp_delayed_running++;
@@ -2184,4 +2192,23 @@ static PHP_FUNCTION(ssp_var_destory)
 	ssp_var_ht = NULL;
 
 	RETVAL_LONG(n);
+}
+
+const char *gettimeofstr() {
+	time_t t;
+	struct tm *tmp;
+
+	t = time(NULL);
+	tmp = localtime(&t);
+	if (tmp == NULL) {
+		perror("localtime error");
+		return "";
+	}
+
+	if (strftime(SSP_G(strftime), sizeof(SSP_G(strftime)), "%F %T", tmp) == 0) {
+		fprintf(stderr, "strftime returned 0");
+		return "";
+	}
+
+	return SSP_G(strftime);
 }

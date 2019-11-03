@@ -137,7 +137,7 @@ static void sapi_ssp_register_variables(zval *track_vars_array) /* {{{ */
 	 * variables
 	 */
 	php_import_environment_variables(track_vars_array);
-	
+
 	if(request_init_file == NULL) return;
 
 	/* Build the special-case PHP_SELF variable for the CLI version */
@@ -166,7 +166,7 @@ static void sapi_ssp_register_variables(zval *track_vars_array) /* {{{ */
 
 static void sapi_ssp_log_message(char *message, int syslog_type_int) /* {{{ */
 {
-	fprintf(stderr, "%s\n", message);
+	fprintf(stderr, "%s - %s - %s\n", gettimeofstr(), SSP_G(threadname), message);
 }
 /* }}} */
 
@@ -288,6 +288,46 @@ ZEND_API zval *zend_get_configuration_directive(zend_string *name) {
 }
 #endif
 
+static void cli_register_file_handles(void) /* {{{ */
+{
+	php_stream *s_in, *s_out, *s_err;
+	php_stream_context *sc_in=NULL, *sc_out=NULL, *sc_err=NULL;
+	zend_constant ic, oc, ec;
+
+	s_in  = php_stream_open_wrapper_ex("php://stdin",  "rb", 0, NULL, sc_in);
+	s_out = php_stream_open_wrapper_ex("php://stdout", "wb", 0, NULL, sc_out);
+	s_err = php_stream_open_wrapper_ex("php://stderr", "wb", 0, NULL, sc_err);
+
+	if (s_in==NULL || s_out==NULL || s_err==NULL) {
+		if (s_in) php_stream_close(s_in);
+		if (s_out) php_stream_close(s_out);
+		if (s_err) php_stream_close(s_err);
+		return;
+	}
+
+#if PHP_DEBUG
+	/* do not close stdout and stderr */
+	s_out->flags |= PHP_STREAM_FLAG_NO_CLOSE;
+	s_err->flags |= PHP_STREAM_FLAG_NO_CLOSE;
+#endif
+
+	php_stream_to_zval(s_in,  &ic.value);
+	php_stream_to_zval(s_out, &oc.value);
+	php_stream_to_zval(s_err, &ec.value);
+
+	ZEND_CONSTANT_SET_FLAGS(&ic, CONST_CS, 0);
+	ic.name = zend_string_init_interned("STDIN", sizeof("STDIN")-1, 0);
+	zend_register_constant(&ic);
+
+	ZEND_CONSTANT_SET_FLAGS(&oc, CONST_CS, 0);
+	oc.name = zend_string_init_interned("STDOUT", sizeof("STDOUT")-1, 0);
+	zend_register_constant(&oc);
+
+	ZEND_CONSTANT_SET_FLAGS(&ec, CONST_CS, 0);
+	ec.name = zend_string_init_interned("STDERR", sizeof("STDERR")-1, 0);
+	zend_register_constant(&ec);
+}
+
 /* {{{ main
  */
 void ssp_init(){
@@ -317,6 +357,8 @@ void ssp_module_startup(){
 	}
 }
 
+static char *sg_argv[] = {"SERVER"};
+
 void ssp_request_startup(){
 	zend_file_handle zfd;
 
@@ -338,6 +380,12 @@ void ssp_request_startup(){
 		printf("Request could not startup.\n");
 		return;
 	}
+
+	SG(request_info).argc = 1;
+	SG(request_info).argv = sg_argv;
+	SG(options) |= SAPI_OPTION_NO_CHDIR;
+
+	cli_register_file_handles();
 
 	REGISTER_MAIN_STRING_CONSTANT("SSP_PIDFILE",ssp_pidfile,CONST_CS | CONST_PERSISTENT);
 	REGISTER_MAIN_STRING_CONSTANT("SSP_USER",ssp_user,CONST_CS | CONST_PERSISTENT);

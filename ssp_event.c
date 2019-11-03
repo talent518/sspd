@@ -30,6 +30,9 @@ static void *worker_thread_handler(void *arg)
 	worker_thread_t *me = arg;
 	me->tid = pthread_self();
 
+	ts_resource(0);
+
+	sprintf(SSP_G(threadname), "worker %d thread", me->id);
 	dprintf("thread %d created\n", me->id);
 
 	THREAD_STARTUP();
@@ -762,6 +765,8 @@ void loop_event (int sockfd) {
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGURG, SIG_IGN);
 	signal(SIGALRM, SIG_IGN);
+
+	strcpy(SSP_G(threadname), "main thread");
 
 	struct rlimit rlim;
 	if(getrlimit(RLIMIT_NOFILE, &rlim) < 0) {

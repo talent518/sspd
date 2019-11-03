@@ -8,6 +8,8 @@ BUILD_DIR := build
 CFLAGS    := -O3 -Wno-unused-result -Wno-implicit-function-declaration -I$(INC_DIR) -I$(INC_DIR)/php -I$(INC_DIR)/php/main -I$(INC_DIR)/php/Zend -I$(INC_DIR)/php/TSRM -I$(INC_DIR)/php/ext -DZTS
 LFLAGS    := -L$(INST_DIR)/lib -lm -lpthread -lphp7 -levent -Wl,-rpath,$(INST_DIR)/lib -Wl,-rpath,/usr/lib
 
+LANG      := en
+
 all: $(BIN_DIR) $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/monitor
 
 $(BIN_DIR):
@@ -36,15 +38,15 @@ kill:
 
 clean:
 	@echo $@
-	@rm -rf $(BUILD_DIR)/*.e $(BUILD_DIR)/*.s $(BUILD_DIR)/*.o
-	@rm -rf $(BIN_DIR)/ssp $(BIN_DIR)/monitor
+	@rm -vf $(BUILD_DIR)/*.e $(BUILD_DIR)/*.s $(BUILD_DIR)/*.o
+	@rm -vf $(BIN_DIR)/ssp $(BIN_DIR)/monitor
 
 rebuild: kill clean all
 	@echo $@
 
 retest: kill all
 	@echo $@
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 8 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp.pid --user $(USER) -f $(PWD)/bin/init.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 8 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp.pid --outfile $(PWD)/ssp.out --errfile $(PWD)/ssp.err --user $(USER) -f $(PWD)/bin/init.php -s start
 
 monitor: $(BIN_DIR)/monitor
 	@echo $@
@@ -66,9 +68,9 @@ kill3:
 
 retest3: kill3 all
 	@echo $@
-	@$(BIN_DIR)/ssp --port 8082 --nthreads 2 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp.pid --user $(USER) -f $(PWD)/bin/conv.php -s start
-	@$(BIN_DIR)/ssp --port 8084 --nthreads 2 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp2.pid --user $(USER) -f $(PWD)/bin/conv.php -s start
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 2 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp3.pid --user $(USER) -f $(PWD)/bin/conv.php -s start
+	@$(BIN_DIR)/ssp --port 8082 --nthreads 2 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp.pid --outfile $(PWD)/ssp.out --errfile $(PWD)/ssp.err --user $(USER) -f $(PWD)/bin/conv.php -s start
+	@$(BIN_DIR)/ssp --port 8084 --nthreads 2 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp2.pid --outfile $(PWD)/ssp2.out --errfile $(PWD)/ssp2.err --user $(USER) -f $(PWD)/bin/conv.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 2 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp3.pid --outfile $(PWD)/ssp3.out --errfile $(PWD)/ssp3.err --user $(USER) -f $(PWD)/bin/conv.php -s start
 
 bench3: all
 	@echo $@

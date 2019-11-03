@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <fcntl.h>
 
 #include "config.h"
 #include "php_ext.h"
@@ -24,14 +25,49 @@ unsigned int ssp_backlog = 1024;
 char *ssp_host = "0.0.0.0";
 short int ssp_port = 8083;
 char *ssp_pidfile = "/var/run/ssp.pid";
+char *ssp_infile = "/dev/urandom";
+char *ssp_outfile = "/var/run/ssp.out";
+char *ssp_errfile = "/var/run/ssp.err";
 
 char *ssp_user = "daemon";
 
 int ssp_maxclients = 1000;
 int ssp_maxrecvs = 2 * 1024 * 1024;
 
-void alrm_signal(int sig) {
-	exit(0);
+static zend_bool ssp_dup2() {
+	int infd, outfd, errfd;
+
+	infd = open(ssp_infile, O_RDONLY);
+	if(infd < 0) {
+		php_error(E_ERROR, "Error opening file \"%s\": errno = %d, errstr = \"%s\"\n", ssp_infile, errno, strerror(errno));
+		return FAILURE;
+	}
+
+	outfd = open(ssp_outfile, O_CREAT|O_WRONLY|O_APPEND, 0755);
+	if(outfd < 0) {
+		php_error(E_ERROR, "Error opening file \"%s\": errno = %d, errstr = \"%s\"\n", ssp_outfile, errno, strerror(errno));
+		return FAILURE;
+	}
+
+	errfd = open(ssp_errfile, O_CREAT|O_WRONLY|O_APPEND, 0755);
+	if(errfd < 0) {
+		close(outfd);
+		php_error(E_ERROR, "Error opening file \"%s\": errno = %d, errstr = \"%s\"\n", ssp_errfile, errno, strerror(errno));
+		return FAILURE;
+	}
+
+	dup2(infd, STDIN_FILENO);
+	dup2(outfd, STDOUT_FILENO);
+	dup2(errfd, STDERR_FILENO);
+
+	close(infd);
+	close(outfd);
+	close(errfd);
+
+	return SUCCESS;
+}
+
+void signal_handler(int sig) {
 }
 
 void server_start() {
@@ -43,8 +79,8 @@ void server_start() {
 		return;
 	}
 	if (pid > 0) {
-		signal(SIGALRM, alrm_signal);
-		waitpid(pid, NULL, 0);
+		signal(SIGINT, signal_handler);
+		sleep(-1);
 		return;
 	}
 
@@ -111,7 +147,9 @@ void server_start() {
 		fclose(fp);
 	}
 
-	kill(getppid(), SIGALRM);
+	kill(getppid(), SIGINT);
+
+	ssp_dup2();
 
 	loop_event(listen_fd);
 

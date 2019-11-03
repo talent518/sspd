@@ -48,11 +48,15 @@ ZEND_BEGIN_MODULE_GLOBALS(ssp)
 	unsigned short trigger_type;
 	long trigger_count;
 	zval ssp_vars;
+	char threadname[64];
+	char strftime[16];
 ZEND_END_MODULE_GLOBALS(ssp)
 
 #define SSP_G(v) TSRMG(ssp_globals_id, zend_ssp_globals *, v)
 
 #define ZEND_REGISTER_RESOURCE(var, ctx, le_inflate) ZVAL_RES(var, zend_register_resource(ctx, le_inflate))
+
+const char *gettimeofstr();
 
 #ifdef SSP_CODE_TIMEOUT
 	#ifdef SSP_CODE_TIMEOUT_GLOBAL

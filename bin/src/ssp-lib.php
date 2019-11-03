@@ -11,6 +11,10 @@ define('SSP_NTHREADS', 10);
 define('SSP_BACKLOG', 1024);
 define('SSP_TIMEOUT', time());
 
+define('STDIN', fopen('php://stdin')); // 默认来自/dev/urandom
+define('STDOUT', fopen('php://stdout')); // 默认输出到/var/run/ssp.out
+define('STDERR', fopen('php://stderr')); // 默认输出到/var/run/ssp.err
+
 /* @var array $_SSP */
 /* @global array $_SSP */
 // @var array $_SSP

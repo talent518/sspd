@@ -27,13 +27,16 @@
 #define OPT_HOST 1
 #define OPT_PORT 2
 #define OPT_PIDFILE 3
-#define OPT_USER 4
-#define OPT_MAX_CLIENTS 5
-#define OPT_MAX_RECVS 6
-#define OPT_NTHREADS 7
-#define OPT_TIMEOUT 8
-#define OPT_TIMEOUT_GLOBAL 9
-#define OPT_SSP_VARS 10
+#define OPT_INFILE 4
+#define OPT_OUTFILE 5
+#define OPT_ERRFILE 6
+#define OPT_USER 7
+#define OPT_MAX_CLIENTS 8
+#define OPT_MAX_RECVS 9
+#define OPT_NTHREADS 10
+#define OPT_TIMEOUT 11
+#define OPT_TIMEOUT_GLOBAL 12
+#define OPT_SSP_VARS 13
 
 static char *php_optarg = NULL;
 static int php_optind = 1;
@@ -56,6 +59,9 @@ static const opt_struct OPTIONS[] = {
 	{ OPT_HOST, 1, "host" },
 	{ OPT_PORT, 1, "port" },
 	{ OPT_PIDFILE, 1, "pidfile" },
+	{ OPT_INFILE, 1, "infile" },
+	{ OPT_OUTFILE, 1, "outfile" },
+	{ OPT_ERRFILE, 1, "errfile" },
 
 	{ OPT_USER, 1, "user" },
 	{ OPT_NTHREADS, 1, "nthreads" },
@@ -104,6 +110,9 @@ static void php_ssp_usage(char *argv0) {
 			"  --host <IP>             Listen host (default: %s)\n"
 			"  --port <port>           Listen port (default: %d)\n"
 			"  --pidfile <file>        Service pidfile (default: %s)\n"
+			"  --infile <file>         Service infile (default: %s)\n"
+			"  --outfile <file>        Service outfile (default: %s)\n"
+			"  --errfile <file>        Service errfile (default: %s)\n"
 			"  --user <username>       Run for user (default: %s)\n"
 			"  --nthreads <number>     LibEvent thread number (default: %d)\n"
 			"  --max-clients <number>  Max client connect number (default: %d)\n"
@@ -125,7 +134,7 @@ static void php_ssp_usage(char *argv0) {
 		"       stop               stop ssp service\n"
 		"       restart            restart ssp service\n"
 		"       status             ssp service status\n"
-		"\n", prog, ssp_host, ssp_port, ssp_pidfile, ssp_user,
+		"\n", prog, ssp_host, ssp_port, ssp_pidfile, ssp_infile, ssp_outfile, ssp_errfile, ssp_user,
 		ssp_nthreads, ssp_maxclients, maxrecvs, ssp_backlog, ssp_vars_length
 #ifdef SSP_CODE_TIMEOUT
 		, ssp_timeout
@@ -237,6 +246,15 @@ int main(int argc, char *argv[])
 				break;
 			case OPT_PIDFILE:
 				ssp_pidfile = strdup(php_optarg);
+				break;
+			case OPT_OUTFILE:
+				ssp_outfile = strdup(php_optarg);
+				break;
+			case OPT_INFILE:
+				ssp_infile = strdup(php_optarg);
+				break;
+			case OPT_ERRFILE:
+				ssp_errfile = strdup(php_optarg);
 				break;
 
 			case OPT_USER:
@@ -490,7 +508,7 @@ int main(int argc, char *argv[])
 	if (exit_status == 0) {
 		exit_status = EG(exit_status);
 	}
-	
+
 	err:
 	ssp_module_shutdown();
 	ssp_destroy();

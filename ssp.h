@@ -36,6 +36,9 @@ extern unsigned int ssp_backlog;
 extern char *ssp_host;
 extern short int ssp_port;
 extern char *ssp_pidfile;
+extern char *ssp_infile;
+extern char *ssp_outfile;
+extern char *ssp_errfile;
 
 extern char *ssp_user;
 extern int ssp_nthreads;
