@@ -1,9 +1,15 @@
 <?php
 define('I', (SSP_PORT-8082)/2);
 
+error_reporting(E_ALL);
+
 $db = new PDO('mysql:dbname=test;host=127.0.0.1', 'root', '1qazXSW23edc');
 $db->setAttribute(PDO::ATTR_AUTOCOMMIT, 1);
 
+$db->exec('CREATE TABLE IF NOT EXISTS ssp_conv(sid INT(11) UNSIGNED NOT NULL,id INT(11) UNSIGNED NOT NULL,recvs BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,sends BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,PRIMARY KEY(sid,id)) ENGINE=memory');
+
+$connStmt = $db->prepare('INSERT INTO ssp_conv (sid,id)VALUES(?,?)');
+$closeStmt = $db->prepare('DELETE FROM ssp_conv WHERE sid=? AND id=?');
 $recvStmt = $db->prepare('UPDATE ssp_conv SET recvs=recvs+? WHERE sid=? and id=?');
 $sendStmt = $db->prepare('UPDATE ssp_conv SET sends=sends+? WHERE sid=? and id=?');
 $fetchStmt = $db->prepare('SELECT sid, id FROM ssp_conv');
@@ -66,16 +72,15 @@ function ssp_start_handler () {
 		ssp_conv_connect('127.0.0.1', 8083+$i*2, $i);
 	}
 	
-	$db->exec('CREATE TABLE IF NOT EXISTS ssp_conv(sid INT(11) UNSIGNED NOT NULL,id INT(11) UNSIGNED NOT NULL,recvs BIGINT(20) UNSIGNED NOT NULL,sends BIGINT(20) UNSIGNED NOT NULL,PRIMARY KEY(sid,id)) ENGINE=memory');
 	$db->prepare('DELETE FROM ssp_conv WHERE sid=?')->execute([I]);
 
 	ssp_msg_queue_init(10000, 1);
 }
 
 function ssp_connect_handler ( $ClientId ) {
-	global $db;
+	global $connStmt;
 	
-	$db->prepare('INSERT INTO ssp_conv (sid,id)VALUES(?,?)')->execute([I,ssp_info($ClientId, 'index')]);
+	$connStmt->execute([I,ssp_info($ClientId, 'index')]);
 	
 	ssp_send($ClientId, date('H:i:s'));
 }
@@ -130,11 +135,11 @@ function ssp_send_handler ( $ClientId, $xml ) {
 }
 
 function ssp_close_handler ( $ClientId ) {
-	global $db;
+	global $closeStmt;
 
 	$I = ssp_info($ClientId, 'index');
 
-	$db->prepare('DELETE FROM ssp_conv WHERE sid=? AND id=?')->execute([I,$I]);
+	$closeStmt->execute([I,$I]);
 }
 
 function ssp_stop_handler () {

@@ -49,7 +49,7 @@ ZEND_BEGIN_MODULE_GLOBALS(ssp)
 	long trigger_count;
 	zval ssp_vars;
 	char threadname[64];
-	char strftime[16];
+	char strftime[24]; // 2019-11-06 00:18:30
 ZEND_END_MODULE_GLOBALS(ssp)
 
 #define SSP_G(v) TSRMG(ssp_globals_id, zend_ssp_globals *, v)

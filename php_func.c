@@ -39,9 +39,7 @@
 char *request_init_file=NULL;
 
 const char HARDCODED_INI[] =
-	"error_reporting = E_ALL ^ E_NOTICE\n"
 	"html_errors=0\n"
-	"display_errors=1\n"
 	"register_argc_argv=1\n"
 	"implicit_flush=1\n"
 	"output_buffering=0\n"
@@ -173,6 +171,7 @@ static void sapi_ssp_log_message(char *message, int syslog_type_int) /* {{{ */
 static int sapi_ssp_deactivate() /* {{{ */
 {
 	fflush(stdout);
+	fflush(stderr);
 	return SUCCESS;
 }
 /* }}} */

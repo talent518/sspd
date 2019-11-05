@@ -2206,7 +2206,7 @@ const char *gettimeofstr() {
 	}
 
 	if (strftime(SSP_G(strftime), sizeof(SSP_G(strftime)), "%F %T", tmp) == 0) {
-		fprintf(stderr, "strftime returned 0");
+		perror("strftime error");
 		return "";
 	}
 
