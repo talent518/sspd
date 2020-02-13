@@ -1,6 +1,7 @@
 #!/bin/bash --login
 
 INST_DIR=/opt/ssp7
+PHPVER=7.3.14
 
 cpus=$(cat /proc/cpuinfo | grep processor | wc -l)
 alias make="make -j$cpus"
@@ -346,10 +347,10 @@ fi
 #php
 if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
     echo Installing php ...
-    if [ ! -d "/tmp/php-7.3.9" ]; then
-        tar -xvf php-7.3.9.tar.bz2 -C /tmp/
+    if [ ! -d "/tmp/php-$PHPVER" ]; then
+        tar -xvf php-$PHPVER.tar.bz2 -C /tmp/
     fi
-    pushd /tmp/php-7.3.9
+    pushd /tmp/php-$PHPVER
 
 	if [ `uname -p` = "x86_64" ]; then
 		OPT_MAK="--prefix=$INST_DIR -bindir=$INST_DIR/bin --sbindir=$INST_DIR/sbin --sysconfdir=$INST_DIR/etc --datadir=$INST_DIR/share --includedir=$INST_DIR/include --libdir=$INST_DIR/lib --libexecdir=$INST_DIR/libexec --localstatedir=$INST_DIR/var --sharedstatedir=$INST_DIR/var/lib --mandir=$INST_DIR/share/man --infodir=$INST_DIR/share/info --with-libdir=lib64 --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-shared"
@@ -376,7 +377,7 @@ if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf /tmp/php-7.3.9
+        rm -rf /tmp/php-$PHPVER
         echo Installed php Success.
     else
         popd

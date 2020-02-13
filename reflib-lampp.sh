@@ -4,6 +4,7 @@ cpus=$(cat /proc/cpuinfo | grep processor | wc -l)
 alias make="make -j$cpus"
 
 INST_DIR=/opt/ssp7
+PHPVER=7.3.14
 #export CPPFLAGS="-I$INST_DIR/include -I/usr/include -D_GNU_SOURCE $CPPFLAGS"
 #export LDFLAGS="-L$INST_DIR/lib -L/usr/lib64 -L/usr/lib $LDFLAGS"
 
@@ -21,10 +22,10 @@ pushd reflib
 #php
 if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
     echo Installing php ...
-    if [ ! -d "/tmp/php-7.3.9" ]; then
-        tar -xvf php-7.3.9.tar.bz2 -C /tmp/
+    if [ ! -d "/tmp/php-$PHPVER" ]; then
+        tar -xvf php-$PHPVER.tar.bz2 -C /tmp/
     fi
-    pushd /tmp/php-7.3.9
+    pushd /tmp/php-$PHPVER
     OPT_MAK="--prefix=$INST_DIR --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-inline-optimization --disable-debug --enable-bcmath --enable-calendar --enable-ctype --enable-session --enable-ftp --enable-shmop --disable-sigchild --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-wddx --with-gdbm=/opt/lampp --with-jpeg-dir=/opt/lampp --with-png-dir=/opt/lampp --with-xpm-dir=/usr --with-freetype-dir=/opt/lampp --with-zlib=yes --with-zlib-dir=/opt/lampp --with-openssl=/opt/lampp --with-xsl=/opt/lampp --with-ldap=/opt/lampp --with-gd --with-imap=/opt/lampp/ --with-imap-ssl --with-gettext=/opt/lampp --with-mysql-sock=/opt/lampp/var/mysql/mysql.sock --without-oci8 --with-mhash=/opt/lampp --enable-sockets --enable-mbstring=all --with-curl=/opt/lampp --enable-mbregex --enable-exif --with-bz2=/opt/lampp --without-sqlite3 --with-libxml-dir=/opt/lampp --disable-soap --enable-pcntl --with-mysqli=mysqlnd --with-iconv=/opt/lampp --with-pdo-mysql=mysqlnd --without-pdo-sqlite --with-icu-dir=/opt/lampp --enable-fileinfo --enable-phar --enable-intl --disable-zend-signals"
 
     OPT_OTH="--enable-maintainer-zts  --with-tsrm-pthreads --enable-embed"
@@ -34,7 +35,7 @@ if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
     
     if [ "$?" = "0" ]; then
         popd
-        rm -rf /tmp/php-7.3.9
+        rm -rf /tmp/php-$PHPVER
         echo Installed php Success.
     else
         popd
