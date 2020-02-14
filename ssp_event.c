@@ -622,11 +622,10 @@ static void signal_handler(const int fd, short event, void *arg) {
 				write(worker_threads[i].write_fd, &chr, 1);
 			}
 
-			dprintf("==================================================================================================================================\n");
-			THREAD_SHUTDOWN();
-			dprintf("========================================================PHP_REQUEST_CLEAN=========================================================\n");
-			THREAD_STARTUP();
-			dprintf("==================================================================================================================================\n");
+			ssp_auto_globals_recreate();
+		#ifndef DISABLE_GC_COLLECT_CYCLES
+			gc_collect_cycles();
+		#endif
 		}
 	#endif
 #endif
@@ -738,6 +737,7 @@ static void timeout_monitor_handler(evutil_socket_t fd, short event, void *arg) 
 	SSP_STATS_WUNLOCK();
 
 	// php function call =====================================
+	MONITOR_STARTUP();
 
 	ZVAL_STRING(&pfunc, MONITOR_FUNC_NAME);
 
@@ -759,6 +759,8 @@ static void timeout_monitor_handler(evutil_socket_t fd, short event, void *arg) 
 	for (i = 0; i < MONITOR_PARAM_COUNT; i++) {
 		zval_ptr_dtor(&params[i]);
 	}
+
+	MONITOR_SHUTDOWN();
 }
 
 void loop_event (int sockfd) {

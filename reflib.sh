@@ -4,7 +4,7 @@ INST_DIR=/opt/ssp7
 PHPVER=7.3.14
 
 cpus=$(cat /proc/cpuinfo | grep processor | wc -l)
-alias make="make -j$cpus"
+make="make -j$cpus"
 
 if [ ! -d $INST_DIR/bin ]; then
     mkdir -p $INST_DIR/bin
@@ -26,7 +26,7 @@ if [ ! -f "/usr/bin/libtool" ]; then
     pushd libtool-2.4
     
     ./configure --prefix=/usr \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then
@@ -49,7 +49,7 @@ if [ ! -f "$INST_DIR/lib/libjpeg.so" ]; then
     pushd /tmp/jpeg-8c
     
     ./configure --prefix=$INST_DIR \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then
@@ -72,7 +72,7 @@ if [ ! -f "$INST_DIR/lib/libpng.so" ]; then
     pushd /tmp/libpng-1.5.4beta08
     
     ./configure --prefix=$INST_DIR --enable-shared --enable-static \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then
@@ -95,7 +95,7 @@ if [ ! -f "$INST_DIR/lib/libfreetype.so" ]; then
     pushd /tmp/freetype-2.4.5
     
     ./configure --prefix=$INST_DIR \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then
@@ -118,7 +118,7 @@ if [ ! -f "$INST_DIR/lib/libgd.so" ]; then
     pushd /tmp/libgd-2.1.0
     
     ./configure --prefix=$INST_DIR \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then
@@ -141,7 +141,7 @@ if [ ! -f "$INST_DIR/lib/libcurl.so" ]; then
     pushd /tmp/curl-7.21.7
     
     ./configure --prefix=$INST_DIR \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then
@@ -164,7 +164,7 @@ if [ ! -f "$INST_DIR/lib/libxml2.so" -a ! -d "/usr/include/libxml2" ]; then
     pushd /tmp/libxml2-2.6.30
     
     ./configure --prefix=$INST_DIR \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then
@@ -187,7 +187,7 @@ if [ ! -f "/usr/include/gcrypt.h" -a ! -f "/usr/include/gcrypt.h" ]; then
     pushd /tmp/libgcrypt-1.4.5
     
     ./configure --prefix=/usr \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then
@@ -210,7 +210,7 @@ if [ ! -f "$INST_DIR/lib/libxslt.so" -a ! -d "/usr/include/libxml2" ]; then
     pushd /tmp/libxslt-1.1.22
     
     ./configure --prefix=$INST_DIR --with-libxml-prefix=$INST_DIR \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then
@@ -232,7 +232,7 @@ if [ ! -f "$INST_DIR/include/openssl/ssl.h" -a ! -f "/usr/include/openssl/ssl.h"
     fi
     pushd /tmp/openssl-1.0.2e
     
-    ./config -fPIC --prefix=$INST_DIR && make && make install
+    ./config -fPIC --prefix=$INST_DIR && $make && make install
     
     if [ "$?" = "0" ]; then
         popd
@@ -254,7 +254,7 @@ if [ ! -f "$INST_DIR/lib/libmcrypt.so" ]; then
     pushd /tmp/libmcrypt-2.5.7
     
     ./configure --prefix=$INST_DIR \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then
@@ -277,7 +277,7 @@ if [ ! -f "$INST_DIR/lib/libmhash.so" ]; then
     pushd /tmp/mhash-0.9.9.9
     
     ./configure --prefix=$INST_DIR \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then
@@ -300,7 +300,7 @@ if [ ! -f "$INST_DIR/include/db.h" ] && [ ! -f "/usr/include/db.h" ]; then
     pushd /tmp/db-4.7.25/build_unix
     
     ../dist/configure --prefix=$INST_DIR \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then
@@ -326,7 +326,7 @@ if [ ! -f "$INST_DIR/include/ldap.h" ] && [ ! -f "/usr/include/ldap.h" ]; then
 	export LDFLAGS="-L$INST_DIR/lib $LDFLAGS"
 
     ./configure --prefix=$INST_DIR --enable-bdb \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then
@@ -373,7 +373,7 @@ if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
     OPT_OTH="--enable-embed"
 
     export EXTENSION_DIR=$INST_DIR/lib/extensions
-    CFLAGS="-I$INST_DIR/include" LDFLAGS="-L$SSL_DIR/lib -L$LDAP_DIR/lib -L$SSL_DIR/lib -lz" ./configure ${OPT_MAK} ${OPT_EXT} ${OPT_OTH} && make && make install && cp -u php.ini-* $INST_DIR/etc/
+    CFLAGS="-I$INST_DIR/include" LDFLAGS="-L$SSL_DIR/lib -L$LDAP_DIR/lib -L$SSL_DIR/lib -lz" ./configure ${OPT_MAK} ${OPT_EXT} ${OPT_OTH} && $make && make install && cp -u php.ini-* $INST_DIR/etc/
     
     if [ "$?" = "0" ]; then
         popd
@@ -395,7 +395,7 @@ if [ ! -f "$INST_DIR/lib/libevent.so" ]; then
     pushd /tmp/libevent-2.0.21-stable
     
     ./configure --prefix=$INST_DIR \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then

@@ -1,7 +1,7 @@
 #!/bin/bash --login
 
 cpus=$(cat /proc/cpuinfo | grep processor | wc -l)
-alias make="make -j$cpus"
+make="make -j$cpus"
 
 INST_DIR=/opt/ssp7
 PHPVER=7.3.14
@@ -31,7 +31,7 @@ if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
     OPT_OTH="--enable-maintainer-zts  --with-tsrm-pthreads --enable-embed"
 
     export EXTENSION_DIR=$INST_DIR/lib/extensions
-    CFLAGS=-I/opt/lampp/include/libxslt ./configure ${OPT_MAK} ${OPT_OTH} && make && make install && cp -u /opt/lampp/etc/php.ini $INST_DIR/etc/php.ini && sed -i 's/\/opt\/lampp\//\/opt\/ssp\//g' $INST_DIR/etc/php.ini
+    CFLAGS=-I/opt/lampp/include/libxslt ./configure ${OPT_MAK} ${OPT_OTH} && $make && make install && cp -u /opt/lampp/etc/php.ini $INST_DIR/etc/php.ini && sed -i 's/\/opt\/lampp\//\/opt\/ssp\//g' $INST_DIR/etc/php.ini
     
     if [ "$?" = "0" ]; then
         popd
@@ -53,7 +53,7 @@ if [ ! -f "$INST_DIR/lib/libevent.so" ]; then
     pushd /tmp/libevent-2.0.21-stable
     
     ./configure --prefix=$INST_DIR \
-    && make \
+    && $make \
     && make install
     
     if [ "$?" = "0" ]; then

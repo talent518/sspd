@@ -105,6 +105,9 @@ const char *gettimeofstr();
 		#define THREAD_STARTUP() ssp_request_startup()
 		#define THREAD_SHUTDOWN() ssp_request_shutdown()
 	#endif
+
+	#define MONITOR_STARTUP()
+	#define MONITOR_SHUTDOWN()
 #else
 	#define TRIGGER_STARTUP() \
 		if((SSP_G(trigger_count)++) == 0) {\
@@ -126,6 +129,9 @@ const char *gettimeofstr();
 
 	#define THREAD_STARTUP() ts_resource(0)
 	#define THREAD_SHUTDOWN() ts_resource(0)
+
+	#define MONITOR_STARTUP() ssp_request_startup()
+	#define MONITOR_SHUTDOWN() ssp_request_shutdown()
 #endif
 
 static PHP_MINIT_FUNCTION(ssp);
