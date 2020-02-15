@@ -279,14 +279,6 @@ static const zend_function_entry additional_functions[] = {
 	{NULL, NULL, NULL}
 };
 
-#if 0
-ZEND_API zval *zend_get_configuration_directive(zend_string *name) {
-	printf("%s: %s\n", __func__, ZSTR_VAL(name));
-
-	return cfg_get_entry_ex(name);
-}
-#endif
-
 static void cli_register_file_handles(void) /* {{{ */
 {
 	php_stream *s_in, *s_out, *s_err;
@@ -358,31 +350,41 @@ void ssp_module_startup(){
 
 static char *sg_argv[] = {"SERVER"};
 
-void ssp_request_startup(){
+void ssp_request_startup() {
+	SG(request_info).argc = 1;
+	SG(request_info).argv = sg_argv;
+	SG(options) |= SAPI_OPTION_NO_CHDIR;
+	
+	ssp_request_startup_ex();
+}
+
+void ssp_request_startup_ex(){
 	zend_file_handle zfd;
+	char real_path[MAXPATHLEN];
 
 	(void)ts_resource(0);
+
 
 	zfd.type = ZEND_HANDLE_FILENAME;
 	zfd.opened_path = NULL;
 
-	char real_path[MAXPATHLEN];
 	if (VCWD_REALPATH(request_init_file, real_path)) {
 		zfd.filename = strdup(real_path);
 		zfd.free_filename = 1;
+		
+		SG(request_info).path_translated = strdup(real_path);
 	} else {
 		zfd.filename = request_init_file;
 		zfd.free_filename = 0;
+		
+		SG(request_info).path_translated = strdup(request_init_file);
 	}
+
 
 	if (php_request_startup()==FAILURE) {
 		printf("Request could not startup.\n");
 		return;
 	}
-
-	SG(request_info).argc = 1;
-	SG(request_info).argv = sg_argv;
-	SG(options) |= SAPI_OPTION_NO_CHDIR;
 
 	cli_register_file_handles();
 
@@ -402,6 +404,8 @@ void ssp_request_startup(){
 #endif
 
 	zend_is_auto_global_str(ZEND_STRL("_SERVER"));
+
+	PG(during_request_startup) = 0;
 
 	php_execute_script(&zfd);
 }

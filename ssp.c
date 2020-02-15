@@ -85,7 +85,7 @@ static void php_ssp_usage(char *argv0) {
 	if (prog) {
 		prog++;
 	} else {
-		prog = "php";
+		prog = "ssp";
 	}
 
 	char *maxrecvs;
@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
 
 	ssp_init();
 
-	CSM(executable_location) = strdup(argv[0]);
+	CSM(executable_location) = argv[0];
 
 	while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 0, 2))
 		!= -1) {
@@ -477,7 +477,7 @@ int main(int argc, char *argv[])
 		argv[php_optind - 1] = request_init_file;
 		SG(request_info).argv = argv + php_optind - 1;
 
-		ssp_request_startup();
+		ssp_request_startup_ex();
 		ssp_request_shutdown();
 	} else if (strcmp(serv_opt, "bench") == 0) {
 		server_bench();

@@ -14,6 +14,7 @@ extern char *request_init_file;
 void ssp_init();
 void ssp_module_startup();
 void ssp_request_startup();
+void ssp_request_startup_ex();
 void ssp_request_shutdown();
 void ssp_module_shutdown();
 void ssp_destroy();
