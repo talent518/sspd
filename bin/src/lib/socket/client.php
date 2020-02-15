@@ -107,7 +107,7 @@ class LibSocketClient {
 		// 中文随机字
 		$str = '';
 		for ( $i = 0; $i < $len; $i ++  ) {
-			$str .= $chars{rand(0, $max)};
+			$str .= substr($chars, rand(0, $max), 1);
 		}
 		return $str;
 	}
@@ -123,7 +123,7 @@ class LibSocketClient {
 	function str_to_int4 ( $str = '' ) {
 		$num = 0;
 		for ( $i = 0; $i < 4; $i ++  ) {
-			$num += ( ord($str{$i}) & 0xff ) << ( ( 3 - $i ) * 8 );
+			$num += ( ord(substr($str, $i, 1)) & 0xff ) << ( ( 3 - $i ) * 8 );
 		}
 		return $num;
 	}

@@ -18,7 +18,7 @@
 #include "queue.h"
 
 #define PHP_SSP_DESCRIPTOR_RES_NAME "ssp conn_t"
-#define PHP_SSP_VERSION "v2.2.0"
+#define PHP_SSP_VERSION "v2.2.1"
 
 #define PHP_SSP_START 0
 #define PHP_SSP_CONNECT 1

@@ -329,8 +329,7 @@ void ssp_init(){
 	CSM(phpinfo_as_text) = 1;
 	CSM(php_ini_ignore_cwd) = 1;
 
-	tsrm_startup(1, 1, 0, NULL);
-	(void)ts_resource(0);
+	php_tsrm_startup();
 
 	zend_signal_startup();
 
@@ -365,19 +364,17 @@ void ssp_request_startup_ex(){
 	(void)ts_resource(0);
 
 
-	zfd.type = ZEND_HANDLE_FILENAME;
-	zfd.opened_path = NULL;
-
-	if (VCWD_REALPATH(request_init_file, real_path)) {
-		zfd.filename = strdup(real_path);
-		zfd.free_filename = 1;
-		
-		SG(request_info).path_translated = strdup(real_path);
+	FILE *fp = VCWD_FOPEN(request_init_file, "rb");
+	if (fp) {
+		zend_stream_init_fp(&zfd, fp, request_init_file);
+		if (VCWD_REALPATH(request_init_file, real_path)) {
+			SG(request_info).path_translated = strdup(real_path);
+		} else {
+			SG(request_info).path_translated = strdup(request_init_file);
+		}
 	} else {
-		zfd.filename = request_init_file;
-		zfd.free_filename = 0;
-		
-		SG(request_info).path_translated = strdup(request_init_file);
+		php_printf("Could not open input file: %s\n", request_init_file);
+		return;
 	}
 
 

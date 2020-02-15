@@ -28,7 +28,7 @@ if($pid===null) {
 	$pipes = array();
 
 	for($pid=0; $pid<$nthreads; $pid++) {
-		$cmdString = sprintf("/opt/ssp7/bin/ssp -f %s -s script %s %s %s %s %s %s", __FILE__,$host,$port,$nthreads,$nconns,$ntimes,$pid);
+		$cmdString = sprintf("/opt/ssp74/bin/ssp -f %s -s script %s %s %s %s %s %s", __FILE__,$host,$port,$nthreads,$nconns,$ntimes,$pid);
 		$fp = popen($cmdString, 'r');
 		stream_set_blocking($fp, 1);
 		$pipes[] = $fp;
@@ -51,7 +51,7 @@ if($pid===null) {
 			{
 				$buffer = fread($fp, 8192);
 				for($i=0; $i<strlen($buffer); $i++) {
-					switch($buffer{$i}) {
+					switch(substr($buffer, $i, 1)) {
 						case 'c':
 							$conns++;
 							break;
@@ -118,7 +118,7 @@ if($pid===null) {
 			{
 				$buffer = fread($fp, 8192);
 				for($i=0; $i<strlen($buffer); $i++) {
-					switch($buffer{$i}) {
+					switch(substr($buffer, $i, 1)) {
 						case 'S':
 							$sendRequestErrors++;
 							$conns--;

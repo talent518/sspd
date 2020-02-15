@@ -89,10 +89,10 @@ class LibImageVerify extends LibImageBase {
 			imagesetpixel($im, mt_rand(0, $width), mt_rand(0, $height), $pointColor);
 		}
 		for ( $i = 0; $i < $length; $i ++  ) {
-			// imagestring($im,5,$i*10+5,mt_rand(1,8),$randval{$i}, $stringColor);
+			// imagestring($im,5,$i*10+5,mt_rand(1,8),substr($randval, $i, 1), $stringColor);
 			$fontcolor = imagecolorallocate($im, mt_rand(0, 120), mt_rand(0, 120), mt_rand(0, 120)); // 这样保证随机出来的颜色较深。
 			                                                                                         // $codex=L('string')->cut($code,$i,1,CFG()->charset,'');
-			imagettftext($im, mt_rand(30, 40), mt_rand( - 45, 45), 40 * $i + 20, 40, $fontcolor, RES_FONT_DIR . $fontface, $randval{$i});
+			imagettftext($im, mt_rand(30, 40), mt_rand( - 45, 45), 40 * $i + 20, 40, $fontcolor, RES_FONT_DIR . $fontface, substr($randval, $i, 1));
 		}
 		// @imagestring($im, 5, 5, 3, $randval, $stringColor);
 		$this->output($im, $type);

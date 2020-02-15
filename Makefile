@@ -1,6 +1,6 @@
 CC=gcc
 
-INST_DIR  := /opt/ssp7
+INST_DIR  := /opt/ssp74
 INC_DIR   := $(INST_DIR)/include
 BIN_DIR   := $(INST_DIR)/bin
 BUILD_DIR := build
