@@ -361,23 +361,6 @@ void ssp_request_startup_ex(){
 	zend_file_handle zfd;
 	char real_path[MAXPATHLEN];
 
-	(void)ts_resource(0);
-
-
-	FILE *fp = VCWD_FOPEN(request_init_file, "rb");
-	if (fp) {
-		zend_stream_init_fp(&zfd, fp, request_init_file);
-		if (VCWD_REALPATH(request_init_file, real_path)) {
-			SG(request_info).path_translated = strdup(real_path);
-		} else {
-			SG(request_info).path_translated = strdup(request_init_file);
-		}
-	} else {
-		php_printf("Could not open input file: %s\n", request_init_file);
-		return;
-	}
-
-
 	if (php_request_startup()==FAILURE) {
 		printf("Request could not startup.\n");
 		return;
@@ -403,6 +386,19 @@ void ssp_request_startup_ex(){
 	zend_is_auto_global_str(ZEND_STRL("_SERVER"));
 
 	PG(during_request_startup) = 0;
+
+	FILE *fp = VCWD_FOPEN(request_init_file, "rb");
+	if (fp) {
+		zend_stream_init_fp(&zfd, fp, request_init_file);
+		if (VCWD_REALPATH(request_init_file, real_path)) {
+			SG(request_info).path_translated = strdup(real_path);
+		} else {
+			SG(request_info).path_translated = strdup(request_init_file);
+		}
+	} else {
+		php_printf("Could not open input file: %s\n", request_init_file);
+		return;
+	}
 
 	php_execute_script(&zfd);
 }
