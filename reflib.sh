@@ -373,7 +373,7 @@ if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
     OPT_OTH="--enable-embed"
 
     export EXTENSION_DIR=$INST_DIR/lib/extensions
-    CFLAGS="-I$INST_DIR/include" LDFLAGS="-L$SSL_DIR/lib -L$LDAP_DIR/lib -L$SSL_DIR/lib -lz" ./configure ${OPT_MAK} ${OPT_EXT} ${OPT_OTH} && $make && make install && cp -u php.ini-* $INST_DIR/etc/
+    CFLAGS="-I$INST_DIR/include -O2" LDFLAGS="-L$SSL_DIR/lib -L$LDAP_DIR/lib -L$SSL_DIR/lib -lz" ./configure ${OPT_MAK} ${OPT_EXT} ${OPT_OTH} && $make && make install && cp -u php.ini-* $INST_DIR/etc/
     
     if [ "$?" = "0" ]; then
         popd
