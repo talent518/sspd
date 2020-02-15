@@ -27,9 +27,9 @@ if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
         tar -xvf php-$PHPVER.tar.bz2 -C /tmp/
     fi
     pushd /tmp/php-$PHPVER
-    OPT_MAK="--prefix=$INST_DIR --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-maintainer-zts --with-tsrm-pthreads --enable-embed --with-openssl --with-system-ciphers --with-zlib --enable-bcmath --with-bz2 --enable-calendar --with-curl --with-enchant --enable-exif --with-ffi --enable-ftp --enable-gd --with-external-gd --with-webp --with-jpeg --with-xpm --with-freetype --with-gettext --with-gmp --with-mhash --with-imap --with-imap-ssl --enable-intl --with-ldap --with-ldap-sasl --enable-mbstring --with-mysqli=mysqlnd --enable-pcntl --enable-pdo --with-pdo-mysql --with-readline --enable-shmop --with-snmp --enable-soap --enable-sockets --enable-sysvmsg --enable-sysvsem --enable-sysvshm --with-tidy --with-expat --with-xmlrpc --with-expat --with-xsl --with-zip --enable-mysqlnd --with-pear --with-kerberos --with-libxml --enable-dom --enable-xml"
+    OPT_MAK="--prefix=$INST_DIR --with-config-file-path=$INST_DIR/etc --with-config-file-scan-dir=$INST_DIR/etc/php.d --enable-inline-optimization --enable-maintainer-zts --with-tsrm-pthreads --enable-embed --with-openssl --with-system-ciphers --with-zlib --enable-bcmath --with-bz2 --enable-calendar --with-curl --with-enchant --enable-exif --with-ffi --enable-ftp --enable-gd --with-external-gd --with-webp --with-jpeg --with-xpm --with-freetype --with-gettext --with-gmp --with-mhash --with-imap --with-imap-ssl --enable-intl --with-ldap --with-ldap-sasl --enable-mbstring --with-mysqli=mysqlnd --enable-pcntl --enable-pdo --with-pdo-mysql --with-readline --enable-shmop --with-snmp --enable-soap --enable-sockets --enable-sysvmsg --enable-sysvsem --enable-sysvshm --with-tidy --with-expat --with-xmlrpc --with-expat --with-xsl --with-zip --enable-mysqlnd --with-pear --with-kerberos --with-libxml --enable-dom --enable-xml"
 
-    EXTENSION_DIR=$INST_DIR/lib/extensions ./configure ${OPT_MAK} && make -j$cpus && make install && cp -u php.ini-development $INST_DIR/etc/php.ini
+    EXTENSION_DIR=$INST_DIR/lib/extensions ./configure CFLAGS=-O2 CXXFLAGS=-O2 ${OPT_MAK} && make -j$cpus && make install && cp -u php.ini-development $INST_DIR/etc/php.ini
     
     if [ "$?" = "0" ]; then
         popd
