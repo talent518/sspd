@@ -18,6 +18,15 @@
 
 static pthread_mutex_t unique_lock, counts_lock;
 
+#define COUNT_KEY_SIZE 1024
+static zend_long counts[COUNT_KEY_SIZE];
+#define COUNT_TYPE_AVG -4
+#define COUNT_TYPE_GET -3
+#define COUNT_TYPE_DEC -2
+#define COUNT_TYPE_INC -1
+#define COUNT_TYPE_SET 0
+
+
 static char trigger_handlers[8][30] = {
 	"ssp_start_handler",
 	"ssp_connect_handler",
@@ -268,11 +277,18 @@ static void php_destroy_ssp(zend_resource *rsrc) /* {{{ */
 static PHP_MINIT_FUNCTION(ssp)
 {
 	REGISTER_STRING_CONSTANT("SSP_VERSION", PHP_SSP_VERSION, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("COUNT_KEY_SIZE", COUNT_KEY_SIZE, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("COUNT_TYPE_AVG", COUNT_TYPE_AVG, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("COUNT_TYPE_GET", COUNT_TYPE_GET, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("COUNT_TYPE_DEC", COUNT_TYPE_DEC, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("COUNT_TYPE_INC", COUNT_TYPE_INC, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("COUNT_TYPE_SET", COUNT_TYPE_SET, CONST_CS | CONST_PERSISTENT);
 
 	le_ssp_descriptor = zend_register_list_destructors_ex(php_destroy_ssp, NULL, PHP_SSP_DESCRIPTOR_RES_NAME, module_number);
 
 	pthread_mutex_init(&unique_lock, NULL);
 	pthread_mutex_init(&counts_lock, NULL);
+	memset(counts, 0, sizeof(counts));
 
 	zend_register_auto_global(zend_string_init_interned("_SSP", sizeof("_SSP") - 1, 1), 0, NULL);
 
@@ -1068,22 +1084,35 @@ static PHP_FUNCTION(ssp_stats)
 	SSP_STATS_RUNLOCK();
 }
 
-unsigned int counts[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-
 static PHP_FUNCTION(ssp_counts) {
-	zend_long key = 0, type = -1, val = 0;
-	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l|ll", &key, &type, &val) == FAILURE || key < 0 || key >= 16) {
+	zend_long key = 0, type = -1, val = 0, size = 10;
+	if (zend_parse_parameters(ZEND_NUM_ARGS(), "l|lll", &key, &type, &val, &size) == FAILURE || key < 0 || key >= COUNT_KEY_SIZE) {
 		return;
 	}
 
 	pthread_mutex_lock(&counts_lock);
-	if(type <= -3) {
+	if(type <= COUNT_TYPE_AVG) {
+		zend_long n = counts[key+size+1];
+		counts[key+size] += val;
+		if(n >= size) {
+			counts[key+size] -= counts[key + (n % size)];
+			counts[key + (n % size)] = val;
+		} else {
+			counts[key + n] = val;
+		}
+		counts[key+size+1] = ++n;
+		if(n >= size) {
+			RETVAL_LONG(counts[key+size] / size);
+		} else {
+			RETVAL_LONG(counts[key+size] / n);
+		}
+	} else if(type == COUNT_TYPE_GET) {
 		RETVAL_LONG(counts[key]);
-	} else if(type == -2) {
+	} else if(type == COUNT_TYPE_DEC) {
 		RETVAL_LONG(--counts[key]);
-	} else if(type == -1) {
+	} else if(type == COUNT_TYPE_INC) {
 		RETVAL_LONG(++counts[key]);
-	} else if(type == 0) {
+	} else if(type == COUNT_TYPE_SET) {
 		RETVAL_LONG(counts[key]);
 		counts[key] = val;
 	} else {

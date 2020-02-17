@@ -15,7 +15,9 @@ define('COUNT_CONN', 0);
 define('COUNT_KEY', 1);
 define('COUNT_LOGIN', 2);
 define('COUNT_REQUEST', 3);
-define('COUNT_REQUEST_FAILURE', 4);
+define('COUNT_REQUEST_AVG', 4);
+define('COUNT_REQUEST_FAILURE', 106);
+define('COUNT_REQUEST_FAILURE_AVG', 107);
 
 import('lib.xml');
 import('mod.uc.base');
@@ -29,14 +31,23 @@ function connect_handler($what, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
 	echo 'connect usage time: ', round(microtime(true) - $arg, 3), ' seconds', PHP_EOL;
 }
 
+function count_handler($delay, $persist, $arg) {
+	$n = time() - $arg;
+	$reqs = ssp_counts(COUNT_REQUEST, COUNT_TYPE_SET);
+	$fails = ssp_counts(COUNT_REQUEST_FAILURE, COUNT_TYPE_SET);
+	echo gmdate('H:i:s', $n), ' - threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, COUNT_TYPE_GET), ', keys: ', ssp_counts(COUNT_KEY, COUNT_TYPE_SET), ', logins: ', ssp_counts(COUNT_LOGIN, COUNT_TYPE_SET), ', requests: ', $reqs, '(', ssp_counts(COUNT_REQUEST_AVG, COUNT_TYPE_AVG, $reqs, 100), ')', ', requestFailures: ', $fails, '(', ssp_counts(COUNT_REQUEST_FAILURE_AVG, COUNT_TYPE_AVG, $fails, 100), ')', PHP_EOL;
+}
+
 function ssp_start_handler () {
 	ssp_var_init();
 	ssp_msg_queue_init(10000, 1);
 	ssp_msg_queue_push('connect_handler', 0, microtime(true));
+	ssp_delayed_init();
+	ssp_delayed_set("count_handler", 1000, true, time());
 }
 
 function ssp_bench_handler () {
-	echo 'threads: ', SSP_NTHREADS, ', conns: ', $s=ssp_counts(COUNT_CONN, -3), ', keys: ', ssp_counts(COUNT_KEY, 0), ', logins: ', ssp_counts(COUNT_LOGIN, 0), ', requests: ', ssp_counts(COUNT_REQUEST, 0), ', requestFailures: ', ssp_counts(COUNT_REQUEST_FAILURE, 0), PHP_EOL;
+	// echo 'threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, COUNT_TYPE_GET), ', keys: ', ssp_counts(COUNT_KEY, COUNT_TYPE_SET), ', logins: ', ssp_counts(COUNT_LOGIN, COUNT_TYPE_SET), ', requests: ', ssp_counts(COUNT_REQUEST, COUNT_TYPE_SET), ', requestFailures: ', ssp_counts(COUNT_REQUEST_FAILURE, COUNT_TYPE_SET), PHP_EOL;
 }
 
 function ssp_connect_handler ( $ClientId ) {
@@ -186,7 +197,7 @@ function ssp_send_handler ( $ClientId, $xml ) {
 }
 
 function ssp_close_handler ( $ClientId ) {
-	ssp_counts(COUNT_CONN, -2);
+	ssp_counts(COUNT_CONN, COUNT_TYPE_DEC);
 	$info = ssp_info($ClientId);
 	$index = $sockfd = $host = $port = $tid = null;
 	extract($info,EXTR_OVERWRITE|EXTR_REFS);
@@ -195,6 +206,7 @@ function ssp_close_handler ( $ClientId ) {
 
 function ssp_stop_handler () {
 	DB()->close();
+	ssp_delayed_destory();
 	ssp_msg_queue_destory();
 	ssp_var_destory();
 }

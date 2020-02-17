@@ -100,15 +100,21 @@ function ssp_unlock () {
 function ssp_stats ( $isMonitor = false ) {
 }
 
+define('COUNT_KEY_SIZE', 1024);
+define('COUNT_TYPE_AVG', -4);
+define('COUNT_TYPE_GET', -3);
+define('COUNT_TYPE_DEC', -2);
+define('COUNT_TYPE_INC', -1);
+define('COUNT_TYPE_SET', 0);
 /**
  * 按指定的key进行计数
  *
- * @param integer $key
- * @param integer $type 等于-3直接返回，等于-2则减1后返回，等于-1则加1后返回，等于0则返回后设为$val，大于0则加1后与$type相等则设为$val并返回boolean
+ * @param integer $key 取值范围：大于等于0且小于COUNT_KEY_SIZE
+ * @param integer $type 等于COUNT_TYPE_AVG求最近的$size个$val值的平均值(需要占用$size+1个，所以后面的需要使用时$key值需要加上$size+2方可), 等于COUNT_TYPE_GET直接返回，等于COUNT_TYPE_DEC则减1后返回，等于COUNT_TYPE_INC则加1后返回，等于COUNT_TYPE_SET则返回后设为$val，大于0则加1后与$type相等则设为$val并返回boolean
  * @param integer $val
  * @return integer|boolean|null $key小于0或$key大于等于16，则返回null
  */
-function ssp_counts($key = null, $type = -1, $val = 0) {
+function ssp_counts($key = null, $type = COUNT_TYPE_INC, $val = 0, $size = 10) {
 }
 
 /**
