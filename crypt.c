@@ -19,7 +19,7 @@
 
 #define MICRO_IN_SEC 1000000.00
 
-inline double microtime()
+inline double smicrotime()
 {
 	struct timeval tp = {0};
 
@@ -54,7 +54,7 @@ unsigned int crypt_code(const char *str, unsigned int len, char **ret, const cha
 		if(mode) {
 			memcpy(keyc, str, ckey_length);
 		} else {
-			snprintf(buffer, sizeof(buffer), "%lf", microtime());
+			snprintf(buffer, sizeof(buffer), "%lf", smicrotime());
 			MD5Digest(&md5, buffer, strlen(buffer), digest);
 
 			sprintf(keyc, "%02x%02x", digest[14], digest[15]);
