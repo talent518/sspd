@@ -48,19 +48,8 @@ function timeout6_handler($delay, $persist, $arg) {
 
 function count_handler($delay, $persist, $arg) {
 	$n = time() - $arg;
-	$s = ssp_counts(COUNT_REQ2, 0);
-	$a = ssp_counts(COUNT_AVG, -3);
-	$a += $s;
-	if($n <= 10) {
-		ssp_counts(COUNT_AVG, 0, $a);
-		ssp_counts(COUNT_AVG + $n, 0, $s);
-		$a /= $n;
-	} else {
-		$a -= ssp_counts(COUNT_AVG + ($n - 1) % 10 + 1, 0, $s);
-		ssp_counts(COUNT_AVG, 0, $a);
-		$a /= 10;
-	}
-	echo gmdate('H:i:s', $n), ' - threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, -3), ', reqs: ', $s, '(', floor($a), ')', PHP_EOL;
+	$s = ssp_counts(COUNT_REQ2, COUNT_TYPE_SET);
+	echo gmdate('H:i:s', $n), ' - threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, COUNT_TYPE_GET), ', reqs: ', $s, '(', ssp_counts(COUNT_AVG, COUNT_TYPE_AVG, $s, 100), ')', PHP_EOL;
 }
 
 function ssp_start_handler () {
@@ -76,7 +65,7 @@ function ssp_start_handler () {
 }
 
 function ssp_bench_handler () {
-	// echo 'threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, -3), ', reqs: ', ssp_counts(COUNT_REQ2, 0), PHP_EOL;
+	// echo 'threads: ', SSP_NTHREADS, ', conns: ', ssp_counts(COUNT_CONN, COUNT_TYPE_GET), ', reqs: ', ssp_counts(COUNT_REQ2, COUNT_TYPE_SET), PHP_EOL;
 }
 
 function ssp_connect_handler ( $ClientId ) {
@@ -97,7 +86,7 @@ function ssp_send_handler ( $ClientId, $xml ) {
 }
 
 function ssp_close_handler ( $ClientId ) {
-	ssp_counts(COUNT_CONN, -2);
+	ssp_counts(COUNT_CONN, COUNT_TYPE_DEC);
 }
 
 function ssp_stop_handler () {
