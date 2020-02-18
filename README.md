@@ -1,5 +1,11 @@
 # sspd
-本程序在ubuntu 16.04/centos 7.6.1810下编译成功！
+本程序基于C+php+libevent实现，php版本为7.4.2，在ubuntu 16.04/centos 7.6.1810下编译成功！
+
+### 创建docker容器并启动容器
+```
+docker run -itd -p 8082:8082 -p 8084:8084 -p 8086:8086 -p 8080:80 --name sspd --privileged talent518/sspd /usr/sbin/init
+```
+
 ### 编译说明
 1. 首先执行./reflib.sh安装ssp服务支持库；
 2. 使用make进行编译ssp服务程序；
