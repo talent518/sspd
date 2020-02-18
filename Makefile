@@ -13,7 +13,7 @@ LANG      := en
 all: $(BIN_DIR) $(BUILD_DIR) $(BIN_DIR)/ssp $(BIN_DIR)/monitor
 
 $(BIN_DIR):
-	$(PWD)/reflib.sh
+	@chmod +x reflib.sh && $(PWD)/reflib.sh
 
 $(BUILD_DIR):
 	@mkdir $@
