@@ -1,5 +1,5 @@
 # sspd
-本程序在ubuntu 16.04下编译成功！
+本程序在ubuntu 16.04/centos 7.6.1810下编译成功！
 ### 编译说明
 1. 首先执行./reflib.sh安装ssp服务支持库；
 2. 使用make进行编译ssp服务程序；
