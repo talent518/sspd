@@ -4,7 +4,7 @@ cpus=$(cat /proc/cpuinfo | grep processor | wc -l)
 alias make="make -j$cpus"
 
 INST_DIR=/opt/ssp74
-PHPVER=7.4.2
+PHPVER=7.4.3
 
 if [ ! -d $INST_DIR/bin ]; then
     mkdir -p $INST_DIR/bin
@@ -19,9 +19,6 @@ pushd reflib
 
 #php
 if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
-    echo Installing library ...
-    #sudo apt install libcurl4-openssl-dev libonig-dev libenchant-dev libffi-dev libgd-dev libc-client2007e-dev libkrb5-dev libldap2-dev unixodbc-dev libreadline-dev libreadline6-dev libmm-dev libsnmp-dev snmp snmpd libtidy-dev libxslt1-dev libzip-dev libmysqlclient-dev
-
     echo Installing php ...
     if [ ! -d "/tmp/php-$PHPVER" ]; then
         tar -xvf php-$PHPVER.tar.bz2 -C /tmp/
