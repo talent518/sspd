@@ -1,7 +1,7 @@
 #!/bin/bash --login
 
 INST_DIR=/opt/ssp7
-PHPVER=7.3.15
+PHPVER=7.3.16
 
 cpus=$(cat /proc/cpuinfo | grep processor | wc -l)
 make="make -j$cpus"
