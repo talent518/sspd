@@ -164,7 +164,10 @@ static void sapi_ssp_register_variables(zval *track_vars_array) /* {{{ */
 
 static void sapi_ssp_log_message(char *message, int syslog_type_int) /* {{{ */
 {
-	fprintf(stderr, "%s - %s - %s\n", gettimeofstr(), SSP_G(threadname), message);
+	if(php_get_module_initialized())
+		fprintf(stderr, "%s - %s - %s\n", gettimeofstr(), SSP_G(threadname), message);
+	else
+		fprintf(stderr, "%s\n", message);
 }
 /* }}} */
 
