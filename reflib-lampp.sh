@@ -4,7 +4,7 @@ cpus=$(cat /proc/cpuinfo | grep processor | wc -l)
 make="make -j$cpus"
 
 INST_DIR=/opt/ssp7
-PHPVER=7.3.16
+PHPVER=7.3.17
 #export CPPFLAGS="-I$INST_DIR/include -I/usr/include -D_GNU_SOURCE $CPPFLAGS"
 #export LDFLAGS="-L$INST_DIR/lib -L/usr/lib64 -L/usr/lib $LDFLAGS"
 
