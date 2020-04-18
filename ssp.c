@@ -477,6 +477,8 @@ int main(int argc, char *argv[])
 		argv[php_optind - 1] = request_init_file;
 		SG(request_info).argv = argv + php_optind - 1;
 
+		strcpy(SSP_G(threadname), "main thread");
+
 		ssp_request_startup_ex();
 		ssp_request_shutdown();
 	} else if (strcmp(serv_opt, "bench") == 0) {
