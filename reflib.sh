@@ -1,10 +1,13 @@
 #!/bin/bash --login
 
+set -e
+
 cpus=$(cat /proc/cpuinfo | grep processor | wc -l)
 alias make="make -j$cpus"
 
 INST_DIR=/opt/ssp74
-PHPVER=7.4.6
+PHPVER=7.4.11
+EVVER=2.1.12
 
 if [ ! -d $INST_DIR/bin ]; then
     mkdir -p $INST_DIR/bin
@@ -64,10 +67,10 @@ fi
 #libevent
 if [ ! -f "$INST_DIR/lib/libevent.so" ]; then
     echo Installing libevent ...
-    if [ ! -d "/tmp/libevent-2.0.21-stable" ]; then
-        tar -zxvf libevent-2.0.21-stable.tar.gz -C /tmp/
+    if [ ! -d "/tmp/libevent-$EVVER-stable" ]; then
+        tar -zxvf libevent-$EVVER-stable.tar.gz -C /tmp/
     fi
-    pushd /tmp/libevent-2.0.21-stable
+    pushd /tmp/libevent-$EVVER-stable
 
     ./configure --prefix=$INST_DIR \
     && make -j$cpus \
@@ -75,7 +78,7 @@ if [ ! -f "$INST_DIR/lib/libevent.so" ]; then
 
     if [ "$?" = "0" ]; then
         popd
-        rm -rf /tmp/libevent-2.0.21-stable
+        rm -rf /tmp/libevent-$EVVER-stable
         echo Installed libevent Success.
     else
         popd
