@@ -75,8 +75,8 @@
 } while (0)
 
 int hash_table_rehash(hash_table_t *ht) {
-	bucket_t *p;
-	uint nIndex;
+	register bucket_t *p;
+	register uint nIndex;
 
 	if (UNEXPECTED(ht->nNumOfElements == 0)) {
 		return SUCCESS;
@@ -92,9 +92,9 @@ int hash_table_rehash(hash_table_t *ht) {
 }
 
 void hash_table_reindex(hash_table_t *ht, zend_bool only_integer_keys) {
-	bucket_t *p;
-	uint nIndex;
-	ulong offset = 0;
+	register bucket_t *p;
+	register uint nIndex;
+	register ulong offset = 0;
 
 	if (UNEXPECTED(ht->nNumOfElements == 0)) {
 		ht->nNextFreeElement = 0;
@@ -116,18 +116,15 @@ void hash_table_reindex(hash_table_t *ht, zend_bool only_integer_keys) {
 }
 
 static void hash_table_do_resize(hash_table_t *ht) {
-	bucket_t **t;
-
 	if ((ht->nTableSize << 1) > 0) { /* Let's double the table size */
-		t = (bucket_t **) realloc(ht->arBuckets, (ht->nTableSize << 1) * sizeof(bucket_t *));
-		ht->arBuckets = t;
+		ht->arBuckets = (bucket_t **) realloc(ht->arBuckets, (ht->nTableSize << 1) * sizeof(bucket_t *));
 		ht->nTableSize = (ht->nTableSize << 1);
 		ht->nTableMask = ht->nTableSize - 1;
 		hash_table_rehash(ht);
 	}
 }
 
-ulong hash_table_func(const char *arKey, uint nKeyLength) {
+ulong hash_table_func(register const char *arKey, register uint nKeyLength) {
 	register ulong hash = 5381;
 
 	/* variant with the hash unrolled eight times */

@@ -93,7 +93,7 @@ void getmem(mem_t *mem) {
 }
 
 //获取第N项开始的指针
-const char* get_items(const char*buffer ,unsigned int item) {
+const char* get_items(const char*buffer, unsigned int item) {
 	const char *p =buffer;
 
 	register int len = strlen(buffer);

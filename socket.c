@@ -14,7 +14,7 @@
 
 int recv_data_len(conn_t *ptr) {
 	unsigned char buf[4];
-	int len = 0, i, ret;
+	register int len = 0, i, ret;
 
 	ret = recv(ptr->sockfd, buf, sizeof(buf), MSG_WAITALL);
 
@@ -40,7 +40,7 @@ int recv_data_len(conn_t *ptr) {
 //接收来自客户端数据
 //返回值:0(关闭连接),-1(接收到的数据长度与数据包长度不一致),>0(接收成功)
 int socket_recv(conn_t *ptr, char **data, int *data_len) {
-	int ret;
+	register int ret;
 	if (ptr->rbuf == NULL) {
 		ret = recv_data_len(ptr);
 		if (ret > 0) {
@@ -85,7 +85,7 @@ void socket_send_buf(conn_t *ptr, char *package, int plen);
 #endif
 
 int socket_send(conn_t *ptr, char *data, int data_len) {
-	int i, plen;
+	register int i, plen;
 	char *package;
 
 	if (data_len <= 0) {

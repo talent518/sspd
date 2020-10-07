@@ -42,9 +42,9 @@ static const unsigned char base64_dec_map[128]={
 * 返回非0为成功，否则为失败
 */
 int base64_encode(const unsigned char *src, int slen, unsigned char **dst, int *dlen){
-	int i,n;
-	int C1,C2,C3;
-	unsigned char *p;
+	register int i,n;
+	register int C1,C2,C3;
+	register unsigned char *p;
 
 	if(slen==0){
 		*dlen=0;
@@ -99,9 +99,9 @@ int base64_encode(const unsigned char *src, int slen, unsigned char **dst, int *
 * 返回非0为成功，否则为失败
 */
 int base64_decode(const unsigned char *src, int slen, unsigned char **dst, int *dlen){
-	int i,n;
-	unsigned short x;
-	unsigned char *p;
+	register int i,n;
+	register unsigned short x;
+	register unsigned char *p;
 	*dlen=0;
 
 	if(src == NULL || slen == 0) return 0;

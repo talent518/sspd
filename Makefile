@@ -50,7 +50,7 @@ retest: kill all
 
 monitor: $(BIN_DIR)/monitor
 	@echo $@
-	@test $(shell pgrep -c ssp) -gt 0 && $(BIN_DIR)/monitor $(foreach i, $(shell pgrep ssp), -p $(i)) | tee cpu.log
+	@$(BIN_DIR)/monitor -P ssp | tee cpu.log
 
 bench: all
 	@echo $@

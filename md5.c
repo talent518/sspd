@@ -52,7 +52,7 @@ void MD5Init(MD5_CTX *context) {
 }
 void MD5Update(MD5_CTX *context,unsigned char *input,unsigned int inputlen)
 {
-	unsigned int i = 0,index = 0,partlen = 0;
+	register unsigned int i = 0,index = 0,partlen = 0;
 	index = (context->count[0] >> 3) & 0x3F;
 	partlen = 64 - index;
 	context->count[0] += inputlen << 3;
