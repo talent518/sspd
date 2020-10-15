@@ -459,7 +459,25 @@ bool trigger(unsigned short type, ...) {
 
 	long __type = SSP_G(trigger_type);
 	SSP_G(trigger_type) = type;
-	ret = call_user_function(EG(function_table), NULL, &pfunc, &retval, param_count, params);
+	zend_try {
+		ret = call_user_function(EG(function_table), NULL, &pfunc, &retval, param_count, params);
+	} zend_catch {
+		PG(last_error_type) = 0;
+		PG(last_error_lineno) = 0;
+
+		if(PG(last_error_message)) {
+			free(PG(last_error_message));
+			PG(last_error_message) = NULL;
+		}
+
+		if (PG(last_error_file)) {
+			free(PG(last_error_file));
+			PG(last_error_file) = NULL;
+		}
+
+		EG(exit_status) = 0;
+		ret = FAILURE;
+	} zend_end_try();
 	SSP_G(trigger_type) = __type;
 
 #ifdef SSP_DEBUG_TRIGGER
@@ -480,8 +498,9 @@ bool trigger(unsigned short type, ...) {
 			}
 		}
 	} else {
-		php_printf("Unable to call function(%s)\n", trigger_handlers[type]);
+		php_printf("%s - %s - Unable to call function(%s)\n", gettimeofstr(), SSP_G(threadname), trigger_handlers[type]);
 	}
+
 	if (param_count > 0) {
 		int i;
 		for (i = 0; i < param_count; i++) {

@@ -31,7 +31,7 @@ if [ ! -f "$INST_DIR/lib/libphp7.so" ]; then
     which apt-get 2>&1 > /dev/null
     if [ $? -eq 0 ]; then
         OPT_EXT="$OPT_EXT --with-imap --with-tidy --with-zip --with-ldap"
-        $SUDO apt-get -y install libcurl4-openssl-dev libonig-dev libenchant-dev libffi-dev libgd-dev libc-client2007e-dev libkrb5-dev libldap2-dev unixodbc-dev libreadline-dev libreadline6-dev libmm-dev libsnmp-dev snmp snmpd libtidy-dev libxslt1-dev libzip-dev libmysqlclient-dev libwebp-dev
+        $SUDO apt-get -y install libcurl4-openssl-dev libonig-dev libenchant-dev libffi-dev libgd-dev libc-client2007e-dev libkrb5-dev libldap2-dev unixodbc-dev libreadline-dev libreadline6-dev libmm-dev libsnmp-dev snmp snmpd libtidy-dev libxslt1-dev libzip-dev libmysqlclient-dev libwebp-dev libgmp-dev
     else
         $SUDO yum -y install libXpm-devel bzip2 bzip2-devel gcc gcc-c++ kernel-devel libxml2-devel libxslt-devel krb5-devel openssl-devel sqlite-devel libcurl-devel enchant-devel libffi-devel gd-devel libwebp-devel gmp-devel libicu-devel readline-devel net-snmp net-snmp-devel expat-devel libzip-devel
         $SUDO yum -y install libc-client-devel

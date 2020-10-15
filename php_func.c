@@ -230,7 +230,7 @@ static void sapi_ssp_ini_defaults(HashTable *configuration_hash)
 {
 	zval tmp;
 	INI_DEFAULT("report_zend_debug", "0");
-	INI_DEFAULT("display_errors", "1");
+	INI_DEFAULT("display_errors", "0");
 	INI_DEFAULT("memory_limit", "-1");
 	INI_DEFAULT("zend.enable_gc","1");
 }
