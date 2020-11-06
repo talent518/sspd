@@ -1269,6 +1269,8 @@ static void *ssp_msg_queue_handler(void *arg) {
 
 	THREAD_SHUTDOWN();
 
+	ts_free_thread();
+
 	pthread_mutex_lock(&ssp_msg_queue_lock);
 	ssp_msg_queue_running--;
 	pthread_cond_signal(&ssp_msg_queue_cond);
@@ -1601,6 +1603,8 @@ static void *ssp_delayed_handler(void *arg) {
 	event_base_loop(ssp_delayed_base, 0);
 
 	THREAD_SHUTDOWN();
+
+	ts_free_thread();
 
 	pthread_mutex_lock(&ssp_delayed_lock);
 	ssp_delayed_running--;

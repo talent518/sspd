@@ -47,18 +47,20 @@ static void *worker_thread_handler(void *arg)
 
 	THREAD_SHUTDOWN();
 
+	ts_free_thread();
+
 	dprintf("thread %d exited\n", me->id);
 	pthread_mutex_lock(&init_lock);
 	listen_thread.nthreads--;
 	pthread_cond_signal(&init_cond);
 	pthread_mutex_unlock(&init_lock);
 
-	pthread_detach(me->tid);
-	pthread_exit(NULL);
-
 	queue_free(me->accept_queue);
 	queue_free(me->write_queue);
 	queue_free(me->close_queue);
+
+	pthread_detach(me->tid);
+	pthread_exit(NULL);
 
 	return NULL;
 }
