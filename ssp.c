@@ -156,10 +156,15 @@ static int print_module_info(zval *element) /* {{{ */
 }
 /* }}} */
 
+#if PHP_VERSION_ID >= 80000
+static int module_name_cmp(Bucket *f, Bucket *s) /* {{{ */
+{
+#else
 static int module_name_cmp(const void *a, const void *b) /* {{{ */
 {
 	Bucket *f = (Bucket *) a;
 	Bucket *s = (Bucket *) b;
+#endif
 
 	return strcasecmp(((zend_module_entry *) Z_PTR(f->val))->name,
 		((zend_module_entry *) Z_PTR(s->val))->name);

@@ -162,7 +162,11 @@ static void sapi_ssp_register_variables(zval *track_vars_array) /* {{{ */
 }
 /* }}} */
 
+#if PHP_VERSION_ID >= 80000
+static void sapi_ssp_log_message(const char *message, int syslog_type_int) /* {{{ */
+#else
 static void sapi_ssp_log_message(char *message, int syslog_type_int) /* {{{ */
+#endif
 {
 	if(php_get_module_initialized())
 		fprintf(stderr, "%s - %s - %s\n", gettimeofstr(), SSP_G(threadname), message);
