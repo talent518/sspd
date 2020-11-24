@@ -13,20 +13,20 @@
 #define cpu_mem_head(c, m) if(hasCpu) {printf(c);} if(hasCpu && hasMem) {printf("|");} if(hasMem) {printf(m);} printf("\n")
 
 char *fsize(unsigned long int size) {
-	static char buf[20];
+	static char buf[32];
 	static char units[5] = "KMGT";
 	unsigned int unit;
 
 	if(!size) {
 		return "0K";
 	}
-
+	
 	unit = (int)(log(size)/log(1024));
 	if (unit > 3) {
 		unit=3;
 	}
 
-	sprintf(buf, "%.2f%c", size/pow(1024,unit), units[unit]);
+	sprintf(buf, "%.2lf%c", (double)size/pow(1024,unit), units[unit]);
 
 	return buf;
 }
@@ -49,16 +49,16 @@ int getcomm(char *pid, char *comm) {
 	len = fread(buff, 1, sizeof(buff) - 1, fp);
 
 	fclose(fp);
-
+	
 	if(len <= 0) {
 		return 0;
 	}
-
+	
 	ptr = buff + len - 1;
 	while(buff <= ptr && (*ptr == '\r' || *ptr == '\n' || *ptr == ' ')) {
 		*ptr-- = '\0';
 	}
-
+	
 	return !strcmp(buff, comm);
 }
 
@@ -67,12 +67,12 @@ char procArgStr[NPROC][1024];
 int procarg(char *comm, int nproc, int *pid, process_t *proc, unsigned int *pall) {
 	static char fname[64] = "";
 	int n, len, i;
-
+	
 	if(comm) {
 		DIR *dp;
 		struct dirent *dt;
 		register char *p;
-
+	
 		nproc = 0;
 		dp = opendir("/proc");
 		while((dt = readdir(dp)) != NULL) {
@@ -87,7 +87,7 @@ int procarg(char *comm, int nproc, int *pid, process_t *proc, unsigned int *pall
 		}
 		closedir(dp);
 	}
-
+	
 	for(n=0; n<nproc; n++) {
 		int len = snprintf(fname, sizeof(fname), "/proc/%d/cmdline", pid[n]);
 		FILE *fp = fopen(fname, "r");
@@ -113,7 +113,7 @@ int procarg(char *comm, int nproc, int *pid, process_t *proc, unsigned int *pall
 
 		pall[n] = proc[n].utime + proc[n].stime + proc[n].cutime + proc[n].cstime;
 	}
-
+	
 	return nproc;
 }
 
@@ -128,9 +128,9 @@ int main(int argc, char *argv[]){
 	double total;
 	long int realUsed;
 	char hasCpu = 1, hasMem = 1;
-	int nproc = 0, n;
+	int nproc = 0, n, nn, lines = 0;
 	char *comm = NULL;
-
+	
 	for(i=1; i<argc; i++) {
 		switch(argv[i][0]) {
 			case '-':
@@ -179,7 +179,7 @@ int main(int argc, char *argv[]){
 				break;
 		}
 	}
-
+	
 	i = LINES;
 
 	if(hasCpu) {
@@ -195,7 +195,6 @@ int main(int argc, char *argv[]){
 		all = cpu.user + cpu.nice + cpu.system + cpu.idle + cpu.iowait + cpu.irq + cpu.softirq + cpu.stolen + cpu.guest;
 	}
 
-	int nn, lines = 0;
 	while(1) {
 		if(lines++ % LINES == 0) {
 			if(hasCpu && hasMem) {
@@ -208,7 +207,7 @@ int main(int argc, char *argv[]){
 				cpu_mem_head(" User  Nice System   Idle IOWait   IRQ SoftIRQ Stolen  Guest", "MemTotal  MemFree   Cached  Buffers SwapTotal SwapFree|Memory Cached   Swap");
 				cpu_mem_head("------------------------------------------------------------", "------------------------------------------------------|--------------------");
 			}
-
+			
 			nproc = procarg(comm, nproc, pid, proc, pall);
 
 			if(nproc > 0) {
@@ -250,7 +249,7 @@ int main(int argc, char *argv[]){
 			all2 = cpu2.user + cpu2.nice + cpu2.system + cpu2.idle + cpu2.iowait + cpu2.irq + cpu2.softirq + cpu2.stolen + cpu2.guest;
 
 			total = (all2 - all) / 100.0;
-
+		
 			printf("%5.2f", (float)((double)(cpu2.user - cpu.user) / total));
 			printf("%6.2f", (float)((double)(cpu2.nice - cpu.nice) / total));
 			printf("%7.2f", (float)((double)(cpu2.system - cpu.system) / total));
@@ -260,11 +259,11 @@ int main(int argc, char *argv[]){
 			printf("%8.2f", (float)((double)(cpu2.softirq - cpu.softirq) / total));
 			printf("%7.2f", (float)((double)(cpu2.stolen - cpu.stolen) / total));
 			printf("%7.2f", (float)((double)(cpu2.guest - cpu.guest) / total));
-
+		
 			cpu = cpu2;
 			all = all2;
 		}
-
+		
 		if(hasCpu && hasMem) {
 			printf("|");
 		}
@@ -285,6 +284,7 @@ int main(int argc, char *argv[]){
 
 		if(hasCpu || hasMem) {
 			printf("\n");
+			continue;
 		}
 
 		if(nproc>0) {
@@ -328,8 +328,11 @@ int main(int argc, char *argv[]){
 			return 0;
 		} else if(nn > 1) {
 			printf("--------------------------------------------------------------------------------------------------------------------\n");
+		} else if(nn == 0) {
+			lines = 0;
+			continue;
 		}
-
+		
 		fflush(stdout);
 	}
 

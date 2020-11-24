@@ -43,7 +43,7 @@ void getmem(mem_t *mem) {
 	ptr = buff;
 	while(ptr && sscanf(ptr, "%[^:]: %ld", key, &val)) {
 		// printf("%s => %d\n", key, val);
-		
+
 		if((i & 01) && !strcmp(key, "MemTotal")) {
 			mem->total = val;
 			i ^= 01;
@@ -84,7 +84,7 @@ void getmem(mem_t *mem) {
 			i ^= 0200;
 			continue;
 		}
-		
+
 		ptr = strchr(ptr, '\n');
 		if(ptr) {
 			ptr++;
@@ -114,7 +114,7 @@ const char* get_items(const char*buffer, unsigned int item) {
 }
 
 unsigned int getprocessdirtys(int pid) {
-	static char buff[256*1024] = "";
+	static char buff[16*1024*1024] = "";
 	static char fname[64] = "";
 	static char key[64] = "";
 	static long int val = 0;
@@ -236,3 +236,4 @@ int getprocessinfo(int pid, process_t *proc) {
 
 	return 1;
 }
+

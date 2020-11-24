@@ -23,7 +23,7 @@ double microtime()
 char *fsize(int size)
 {
 	char units[5][3]={"B","KB","MB","GB","TB"};
-	char buf[10];
+	char buf[32];
 	int unit=(int)(log(size)/log(1024));
 
 	if (unit>4)
@@ -31,7 +31,7 @@ char *fsize(int size)
 		unit=4;
 	}
 
-	sprintf(buf, "%.3f%s", size/pow(1024,unit), units[unit]);
+	sprintf(buf, "%.3lf%s", (double)size/pow(1024,unit), units[unit]);
 
 	return strdup(buf);
 }

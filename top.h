@@ -44,7 +44,7 @@ typedef struct {
 	long int stime; // Amount of time that this process has been scheduled in kernel mode, measured in clock ticks
 	long int cutime; // Amount of time that this process's waited-for children have been scheduled in user mode, measured in clock ticks
 	long int cstime; // Amount of time that this process's waited-for children have been scheduled in kernel mode, measured in clock ticks
-
+	
 	unsigned long int etime; // runned time for seconds
 } process_t;
 

@@ -3,7 +3,7 @@
 cpus=$(cat /proc/cpuinfo | grep processor | wc -l)
 
 INST_DIR=/opt/ssp74
-PHPVER=7.4.11
+PHPVER=7.4.12
 EVVER=2.1.12
 
 if [ ! -d $INST_DIR/bin ]; then
