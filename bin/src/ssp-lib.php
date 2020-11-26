@@ -237,6 +237,18 @@ function ssp_var_put() {
 }
 
 /**
+ * 写入共享变量：$value 正数为递增，负数为递减
+ */
+function ssp_var_inc($key..., $value) {
+}
+
+/**
+ * 写入共享变量
+ */
+function ssp_var_set($key..., $value) {
+}
+
+/**
  * 删除共享变量
  *
  * 至少一个参数，每个参数代码要查询的多维数组的key
