@@ -242,6 +242,7 @@ static PHP_FUNCTION(ssp_var_exists);
 static PHP_FUNCTION(ssp_var_get);
 static PHP_FUNCTION(ssp_var_put);
 static PHP_FUNCTION(ssp_var_inc);
+static PHP_FUNCTION(ssp_var_set);
 static PHP_FUNCTION(ssp_var_del);
 static PHP_FUNCTION(ssp_var_clean);
 static PHP_FUNCTION(ssp_var_destory);
