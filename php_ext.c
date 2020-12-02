@@ -26,8 +26,7 @@ static zend_long counts[COUNT_KEY_SIZE];
 #define COUNT_TYPE_INC -1
 #define COUNT_TYPE_SET 0
 
-
-static char trigger_handlers[8][30] = {
+static char *trigger_handlers[] = {
 	"ssp_start_handler",
 	"ssp_connect_handler",
 	"ssp_connect_denied_handler",
@@ -35,7 +34,8 @@ static char trigger_handlers[8][30] = {
 	"ssp_send_handler",
 	"ssp_close_handler",
 	"ssp_stop_handler",
-	"ssp_bench_handler"
+	"ssp_bench_handler",
+	"ssp_clean_handler"
 };
 
 long le_ssp_descriptor;
@@ -406,11 +406,6 @@ void ssp_auto_globals_recreate()
 }
 
 bool trigger(unsigned short type, ...) {
-	TRIGGER_STARTUP();
-	if (trigger_handlers[type] == NULL) {
-		TRIGGER_SHUTDOWN();
-		return FAILURE;
-	}
 	zval pfunc, retval;
 	zval *params = NULL;
 	int i, param_count = 0, ret;
@@ -418,23 +413,29 @@ bool trigger(unsigned short type, ...) {
 	va_list args;
 	conn_t *ptr = NULL;
 
+	TRIGGER_STARTUP();
+
 	ZVAL_STRING(&pfunc, trigger_handlers[type]);
 
-	va_start(args, type);
 	switch (type) {
 		case PHP_SSP_START:
 		case PHP_SSP_STOP:
 		case PHP_SSP_BENCH:
+		case PHP_SSP_CLEAN:
 			break;
 		case PHP_SSP_CONNECT:
 		case PHP_SSP_CONNECT_DENIED:
 		case PHP_SSP_CLOSE:
 			param_count = 1;
+
+			va_start(args, type);
 			ptr = va_arg(args, conn_t*);
 			params = (zval *) emalloc(sizeof(zval) * param_count);
 			ZEND_REGISTER_RESOURCE(&params[0], ptr, le_ssp_descriptor);
+			va_end(args);
 			break;
 		case PHP_SSP_RECEIVE:
+			va_start(args, type);
 			param_count = 2;
 			ptr = va_arg(args, conn_t*);
 			params = (zval *) emalloc(sizeof(zval) * param_count);
@@ -446,21 +447,22 @@ bool trigger(unsigned short type, ...) {
 				l = va_arg(args, int);
 				ZVAL_STRINGL(&params[1], s, l);
 			}
+			va_end(args);
 			break;
 		case PHP_SSP_SEND:
+			va_start(args, type);
 			param_count = 2;
 			params = (zval *) emalloc(sizeof(zval) * param_count);
 			ptr = va_arg(args, conn_t*);
 			ZEND_REGISTER_RESOURCE(&params[0], ptr, le_ssp_descriptor);
 			ZVAL_COPY(&params[1], va_arg(args, zval*));
+			va_end(args);
 			break;
 		default:
 			perror("Trigger type not exists!");
-			va_end(args);
 			TRIGGER_SHUTDOWN();
-			return FAILURE;
+			return false;
 	}
-	va_end(args);
 
 #ifdef SSP_DEBUG_TRIGGER
 	printf("before trigger: %s\n", trigger_handlers[type]);
@@ -1611,6 +1613,7 @@ static void *ssp_delayed_handler(void *arg) {
 	ssp_delayed_time = microtime();
 
 	event_base_loop(ssp_delayed_base, 0);
+	event_base_free(ssp_delayed_base);
 
 	THREAD_SHUTDOWN();
 

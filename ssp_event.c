@@ -44,6 +44,7 @@ static void *worker_thread_handler(void *arg)
 	pthread_mutex_unlock(&init_lock);
 
 	event_base_loop(me->base, 0);
+	event_base_free(me->base);
 
 	THREAD_SHUTDOWN();
 
@@ -320,6 +321,7 @@ static void notify_handler(const int fd, const short which, void *arg)
 				}
 
 				ssp_auto_globals_recreate();
+				trigger(PHP_SSP_CLEAN);
 			#ifndef DISABLE_GC_COLLECT_CYCLES
 				gc_collect_cycles();
 			#endif
@@ -484,6 +486,7 @@ static void listen_notify_handler(const int fd, const short which, void *arg)
 				}
 
 				ssp_auto_globals_recreate();
+				trigger(PHP_SSP_CLEAN);
 			#ifndef DISABLE_GC_COLLECT_CYCLES
 				gc_collect_cycles();
 			#endif
@@ -619,11 +622,6 @@ static void signal_handler(const int fd, short event, void *arg) {
 				dprintf("%s: notify thread timeout %d\n", __func__, i);
 				write(worker_threads[i].write_fd, "g", 1);
 			}
-
-			ssp_auto_globals_recreate();
-		#ifndef DISABLE_GC_COLLECT_CYCLES
-			gc_collect_cycles();
-		#endif
 		}
 	#endif
 #endif
@@ -892,6 +890,7 @@ void loop_event (int sockfd) {
 	trigger(PHP_SSP_START);
 
 	event_base_loop(listen_thread.base, 0);
+	event_base_free(listen_thread.base);
 
 	trigger(PHP_SSP_STOP);
 

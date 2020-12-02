@@ -89,6 +89,9 @@ function ssp_close_handler ( $ClientId ) {
 	ssp_counts(COUNT_CONN, COUNT_TYPE_DEC);
 }
 
+function ssp_clean_handler () {
+}
+
 function ssp_stop_handler () {
 	ssp_msg_queue_destory();
 	ssp_delayed_destory();

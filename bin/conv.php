@@ -142,6 +142,9 @@ function ssp_close_handler ( $ClientId ) {
 	$closeStmt->execute([I,$I]);
 }
 
+function ssp_clean_handler () {
+}
+
 function ssp_stop_handler () {
 	ssp_conv_disconnect();
 	ssp_msg_queue_destory();

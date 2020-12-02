@@ -28,6 +28,7 @@
 #define PHP_SSP_CLOSE 5
 #define PHP_SSP_STOP 6
 #define PHP_SSP_BENCH 7
+#define PHP_SSP_CLEAN 8
 
 #define PHP_SSP_RES_INDEX 0
 #define PHP_SSP_RES_SOCKFD 1

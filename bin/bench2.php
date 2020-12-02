@@ -204,6 +204,9 @@ function ssp_close_handler ( $ClientId ) {
 	$info = null;
 }
 
+function ssp_clean_handler () {
+}
+
 function ssp_stop_handler () {
 	DB()->close();
 	ssp_delayed_destory();

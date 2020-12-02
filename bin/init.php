@@ -190,6 +190,9 @@ function ssp_close_handler ( $ClientId ) {
 	MOD('user.online')->drop($index);
 }
 
+function ssp_clean_handler () {
+}
+
 function ssp_stop_handler () {
 	if(IS_DEBUG) {
 		echo PHP_EOL, 'Server Stoped at ', date('H:i:s', time()), PHP_EOL;
