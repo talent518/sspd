@@ -117,8 +117,7 @@ int socket_send(conn_t *ptr, char *data, int data_len) {
 
 	queue_push(ptr->thread->write_queue, s);
 
-	char buf = 'w';
-	write(ptr->thread->write_fd, &buf, 1);
+	write(ptr->thread->write_fd, "w", 1);
 
 	return plen;
 #else
@@ -131,8 +130,7 @@ int socket_send(conn_t *ptr, char *data, int data_len) {
 void socket_close(conn_t *ptr) {
 	queue_push(ptr->thread->close_queue, ptr);
 
-	char buf = 'x';
-	write(ptr->thread->write_fd, &buf, 1);
+	write(ptr->thread->write_fd, "x", 1);
 }
 
 void socket_set_listen(int s) {

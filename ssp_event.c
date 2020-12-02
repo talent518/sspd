@@ -49,15 +49,15 @@ static void *worker_thread_handler(void *arg)
 
 	ts_free_thread();
 
+	queue_free(me->accept_queue);
+	queue_free(me->write_queue);
+	queue_free(me->close_queue);
+
 	dprintf("thread %d exited\n", me->id);
 	pthread_mutex_lock(&init_lock);
 	listen_thread.nthreads--;
 	pthread_cond_signal(&init_cond);
 	pthread_mutex_unlock(&init_lock);
-
-	queue_free(me->accept_queue);
-	queue_free(me->write_queue);
-	queue_free(me->close_queue);
 
 	pthread_detach(me->tid);
 	pthread_exit(NULL);
@@ -249,7 +249,7 @@ static void notify_handler(const int fd, const short which, void *arg)
 				if(ptr->wbuf) {
 					dprintf("close: %4d,1\n", ptr->index);
 					queue_push(me->close_queue, ptr);
-					write(me->write_fd, &chr, 1);
+					write(me->write_fd, "x", 1);
 					break;
 				}
 			#endif // ASYNC_SEND
@@ -544,8 +544,7 @@ static void listen_handler(const int fd, const short which, void *arg)
 
 		conn_info(ptr);
 
-		char chr='l';
-		write(ptr->thread->write_fd, &chr, 1);
+		write(ptr->thread->write_fd, "l", 1);
 	}
 }
 
@@ -557,10 +556,9 @@ static void signal_handler(const int fd, short event, void *arg) {
 	if(listen_thread.sockfd >= 0) event_del(&listen_thread.listen_ev);
 
 	register int i;
-	char chr = '-';
 	for(i=0; i<ssp_nthreads; i++) {
 		dprintf("%s: notify thread exit %d\n", __func__, i);
-		write(worker_threads[i].write_fd, &chr, 1);
+		write(worker_threads[i].write_fd, "-", 1);
 	}
 
 	dprintf("%s: wait worker thread %d\n", __func__, listen_thread.nthreads);
@@ -596,13 +594,12 @@ static void signal_handler(const int fd, short event, void *arg) {
 #ifdef SSP_CODE_TIMEOUT
 	static void timeout_handler(evutil_socket_t fd, short event, void *arg) {
 		register int i;
-		char chr = 't';
 
-		write(listen_thread.write_fd, &chr, 1);
+		write(listen_thread.write_fd, "t", 1);
 
 		for(i=0;i<ssp_nthreads;i++) {
 			dprintf("%s: notify thread timeout %d\n", __func__, i);
-			write(worker_threads[i].write_fd, &chr, 1);
+			write(worker_threads[i].write_fd, "t", 1);
 		}
 
 		dprintf("==================================================================================================================================\n");
@@ -615,13 +612,12 @@ static void signal_handler(const int fd, short event, void *arg) {
 	#ifdef SSP_CODE_TIMEOUT_GLOBAL
 		static void timeout_global_handler(evutil_socket_t fd, short event, void *arg) {
 			register int i;
-			char chr = 'g';
 
-			write(listen_thread.write_fd, &chr, 1);
+			write(listen_thread.write_fd, "g", 1);
 
 			for(i=0;i<ssp_nthreads;i++) {
 				dprintf("%s: notify thread timeout %d\n", __func__, i);
-				write(worker_threads[i].write_fd, &chr, 1);
+				write(worker_threads[i].write_fd, "g", 1);
 			}
 
 			ssp_auto_globals_recreate();

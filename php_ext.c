@@ -610,8 +610,7 @@ static PHP_FUNCTION(ssp_connect)
 
 		conn_info(ptr);
 
-		char chr='l';
-		write(ptr->thread->write_fd, &chr, 1);
+		write(ptr->thread->write_fd, "l", 1);
 
 		RETURN_TRUE;
 	} else {
@@ -1343,7 +1342,7 @@ static PHP_FUNCTION(ssp_msg_queue_push)
 	if(!ssp_msg_queue_running || ssp_msg_queue_stop) return;
 
 	#define __SERI_OK \
-		msg = (ssp_msg_t*) malloc(sizeof(ssp_msg_t)*ZSTR_LEN(buf.s)); \
+		msg = (ssp_msg_t*) malloc(sizeof(ssp_msg_t)+ZSTR_LEN(buf.s)); \
 		memcpy(msg->arg, ZSTR_VAL(buf.s), ZSTR_LEN(buf.s)); \
 		msg->arglen = ZSTR_LEN(buf.s); \
 		msg->arg[msg->arglen] = '\0'
@@ -1671,7 +1670,7 @@ static PHP_FUNCTION(ssp_delayed_set)
 
 	if(arg) {
 		#define __SERI_OK \
-			dly = (ssp_delayed_t*) malloc(sizeof(ssp_delayed_t)*ZSTR_LEN(buf.s)); \
+			dly = (ssp_delayed_t*) malloc(sizeof(ssp_delayed_t)+ZSTR_LEN(buf.s)); \
 			memcpy(dly->arg, ZSTR_VAL(buf.s), ZSTR_LEN(buf.s)); \
 			dly->arglen = ZSTR_LEN(buf.s); \
 			dly->arg[dly->arglen] = '\0'
