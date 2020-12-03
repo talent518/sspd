@@ -44,7 +44,6 @@ static void *worker_thread_handler(void *arg)
 	pthread_mutex_unlock(&init_lock);
 
 	event_base_loop(me->base, 0);
-	event_base_free(me->base);
 
 	THREAD_SHUTDOWN();
 
@@ -890,7 +889,6 @@ void loop_event (int sockfd) {
 	trigger(PHP_SSP_START);
 
 	event_base_loop(listen_thread.base, 0);
-	event_base_free(listen_thread.base);
 
 	trigger(PHP_SSP_STOP);
 
@@ -903,4 +901,17 @@ void loop_event (int sockfd) {
 
 	pthread_mutex_destroy(&ssp_stats_rlock);
 	pthread_mutex_destroy(&ssp_stats_wlock);
+
+	event_base_free(listen_thread.base);
+
+	close(listen_thread.read_fd);
+	close(listen_thread.write_fd);
+
+	register int i;
+	for (i = 0; i < ssp_nthreads; i++) {
+		event_base_free(worker_threads[i].base);
+		close(worker_threads[i].read_fd);
+		close(worker_threads[i].write_fd);
+	}
+	free(worker_threads);
 }

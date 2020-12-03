@@ -236,6 +236,8 @@ void detach_conn(){
 		pthread_mutex_destroy(&refcounts[i].lock);
 		pthread_cond_destroy(&refcounts[i].cond);
 	}
+	free(refcounts);
+	refcounts = NULL;
 
 	pthread_mutex_destroy(&mx_reader);
 	pthread_mutex_destroy(&mx_writer);

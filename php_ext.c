@@ -54,23 +54,24 @@ static struct event conv_timeout_int;
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_info, 0, 0, 1)
-ZEND_ARG_INFO(0, res)
-ZEND_ARG_INFO(0, key)
+ZEND_ARG_TYPE_INFO(0, res, IS_RESOURCE, 0)
+ZEND_ARG_TYPE_INFO(0, key, IS_STRING, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_connect, 0, 0, 1)
-ZEND_ARG_INFO(0, host)
+ZEND_ARG_TYPE_INFO(0, host, IS_STRING, 0)
+ZEND_ARG_TYPE_INFO(0, port, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_conv_setup, 0, 0, 2)
-ZEND_ARG_INFO(0, sid)
-ZEND_ARG_INFO(0, max_sid)
+ZEND_ARG_TYPE_INFO(0, sid, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, max_sid, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_conv_connect, 0, 0, 3)
-ZEND_ARG_INFO(0, host)
-ZEND_ARG_INFO(0, port)
-ZEND_ARG_INFO(0, sid)
+ZEND_ARG_TYPE_INFO(0, host, IS_STRING, 0)
+ZEND_ARG_TYPE_INFO(0, port, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, sid, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_conv_disconnect, 0, 0, 0)
@@ -79,6 +80,7 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_send, 0, 0, 2)
 ZEND_ARG_INFO(0, res)
 ZEND_ARG_INFO(0, message)
+ZEND_ARG_TYPE_INFO(0, sid, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_close, 0, 0, 1)
@@ -95,28 +97,38 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_stats, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_counts, 0, 0, 1)
-ZEND_ARG_INFO(0, key)
+ZEND_ARG_TYPE_INFO(0, key, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, type, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, val, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, size, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_crypt_encode, 0, 0, 2)
-ZEND_ARG_INFO(0, str)
-ZEND_ARG_INFO(0, key)
+ZEND_ARG_TYPE_INFO(0, str, IS_STRING, 0)
+ZEND_ARG_TYPE_INFO(0, key, IS_STRING, 0)
+ZEND_ARG_TYPE_INFO(0, expiry, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_crypt_decode, 0, 0, 2)
-ZEND_ARG_INFO(0, str)
-ZEND_ARG_INFO(0, key)
+ZEND_ARG_TYPE_INFO(0, str, IS_STRING, 0)
+ZEND_ARG_TYPE_INFO(0, key, IS_STRING, 0)
+ZEND_ARG_TYPE_INFO(0, expiry, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_msg_queue_init, 0, 0, 2)
-ZEND_ARG_INFO(0, msgs)
-ZEND_ARG_INFO(0, nthreads)
+ZEND_ARG_TYPE_INFO(0, msgs, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, nthreads, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_msg_queue_push, 0, 0, 3)
-ZEND_ARG_INFO(0, func)
-ZEND_ARG_INFO(0, what)
+ZEND_ARG_TYPE_INFO(0, func, IS_STRING, 0)
+ZEND_ARG_TYPE_INFO(0, what, IS_LONG, 0)
 ZEND_ARG_INFO(0, arg)
+ZEND_ARG_TYPE_INFO(0, arg1, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, arg2, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, arg3, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, arg4, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, arg5, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_msg_queue_destory, 0, 0, 0)
@@ -126,50 +138,56 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_delayed_init, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_delayed_set, 0, 0, 3)
-ZEND_ARG_INFO(0, func)
-ZEND_ARG_INFO(0, delay)
-ZEND_ARG_INFO(0, persist)
+ZEND_ARG_TYPE_INFO(0, func, IS_STRING, 0)
+ZEND_ARG_TYPE_INFO(0, delay, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, persist, IS_TRUE, 0)
+ZEND_ARG_INFO(0, arg)
+ZEND_ARG_TYPE_INFO(0, arg1, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, arg2, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, arg3, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, arg4, IS_LONG, 0)
+ZEND_ARG_TYPE_INFO(0, arg5, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_delayed_del, 0, 0, 1)
-ZEND_ARG_INFO(0, func)
+ZEND_ARG_TYPE_INFO(0, func, IS_STRING, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_delayed_destory, 0, 0, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_init, 0, 0, 1)
-ZEND_ARG_INFO(0, size)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_init, 0, 0, 0)
+ZEND_ARG_TYPE_INFO(0, size, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_exists, 0, 0, 1)
-ZEND_ARG_INFO(0, key)
+ZEND_ARG_VARIADIC_INFO(0, keys)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_get, 0, 0, 0)
-ZEND_ARG_INFO(0, key)
+ZEND_ARG_VARIADIC_INFO(0, keys)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_put, 0, 0, 1)
-ZEND_ARG_INFO(0, key)
+ZEND_ARG_VARIADIC_INFO(0, keys)
+ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_inc, 0, 0, 2)
-ZEND_ARG_INFO(0, key)
+ZEND_ARG_VARIADIC_INFO(0, keys)
 ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_set, 0, 0, 2)
-ZEND_ARG_INFO(0, key)
+ZEND_ARG_VARIADIC_INFO(0, keys)
 ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_del, 0, 0, 1)
-ZEND_ARG_INFO(0, key)
+ZEND_ARG_VARIADIC_INFO(0, keys)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_clean, 0, 0, 0)
-ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_destory, 0, 0, 0)
@@ -288,6 +306,22 @@ static void php_destroy_ssp(zend_resource *rsrc) /* {{{ */
 static PHP_MINIT_FUNCTION(ssp)
 {
 	REGISTER_STRING_CONSTANT("SSP_VERSION", PHP_SSP_VERSION, CONST_CS | CONST_PERSISTENT);
+
+	REGISTER_STRING_CONSTANT("SSP_PIDFILE", ssp_pidfile, CONST_CS | CONST_PERSISTENT);
+	REGISTER_STRING_CONSTANT("SSP_USER", ssp_user, CONST_CS | CONST_PERSISTENT);
+	REGISTER_STRING_CONSTANT("SSP_HOST", ssp_host, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_PORT", ssp_port, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_MAX_CLIENTS", ssp_maxclients, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_MAX_RECVS", ssp_maxrecvs, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_NTHREADS", ssp_nthreads, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SSP_BACKLOG", ssp_backlog, CONST_CS | CONST_PERSISTENT);
+#ifdef SSP_CODE_TIMEOUT
+	REGISTER_LONG_CONSTANT("SSP_TIMEOUT", ssp_timeout, CONST_CS | CONST_PERSISTENT);
+	#ifdef SSP_CODE_TIMEOUT_GLOBAL
+		REGISTER_LONG_CONSTANT("SSP_CODE_TIMEOUT_GLOBAL", ssp_global_timeout, CONST_CS | CONST_PERSISTENT);
+	#endif
+#endif
+
 	REGISTER_LONG_CONSTANT("COUNT_KEY_SIZE", COUNT_KEY_SIZE, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("COUNT_TYPE_AVG", COUNT_TYPE_AVG, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("COUNT_TYPE_GET", COUNT_TYPE_GET, CONST_CS | CONST_PERSISTENT);
@@ -315,8 +349,6 @@ static PHP_MINIT_FUNCTION(ssp)
  */
 static PHP_MSHUTDOWN_FUNCTION(ssp)
 {
-	zend_hash_str_del(EG(zend_constants), "SSP_VERSION", sizeof("SSP_VERSION") - 1);
-
 	pthread_mutex_destroy(&unique_lock);
 	pthread_mutex_destroy(&counts_lock);
 
@@ -1580,9 +1612,9 @@ static void delayed_notify_handler(const int fd, const short which, void *arg) {
 
 static void *ssp_delayed_handler(void *arg) {
 	(void)arg;
-	ssp_msg_t *msg;
 	pthread_t tid = pthread_self();
 	struct event event;
+	ssp_delayed_t *dly, *tmp;
 
 	int fds[2];
 	if (pipe(fds)) {
@@ -1618,6 +1650,16 @@ static void *ssp_delayed_handler(void *arg) {
 	THREAD_SHUTDOWN();
 
 	ts_free_thread();
+
+	if(ssp_delayed) {
+		dly = ssp_delayed;
+		do {
+			tmp = dly->next;
+			free(dly);
+			dly = tmp;
+		} while(dly != ssp_delayed);
+		ssp_delayed = NULL;
+	}
 
 	pthread_mutex_lock(&ssp_delayed_lock);
 	ssp_delayed_running--;

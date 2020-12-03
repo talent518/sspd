@@ -1,3 +1,4 @@
+#include "ssp_event.h"
 #include "php_func.h"
 #include "ssp.h"
 #include "php_ext.h"
@@ -373,22 +374,14 @@ void ssp_request_startup_ex(){
 		return;
 	}
 
-	cli_register_file_handles();
+	if(listen_thread.tid != pthread_self()) {
+		sigset_t mask;
+		sigemptyset(&mask);
+		sigaddset(&mask, SIGINT);
+		sigprocmask(SIG_SETMASK, &mask, NULL);
+	}
 
-	REGISTER_MAIN_STRING_CONSTANT("SSP_PIDFILE",ssp_pidfile,CONST_CS | CONST_PERSISTENT);
-	REGISTER_MAIN_STRING_CONSTANT("SSP_USER",ssp_user,CONST_CS | CONST_PERSISTENT);
-	REGISTER_MAIN_STRING_CONSTANT("SSP_HOST",ssp_host,CONST_CS | CONST_PERSISTENT);
-	REGISTER_MAIN_LONG_CONSTANT("SSP_PORT",ssp_port,CONST_CS | CONST_PERSISTENT);
-	REGISTER_MAIN_LONG_CONSTANT("SSP_MAX_CLIENTS",ssp_maxclients,CONST_CS | CONST_PERSISTENT);
-	REGISTER_MAIN_LONG_CONSTANT("SSP_MAX_RECVS",ssp_maxrecvs,CONST_CS | CONST_PERSISTENT);
-	REGISTER_MAIN_LONG_CONSTANT("SSP_NTHREADS",ssp_nthreads,CONST_CS | CONST_PERSISTENT);
-	REGISTER_MAIN_LONG_CONSTANT("SSP_BACKLOG",ssp_backlog,CONST_CS | CONST_PERSISTENT);
-#ifdef SSP_CODE_TIMEOUT
-	REGISTER_MAIN_LONG_CONSTANT("SSP_TIMEOUT",ssp_timeout,CONST_CS | CONST_PERSISTENT);
-	#ifdef SSP_CODE_TIMEOUT_GLOBAL
-		REGISTER_MAIN_LONG_CONSTANT("SSP_CODE_TIMEOUT_GLOBAL",ssp_global_timeout,CONST_CS | CONST_PERSISTENT);
-	#endif
-#endif
+	cli_register_file_handles();
 
 	zend_is_auto_global_str(ZEND_STRL("_SERVER"));
 
@@ -411,21 +404,10 @@ void ssp_request_startup_ex(){
 }
 
 void ssp_request_shutdown(){
-	zend_hash_str_del(EG(zend_constants), "SSP_PIDFILE", sizeof("SSP_PIDFILE") - 1);
-	zend_hash_str_del(EG(zend_constants), "SSP_USER", sizeof("SSP_USER") - 1);
-	zend_hash_str_del(EG(zend_constants), "SSP_HOST", sizeof("SSP_HOST") - 1);
-	zend_hash_str_del(EG(zend_constants), "SSP_PORT", sizeof("SSP_PORT") - 1);
-	zend_hash_str_del(EG(zend_constants), "SSP_MAX_CLIENTS", sizeof("SSP_MAX_CLIENTS") - 1);
-	zend_hash_str_del(EG(zend_constants), "SSP_MAX_RECVS", sizeof("SSP_MAX_RECVS") - 1);
-	zend_hash_str_del(EG(zend_constants), "SSP_NTHREADS", sizeof("SSP_NTHREADS") - 1);
-	zend_hash_str_del(EG(zend_constants), "SSP_BACKLOG", sizeof("SSP_BACKLOG") - 1);
-
-#ifdef SSP_CODE_TIMEOUT
-	zend_hash_str_del(EG(zend_constants), "SSP_TIMEOUT", sizeof("SSP_TIMEOUT")-1);
-	#ifdef SSP_CODE_TIMEOUT_GLOBAL
-		zend_hash_str_del(EG(zend_constants), "SSP_CODE_TIMEOUT_GLOBAL", sizeof("SSP_CODE_TIMEOUT_GLOBAL")-1);
-	#endif
-#endif
+	if(SG(request_info).path_translated) {
+		free(SG(request_info).path_translated);
+		SG(request_info).path_translated = NULL;
+	}
 
 	php_request_shutdown(NULL);
 }
@@ -435,14 +417,14 @@ void ssp_module_shutdown(){
 }
 
 void ssp_destroy(){
+	sapi_shutdown();
+	tsrm_shutdown();
+
 	if (CSM(php_ini_path_override)) {
 		free(CSM(php_ini_path_override));
 	}
 	if (CSM(ini_entries)) {
 		free(CSM(ini_entries));
 	}
-
-	sapi_shutdown();
-	tsrm_shutdown();
 }
 /* }}} */
