@@ -1887,7 +1887,7 @@ static PHP_FUNCTION(ssp_var_exists)
 	efree(arguments);
 }
 
-static void hash_table_to_zval(bucket_t *p, zval *a) {
+static int hash_table_to_zval(bucket_t *p, zval *a) {
 	if(p->nKeyLength == 0) {
 		switch(p->value.type) {
 			case NULL_T:
@@ -1977,6 +1977,8 @@ static void hash_table_to_zval(bucket_t *p, zval *a) {
 				break;
 		}
 	}
+	
+	return HASH_TABLE_APPLY_KEEP;
 }
 
 static PHP_FUNCTION(ssp_var_get)
