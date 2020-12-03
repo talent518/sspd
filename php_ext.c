@@ -2513,6 +2513,7 @@ static PHP_FUNCTION(ssp_var_destory)
 	pthread_mutex_destroy(&ssp_var_rlock);
 	pthread_mutex_destroy(&ssp_var_wlock);
 	hash_table_destroy(ssp_var_ht);
+	free(ssp_var_ht);
 	ssp_var_ht = NULL;
 
 	RETVAL_LONG(n);
