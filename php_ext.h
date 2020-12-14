@@ -248,6 +248,7 @@ static PHP_FUNCTION(ssp_var_set_ex);
 static PHP_FUNCTION(ssp_var_del);
 static PHP_FUNCTION(ssp_var_clean);
 static PHP_FUNCTION(ssp_var_clean_ex);
+static PHP_FUNCTION(ssp_var_count);
 static PHP_FUNCTION(ssp_var_destory);
 
 #endif  /* PHP_EXT_H */

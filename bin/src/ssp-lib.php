@@ -277,6 +277,15 @@ function ssp_var_clean() {
 function share_var_clean_ex($expire) {}
 
 /**
+ * 统计变量
+ *
+ * 每个参数代码要查询的多维数组的key
+ * @return mixed 大于0为数组元素数，小于0为字符长度，true为对象，未找到为null，否则为false
+ */
+function ssp_var_count([$key1,...]) {
+}
+
+/**
  * 回收共享变量(只能在ssp_stop_handler中使用)，要求ssp_var_destory必需在ssp_msg_queue_destory和ssp_delayed_destory后调用
  */
 function ssp_var_destory() {
