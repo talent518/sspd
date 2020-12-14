@@ -183,11 +183,21 @@ ZEND_ARG_VARIADIC_INFO(0, keys)
 ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_set_ex, 0, 0, 3)
+ZEND_ARG_VARIADIC_INFO(0, keys)
+ZEND_ARG_INFO(0, value)
+ZEND_ARG_TYPE_INFO(0, expire, IS_LONG, 0)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_del, 0, 0, 1)
 ZEND_ARG_VARIADIC_INFO(0, keys)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_clean, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_clean_ex, 0, 0, 1)
+ZEND_ARG_TYPE_INFO(0, expire, IS_LONG, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_ssp_var_destory, 0, 0, 0)
@@ -222,8 +232,10 @@ static const zend_function_entry ssp_functions[] = {
 	PHP_FE(ssp_var_put, arginfo_ssp_var_put)
 	PHP_FE(ssp_var_inc, arginfo_ssp_var_inc)
 	PHP_FE(ssp_var_set, arginfo_ssp_var_set)
+	PHP_FE(ssp_var_set_ex, arginfo_ssp_var_set_ex)
 	PHP_FE(ssp_var_del, arginfo_ssp_var_del)
 	PHP_FE(ssp_var_clean, arginfo_ssp_var_clean)
+	PHP_FE(ssp_var_clean_ex, arginfo_ssp_var_clean_ex)
 	PHP_FE(ssp_var_destory, arginfo_ssp_var_destory)
 	PHP_FE_END
 };
@@ -271,8 +283,8 @@ zend_module_entry ssp_module_entry = {
 		} \
 	} while(0)
 
-#define UNSERIALIZE(s,l,ok) UNSERIALIZE_EX(s,l,__NULL,ok)
-#define UNSERIALIZE_EX(s,l,r,ok) \
+#define UNSERIALIZE(s,l,ok) UNSERIALIZE_EX(s,l,__NULL,ok,__NULL)
+#define UNSERIALIZE_EX(s,l,r,ok,ok2) \
 	do { \
 		php_unserialize_data_t var_hash; \
 		char *__buf = s; \
@@ -286,7 +298,7 @@ zend_module_entry ssp_module_entry = {
 			} \
 			r; \
 		} else { \
-			ok; \
+			ok;ok2; \
 		} \
 		PHP_VAR_UNSERIALIZE_DESTROY(var_hash); \
 	} while(0)
@@ -1840,9 +1852,10 @@ static PHP_FUNCTION(ssp_var_init)
 		php_printf("Call the ssp_delayed_init function before calling the ssp_var_init function");
 		return;
 	}
+	
 	if(ssp_var_ht) return;
 
-	zend_long size = ssp_maxclients;
+	zend_long size = 128;
 	if(zend_parse_parameters(ZEND_NUM_ARGS(), "|l", &size) == FAILURE) return;
 
 	pthread_mutex_init(&ssp_var_rlock, NULL);
@@ -1863,7 +1876,7 @@ static PHP_FUNCTION(ssp_var_exists)
 	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
 
 	SSP_VAR_RLOCK();
-	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2 = {.type=NULL_T};
+	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht,.expire=0}, v2 = {.type=NULL_T,.expire=0};
 	RETVAL_FALSE;
 	for(i=0; i<arg_num && v1.type == HT_T; i++) {
 		if(i+1 == arg_num) {
@@ -1925,7 +1938,8 @@ static int hash_table_to_zval(bucket_t *p, zval *a) {
 				break;
 			}
 			case SERI_T: {
-				UNSERIALIZE(p->value.str->str, p->value.str->len, add_index_zval(a, p->h, retval));
+				zval rv;
+				UNSERIALIZE_EX(p->value.str->str, p->value.str->len, __NULL, ZVAL_COPY(&rv, retval), add_index_zval(a, p->h, &rv));
 				break;
 			}
 			case PTR_T:
@@ -1969,7 +1983,8 @@ static int hash_table_to_zval(bucket_t *p, zval *a) {
 				break;
 			}
 			case SERI_T: {
-				UNSERIALIZE(p->value.str->str, p->value.str->len, add_assoc_zval_ex(a, p->arKey, p->nKeyLength, retval));
+				zval rv;
+				UNSERIALIZE_EX(p->value.str->str, p->value.str->len, __NULL, ZVAL_COPY(&rv, retval), add_assoc_zval_ex(a, p->arKey, p->nKeyLength, &rv));
 				break;
 			}
 			case PTR_T:
@@ -1979,6 +1994,49 @@ static int hash_table_to_zval(bucket_t *p, zval *a) {
 	}
 	
 	return HASH_TABLE_APPLY_KEEP;
+}
+
+void value_to_zval(value_t *v, zval *return_value) {
+	switch(v->type) {
+		case BOOL_T:
+			RETVAL_BOOL(v->b);
+			break;
+		case CHAR_T:
+			RETVAL_LONG(v->c);
+			break;
+		case SHORT_T:
+			RETVAL_LONG(v->s);
+			break;
+		case INT_T:
+			RETVAL_LONG(v->i);
+			break;
+		case LONG_T:
+			RETVAL_LONG(v->l);
+			break;
+		case FLOAT_T:
+			RETVAL_DOUBLE(v->f);
+			break;
+		case DOUBLE_T:
+			RETVAL_DOUBLE(v->d);
+			break;
+		case STR_T:
+			RETVAL_STRINGL(v->str->str, v->str->len);
+			break;
+		case HT_T:
+			array_init_size(return_value, hash_table_num_elements(v->ptr));
+			hash_table_apply_with_argument(v->ptr, (hash_apply_func_arg_t) hash_table_to_zval, return_value);
+			break;
+		case SERI_T: {
+			UNSERIALIZE(v->str->str, v->str->len, ZVAL_COPY(return_value, retval));
+			break;
+		}
+		case PTR_T:
+			RETVAL_LONG((zend_long) v->ptr);
+			break;
+		default:
+			RETVAL_NULL();
+			break;
+	}
 }
 
 static PHP_FUNCTION(ssp_var_get)
@@ -2000,7 +2058,7 @@ static PHP_FUNCTION(ssp_var_get)
 	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
 
 	SSP_VAR_RLOCK();
-	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2 = {.type=NULL_T};
+	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht,.expire=0}, v2 = {.type=NULL_T,.expire=0};
 	for(i=0; i<arg_num && v1.type == HT_T; i++) {
 		if(Z_TYPE(arguments[i]) == IS_LONG) {
 			if(hash_table_index_find((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2) == FAILURE) break;
@@ -2008,49 +2066,8 @@ static PHP_FUNCTION(ssp_var_get)
 			convert_to_string(&arguments[0]);
 			if(hash_table_find((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2) == FAILURE) break;
 		}
-		v1 = v2;
-	}
-	if(i == arg_num) {
-		switch(v2.type) {
-			case NULL_T:
-				RETVAL_NULL();
-				break;
-			case BOOL_T:
-				RETVAL_BOOL(v2.b);
-				break;
-			case CHAR_T:
-				RETVAL_LONG(v2.c);
-				break;
-			case SHORT_T:
-				RETVAL_LONG(v2.s);
-				break;
-			case INT_T:
-				RETVAL_LONG(v2.i);
-				break;
-			case LONG_T:
-				RETVAL_LONG(v2.l);
-				break;
-			case FLOAT_T:
-				RETVAL_DOUBLE(v2.f);
-				break;
-			case DOUBLE_T:
-				RETVAL_DOUBLE(v2.d);
-				break;
-			case STR_T:
-				RETVAL_STRINGL(v2.str->str, v2.str->len);
-				break;
-			case HT_T:
-				array_init_size(return_value, hash_table_num_elements(v2.ptr));
-				hash_table_apply_with_argument(v2.ptr, (hash_apply_func_arg_t) hash_table_to_zval, return_value);
-				break;
-			case SERI_T: {
-				UNSERIALIZE(v2.str->str, v2.str->len, ZVAL_COPY(return_value, retval));
-				break;
-			}
-			case PTR_T:
-				RETVAL_LONG((zend_long) v2.ptr);
-				break;
-		}
+		if(i == arg_num - 1) value_to_zval(&v2, return_value);
+		else v1 = v2;
 	}
 	SSP_VAR_RUNLOCK();
 
@@ -2060,6 +2077,7 @@ static PHP_FUNCTION(ssp_var_get)
 
 static int zval_array_to_hash_table(zval *pDest, int num_args, va_list args, zend_hash_key *hash_key);
 static void zval_to_value(zval *z, value_t *v) {
+	v->expire = 0;
 	switch(Z_TYPE_P(z)) {
 		case IS_FALSE:
 		case IS_TRUE:
@@ -2104,7 +2122,7 @@ static void zval_to_value(zval *z, value_t *v) {
 }
 
 static int zval_array_to_hash_table(zval *pDest, int num_args, va_list args, zend_hash_key *hash_key) {
-	value_t v={.type=NULL_T};
+	value_t v={.type=NULL_T,.expire=0};
 	hash_table_t *ht = va_arg(args, hash_table_t*);
 
 	if(hash_key->key) {
@@ -2151,13 +2169,15 @@ static PHP_FUNCTION(ssp_var_put)
 	if(arg_num == 1) {
 		if(Z_TYPE(arguments[0]) == IS_ARRAY) {
 			zend_hash_apply_with_arguments(Z_ARR(arguments[0]), zval_array_to_hash_table, 1, ssp_var_ht);
+			RETVAL_TRUE;
 		} else {
 			value_t v3;
 			zval_to_value(&arguments[0], &v3);
-			hash_table_next_index_insert(ssp_var_ht, &v3, NULL);
+			RETVAL_BOOL(hash_table_next_index_insert(ssp_var_ht, &v3, NULL) == SUCCESS);
 		}
 	} else {
-		value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2;
+		value_t v1 = {.type=HT_T,.ptr=ssp_var_ht,.expire=0}, v2;
+		RETVAL_FALSE;
 		for(i=0; i<arg_num; i++) {
 			v2.type = NULL_T;
 			if(i+2 == arg_num) {
@@ -2165,26 +2185,28 @@ static PHP_FUNCTION(ssp_var_put)
 					if(Z_TYPE(arguments[i]) == IS_LONG) {
 						if(hash_table_index_find((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2) == FAILURE || v2.type != HT_T) {
 							zval_to_value(&arguments[i+1], &v2);
-							hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL);
+							RETVAL_BOOL(hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL) == SUCCESS);
 						} else {
 							zend_hash_apply_with_arguments(Z_ARR(arguments[i+1]), zval_array_to_hash_table, 1, v2.ptr);
+							RETVAL_TRUE;
 						}
 					} else {
 						convert_to_string(&arguments[i]);
 						if(hash_table_find((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2) == FAILURE || v2.type != HT_T) {
 							zval_to_value(&arguments[i+1], &v2);
-							hash_table_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2, NULL);
+							RETVAL_BOOL(hash_table_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2, NULL) == SUCCESS);
 						} else {
 							zend_hash_apply_with_arguments(Z_ARR(arguments[i+1]), zval_array_to_hash_table, 1, v2.ptr);
+							RETVAL_TRUE;
 						}
 					}
 				} else {
 					zval_to_value(&arguments[i+1], &v2);
 					if(Z_TYPE(arguments[i]) == IS_LONG) {
-						hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL);
+						RETVAL_BOOL(hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL) == SUCCESS);
 					} else {
 						convert_to_string(&arguments[i]);
-						hash_table_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2, NULL);
+						RETVAL_BOOL(hash_table_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2, NULL) == SUCCESS);
 					}
 				}
 				break;
@@ -2225,8 +2247,6 @@ static PHP_FUNCTION(ssp_var_put)
 
 	end:
 	efree(arguments);
-
-	RETVAL_TRUE;
 }
 
 #define VALUE_ADD(k,v,t) \
@@ -2320,9 +2340,11 @@ static PHP_FUNCTION(ssp_var_inc)
 	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
 	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
 
+	RETVAL_FALSE;
+
 	SSP_VAR_WLOCK();
 	{
-		value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2, v3 = {.type=NULL_T};
+		value_t v1 = {.type=HT_T,.ptr=ssp_var_ht,.expire=0}, v2, v3 = {.type=NULL_T,.expire=0};
 		ulong h;
 		for(i=0; i<arg_num; i++) {
 			v2.type = NULL_T;
@@ -2330,18 +2352,30 @@ static PHP_FUNCTION(ssp_var_inc)
 				zval_to_value(&arguments[i+1], &v2);
 				if(Z_TYPE(arguments[i]) == IS_LONG) {
 					if(hash_table_index_find((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v3) == FAILURE) {
-						hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL);
+						if(hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL) == SUCCESS) {
+							value_to_zval(&v2, return_value);
+						}
 					} else {
 						value_add(&v3, &v2);
-						if(v3.type != HT_T) hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v3, NULL);
+						if(v3.type != HT_T) {
+							if(hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v3, NULL) == SUCCESS) {
+								value_to_zval(&v3, return_value);
+							}
+						} else RETVAL_LONG(hash_table_num_elements(v3.ptr));
 					}
 				} else {
 					h = zend_get_hash_value(Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]));
 					if(hash_table_quick_find((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), h, &v3) == FAILURE) {
-						hash_table_quick_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), h, &v2, NULL);
+						if(hash_table_quick_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), h, &v2, NULL) == SUCCESS) {
+							value_to_zval(&v2, return_value);
+						}
 					} else {
 						value_add(&v3, &v2);
-						if(v3.type != HT_T) hash_table_quick_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), h, &v3, NULL);
+						if(v3.type != HT_T) {
+							if(hash_table_quick_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), h, &v3, NULL) == SUCCESS) {
+								value_to_zval(&v3, return_value);
+							}
+						} else RETVAL_LONG(hash_table_num_elements(v3.ptr));
 					}
 				}
 				break;
@@ -2382,8 +2416,6 @@ static PHP_FUNCTION(ssp_var_inc)
 
 	end:
 	efree(arguments);
-
-	RETVAL_TRUE;
 }
 
 static PHP_FUNCTION(ssp_var_set)
@@ -2396,16 +2428,77 @@ static PHP_FUNCTION(ssp_var_set)
 	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
 
 	SSP_VAR_WLOCK();
-	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2 = {.type=NULL_T};
+	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht,.expire=0}, v2 = {.type=NULL_T,.expire=0};
 	RETVAL_FALSE;
 	for(i=0; i<arg_num && v1.type == HT_T; i++) {
 		if(i+2 == arg_num) {
 			zval_to_value(&arguments[i+1], &v2);
 			if(Z_TYPE(arguments[i]) == IS_LONG) {
-				hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL);
+				RETVAL_BOOL(hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL) == SUCCESS);
 			} else {
 				convert_to_string(&arguments[i]);
+				RETVAL_BOOL(hash_table_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2, NULL) == SUCCESS);
+			}
+			break;
+		} else if(Z_TYPE(arguments[i]) == IS_LONG) {
+			if(hash_table_index_find((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2) == FAILURE) {
+				v2.type = HT_T;
+				v2.ptr = malloc(sizeof(hash_table_t));
+				hash_table_init(v2.ptr, 2);
+				hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL);
+			} else {
+				if(v2.type != HT_T) {
+					v2.type = HT_T;
+					v2.ptr = malloc(sizeof(hash_table_t));
+					hash_table_init(v2.ptr, 2);
+					hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL);
+				}
+			}
+		} else {
+			convert_to_string(&arguments[0]);
+			if(hash_table_find((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2) == FAILURE) {
+				v2.type = HT_T;
+				v2.ptr = malloc(sizeof(hash_table_t));
+				hash_table_init(v2.ptr, 2);
 				hash_table_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2, NULL);
+			} else {
+				if(v2.type != HT_T) {
+					v2.type = HT_T;
+					v2.ptr = malloc(sizeof(hash_table_t));
+					hash_table_init(v2.ptr, 2);
+					hash_table_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2, NULL);
+				}
+			}
+		}
+		v1 = v2;
+	}
+	SSP_VAR_WUNLOCK();
+
+	end:
+	efree(arguments);
+}
+
+static PHP_FUNCTION(ssp_var_set_ex)
+{
+	zval *arguments;
+	int arg_num = ZEND_NUM_ARGS(), i;
+	if(arg_num <= 2) return;
+
+	arguments = (zval *) safe_emalloc(sizeof(zval), arg_num, 0);
+	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
+
+	SSP_VAR_WLOCK();
+	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht,.expire=0}, v2 = {.type=NULL_T,.expire=0};
+	RETVAL_FALSE;
+	for(i=0; i<arg_num && v1.type == HT_T; i++) {
+		if(i+3 == arg_num) {
+			zval_to_value(&arguments[i+1], &v2);
+			v2.expire = (int) Z_LVAL(arguments[i+2]);
+			if(Z_TYPE(arguments[i]) == IS_LONG) {
+				RETVAL_BOOL(hash_table_index_update((hash_table_t*) v1.ptr, Z_LVAL(arguments[i]), &v2, NULL) == SUCCESS);
+			} else {
+				convert_to_string(&arguments[i]);
+				RETVAL_BOOL(hash_table_update((hash_table_t*) v1.ptr, Z_STRVAL(arguments[i]), Z_STRLEN(arguments[i]), &v2, NULL) == SUCCESS);
 			}
 			break;
 		} else if(Z_TYPE(arguments[i]) == IS_LONG) {
@@ -2457,7 +2550,7 @@ static PHP_FUNCTION(ssp_var_del)
 	if(zend_get_parameters_array_ex(arg_num, arguments) == FAILURE) goto end;
 
 	SSP_VAR_WLOCK();
-	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht}, v2 = {.type=NULL_T};
+	value_t v1 = {.type=HT_T,.ptr=ssp_var_ht,.expire=0}, v2 = {.type=NULL_T,.expire=0};
 	RETVAL_FALSE;
 	for(i=0; i<arg_num && v1.type == HT_T; i++) {
 		if(i+1 == arg_num) {
@@ -2494,6 +2587,39 @@ static PHP_FUNCTION(ssp_var_clean)
 	RETVAL_LONG(n);
 }
 
+static int hash_table_clean_ex(bucket_t *p, int *ex) {
+	if(p->value.expire && p->value.expire < *ex) {
+		return HASH_TABLE_APPLY_REMOVE;
+	} else if(p->value.type == HT_T) {
+		hash_table_apply_with_argument(p->value.ptr, (hash_apply_func_arg_t) hash_table_clean_ex, ex);
+	}
+	
+	return HASH_TABLE_APPLY_KEEP;
+}
+
+static PHP_FUNCTION(ssp_var_clean_ex)
+{
+	zend_long d;
+	int n;
+	
+	if(!ssp_var_ht) return;
+	
+	ZEND_PARSE_PARAMETERS_START(1, 1)
+		Z_PARAM_LONG(d)
+	ZEND_PARSE_PARAMETERS_END();
+	
+	if(d <= 0) return;
+	
+	n = (int) d;
+
+	SSP_VAR_WLOCK();
+	hash_table_apply_with_argument(ssp_var_ht, (hash_apply_func_arg_t) hash_table_clean_ex, &n);
+	n = hash_table_num_elements(ssp_var_ht);
+	SSP_VAR_WUNLOCK();
+
+	RETVAL_LONG(n);
+}
+
 static PHP_FUNCTION(ssp_var_destory)
 {
 	if(SSP_G(trigger_type) != PHP_SSP_STOP) {
@@ -2515,6 +2641,7 @@ static PHP_FUNCTION(ssp_var_destory)
 	pthread_mutex_destroy(&ssp_var_rlock);
 	pthread_mutex_destroy(&ssp_var_wlock);
 	hash_table_destroy(ssp_var_ht);
+	
 	free(ssp_var_ht);
 	ssp_var_ht = NULL;
 

@@ -46,7 +46,7 @@ rebuild: kill clean all
 
 retest: kill all
 	@echo $@
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 8 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp.pid --outfile $(PWD)/ssp.out --errfile $(PWD)/ssp.err --user $(USER) -f $(PWD)/bin/init.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 128 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp.pid --outfile $(PWD)/ssp.out --errfile $(PWD)/ssp.err --user $(USER) -f $(PWD)/bin/init.php -s start
 
 monitor: $(BIN_DIR)/monitor
 	@echo $@
@@ -58,7 +58,7 @@ bench: all
 
 bench2: all
 	@echo $@
-	@$(BIN_DIR)/ssp --host 127.0.0.1 --port 8086 --nthreads 8 --max-clients 2000 --timeout 300 -f $(PWD)/bin/bench2.php -s bench
+	@$(BIN_DIR)/ssp --host 127.0.0.1 --port 8086 --nthreads 128 --max-clients 2000 --timeout 300 -f $(PWD)/bin/bench2.php -s bench
 
 kill3:
 	@echo $@
@@ -68,11 +68,11 @@ kill3:
 
 retest3: kill3 all
 	@echo $@
-	@$(BIN_DIR)/ssp --port 8082 --nthreads 2 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp.pid --outfile $(PWD)/ssp.out --errfile $(PWD)/ssp.err --user $(USER) -f $(PWD)/bin/conv.php -s start
-	@$(BIN_DIR)/ssp --port 8084 --nthreads 2 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp2.pid --outfile $(PWD)/ssp2.out --errfile $(PWD)/ssp2.err --user $(USER) -f $(PWD)/bin/conv.php -s start
-	@$(BIN_DIR)/ssp --port 8086 --nthreads 2 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp3.pid --outfile $(PWD)/ssp3.out --errfile $(PWD)/ssp3.err --user $(USER) -f $(PWD)/bin/conv.php -s start
+	@$(BIN_DIR)/ssp --port 8082 --nthreads 42 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp.pid --outfile $(PWD)/ssp.out --errfile $(PWD)/ssp.err --user $(USER) -f $(PWD)/bin/conv.php -s start
+	@$(BIN_DIR)/ssp --port 8084 --nthreads 42 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp2.pid --outfile $(PWD)/ssp2.out --errfile $(PWD)/ssp2.err --user $(USER) -f $(PWD)/bin/conv.php -s start
+	@$(BIN_DIR)/ssp --port 8086 --nthreads 42 --max-clients 6000 --timeout 300 --pidfile $(PWD)/ssp3.pid --outfile $(PWD)/ssp3.out --errfile $(PWD)/ssp3.err --user $(USER) -f $(PWD)/bin/conv.php -s start
 
 bench3: all
 	@echo $@
-	@$(BIN_DIR)/ssp --nthreads 8 --max-clients 2000 --timeout 300 -f $(PWD)/bin/bench3.php -s bench
+	@$(BIN_DIR)/ssp --nthreads 128 --max-clients 2000 --timeout 300 -f $(PWD)/bin/bench3.php -s bench
 

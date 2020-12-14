@@ -229,7 +229,7 @@ function ssp_var_get([$key1,...]) {
 }
 
 /**
- * 写入共享变量
+ * 写入共享变量: 至少一个参数，每个参数代码要查询的多维数组的key，最后一个是数组可与存在数组合并，否则则替换
  *
  * 至少一个参数，每个参数代码要查询的多维数组的key，最后一个是数组可与存在数组合并，否则则替换
  */
@@ -237,7 +237,8 @@ function ssp_var_put() {
 }
 
 /**
- * 写入共享变量：$value 正数为递增，负数为递减
+ * 写入共享变量：($key[,...]查到的变量：是数组则会把$value附加到数组后，是字符串则在其后附加$value字符串，其它数值类型或布尔值则会按数值累加)
+ * @return mixed 返回运算结果
  */
 function ssp_var_inc($key..., $value) {
 }
@@ -246,6 +247,13 @@ function ssp_var_inc($key..., $value) {
  * 写入共享变量
  */
 function ssp_var_set($key..., $value) {
+}
+
+/**
+ * 写入过期共享变量
+ * @param integer $expire 过期时间戳，为0时永不过期
+ */
+function ssp_var_set_ex($key..., $value, $expire) {
 }
 
 /**
@@ -261,6 +269,12 @@ function ssp_var_del() {
  */
 function ssp_var_clean() {
 }
+
+/**
+ * 清理已过期共享变量
+ * @param integer $expire 过期时间戳，必须大于0
+ */
+function share_var_clean_ex($expire) {}
 
 /**
  * 回收共享变量(只能在ssp_stop_handler中使用)，要求ssp_var_destory必需在ssp_msg_queue_destory和ssp_delayed_destory后调用
