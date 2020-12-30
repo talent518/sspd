@@ -8,7 +8,7 @@ class CtlUser extends CtlBase {
 	function onLogin ( $request ) {
 		$index = ssp_info($request->ClientId, 'index');
 		$params = &$request->params;
-		$auth = explode("\t", crypt_decode($params->auth, SSP_KEY));
+		$auth = explode("\t", crypt_decode((string) $params->auth, SSP_KEY));
 		if ( count($auth) == 2 )
 			list ( $uid, $password ) = $auth;
 		else {
