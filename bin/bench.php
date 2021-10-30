@@ -50,6 +50,7 @@ if($pid===null) {
 			foreach ( $reads as $fp )
 			{
 				$buffer = fread($fp, 8192);
+				echo $buffer;
 				for($i=0; $i<strlen($buffer); $i++) {
 					switch(substr($buffer, $i, 1)) {
 						case 'c':
@@ -226,12 +227,23 @@ while(!file_exists($benchFile)) {
 	usleep(100);
 }
 
+$running = true;
+
+function signal($sig) {
+	global $running;
+	$running = false;
+}
+
+pcntl_async_signals(true);
+pcntl_signal(SIGTERM, 'signal', false);
+pcntl_signal(SIGINT, 'signal', false);
+
 $request=new XML_Element('request');
 $request->type='Gold.State';
 $request->is_simple=true;
 $request->params=array_to_xml(array('page'=>1,'size'=>10,'isToday'=>0),'params');
 
-for($i=0; $i<$ntimes; $i++) {
+for($i=0; $i<$ntimes && $running; $i++) {
 	if(empty($sockets)) {
 		exit('C');
 	}

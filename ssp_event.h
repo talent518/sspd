@@ -77,8 +77,8 @@ typedef struct {
 	} scpu; // system cpu persent
 
 	struct {
-		double utime;
-		double stime;
+		long int utime;
+		long int stime;
 	} pcpu; // process cpu persent
 } top_info_t;
 extern top_info_t top_info;

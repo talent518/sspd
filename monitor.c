@@ -188,13 +188,6 @@ int main(int argc, char *argv[]){
 		all = cpu.user + cpu.nice + cpu.system + cpu.idle + cpu.iowait + cpu.irq + cpu.softirq + cpu.stolen + cpu.guest;
 	}
 
-	nproc = procarg(comm, nproc, pid, proc, pall);
-
-	if(nproc>0 || comm) {
-		getcpu(&cpu);
-		all = cpu.user + cpu.nice + cpu.system + cpu.idle + cpu.iowait + cpu.irq + cpu.softirq + cpu.stolen + cpu.guest;
-	}
-
 	while(1) {
 		if(lines++ % LINES == 0) {
 			if(hasCpu && hasMem) {
@@ -287,14 +280,6 @@ int main(int argc, char *argv[]){
 			continue;
 		}
 
-		if(nproc>0) {
-			getcpu(&cpu);
-
-			all2 = cpu.user + cpu.nice + cpu.system + cpu.idle + cpu.iowait + cpu.irq + cpu.softirq + cpu.stolen + cpu.guest;
-			total = (all2 - all) / 100.0;
-			all = all2;
-		}
-
 		nn = nproc;
 		for(n=0; n<nproc; n++) {
 			if(pid[n] ==0 || !getprocessinfo(pid[n], &proc2[n])) {
@@ -316,11 +301,16 @@ int main(int argc, char *argv[]){
 			printf("%9s|", fsize(proc2[n].rssFile));
 			printf("%8d|", proc2[n].threads);
 
-			double utime =  (double)(proc2[n].utime - proc[n].utime + proc2[n].cutime - proc[n].cutime) / total;
-			double stime =  (double)(proc2[n].stime - proc[n].stime + proc2[n].cstime - proc[n].cstime) / total;
-			printf("%8.2f", (float) utime);
-			printf("%8.2f", (float) stime);
-			printf("%8.2f\n", (float)(utime + stime));
+			long int utime =  proc2[n].utime + proc2[n].cutime - proc[n].utime - proc[n].cutime;
+			long int stime =  proc2[n].stime + proc2[n].cstime - proc[n].stime - proc[n].cstime;
+			long int ttime = utime + stime;
+			if(ttime > proc2[n].threads * 100) {
+				ttime = proc2[n].threads * 100;
+				stime = ttime - utime;
+			}
+			printf("%8ld", utime);
+			printf("%8ld", stime);
+			printf("%8ld\n", ttime);
 
 			proc[n] = proc2[n];
 		}

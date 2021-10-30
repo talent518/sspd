@@ -653,8 +653,8 @@ void set_monitor_zval(zval *scpu, zval *pcpu, zval *smem, zval *pmem, zval *args
 	add_assoc_double(scpu, "guest", top_info.scpu.guest);
 
 	array_init_size(pcpu, 2);
-	add_assoc_double(pcpu, "utime", top_info.pcpu.utime);
-	add_assoc_double(pcpu, "stime", top_info.pcpu.stime);
+	add_assoc_long(pcpu, "utime", top_info.pcpu.utime);
+	add_assoc_long(pcpu, "stime", top_info.pcpu.stime);
 
 	array_init_size(smem, 8);
 	add_assoc_long(smem, "total", top_info.mem.total);
@@ -726,8 +726,8 @@ static void timeout_monitor_handler(evutil_socket_t fd, short event, void *arg) 
 	top_info.cpu           = cpu;
 
 	// process cpu persent calculate =========================
-	top_info.pcpu.utime    =  (double)(proc.utime - top_info.proc.utime + proc.cutime - top_info.proc.cutime) / total;
-	top_info.pcpu.stime    =  (double)(proc.stime - top_info.proc.stime + proc.cstime - top_info.proc.cstime) / total;
+	top_info.pcpu.utime    =  proc.utime + proc.cutime - top_info.proc.utime - top_info.proc.cutime;
+	top_info.pcpu.stime    =  proc.stime + proc.cstime - top_info.proc.stime - top_info.proc.cstime;
 	top_info.proc          = proc;
 	SSP_STATS_WUNLOCK();
 
