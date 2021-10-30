@@ -473,7 +473,7 @@ int main(int argc, char *argv[])
 				}
 			}zend_end_try();
 
-	if(!serv_opt) {
+	if(!serv_opt || !request_init_file) {
 		php_ssp_usage(argv[0]);
 		php_output_end_all();
 		exit_status = 1;
