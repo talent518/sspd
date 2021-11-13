@@ -888,6 +888,8 @@ void loop_event (int sockfd) {
 
 	trigger(PHP_SSP_START);
 
+	if(sockfd >= 0) kill(getppid(), SIGINT);
+
 	event_base_loop(listen_thread.base, 0);
 
 	trigger(PHP_SSP_STOP);

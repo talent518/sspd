@@ -927,7 +927,6 @@ static void conv_listen_handler(int sock, short event, void *arg)
 	}
 
 	ptr = &servers[n];
-	ssp_conv_disconnect(ptr);
 
 	inet_ntop(AF_INET, &pin.sin_addr, ptr->host, len);
 	ptr->port = ntohs(pin.sin_port);

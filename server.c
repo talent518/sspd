@@ -147,8 +147,6 @@ void server_start() {
 		fclose(fp);
 	}
 
-	kill(getppid(), SIGINT);
-
 	ssp_dup2();
 
 	loop_event(listen_fd);
