@@ -7,6 +7,8 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "ssp.h"
 #include "socket.h"
@@ -155,3 +157,16 @@ void socket_set_accept(int s, int send_timeout, int recv_timeout, int send_buffe
 	m_sLinger.l_linger = 0;//(容许逗留的时间为5秒)
 	setsockopt(s, SOL_SOCKET, SO_LINGER, &m_sLinger, sizeof(linger));
 }
+
+void _socket_setnonblock(int fd) {
+	int opt = fcntl(fd, F_GETFL);
+	opt |= O_NONBLOCK;
+	fcntl(fd, F_SETFL, opt);
+}
+
+void _socket_setblocking(int fd) {
+	int opt = fcntl(fd, F_GETFL);
+	opt ^= O_NONBLOCK;
+	fcntl(fd, F_SETFL, opt);
+}
+

@@ -622,6 +622,35 @@ static PHP_FUNCTION(ssp_info) {
 	}
 }
 
+void accept_connect(conn_t *ptr) {
+	socket_setblocking(ptr);
+
+	socket_set_connect(ptr->sockfd, SOCKET_SNDTIMEO, SOCKET_RCVTIMEO, SOCKET_SNDBUF, SOCKET_RCVBUF);
+
+	dprintf("notify thread %d\n", ptr->thread->id);
+
+	queue_push(ptr->thread->accept_queue, ptr);
+
+	conn_info(ptr);
+
+	write(ptr->thread->write_fd, "l", 1);
+}
+
+static void connect_handler(int sock, short event, void *arg) {
+	conn_t *ptr = arg;
+	int error = 0;
+	socklen_t errlen = sizeof(error);
+
+	if(getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &errlen) || error) {
+		dprintf("%s: %d, %d disconnect\n", ptr->host, ptr->port, ptr->index);
+		remove_conn(ptr);
+	} else {
+		dprintf("%s: %d, %d connected\n", ptr->host, ptr->port, ptr->index);
+		event_del(&ptr->event);
+		accept_connect(ptr);
+	}
+}
+
 static PHP_FUNCTION(ssp_connect)
 {
 	char *host;
@@ -645,28 +674,31 @@ static PHP_FUNCTION(ssp_connect)
 			RETURN_FALSE;
 		}
 
-		if(connect(s, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
-			perror("connect");
-			close(s);
-			RETURN_FALSE;
-		}
-
-		socket_set_connect(s,SOCKET_SNDTIMEO,SOCKET_RCVTIMEO,SOCKET_SNDBUF,SOCKET_RCVBUF);
-
 		ptr = insert_conn();
 		ptr->sockfd = s;
-		strcpy(ptr->host, ssp_host);
-		ptr->port = ssp_port;
+		strcpy(ptr->host, host);
+		ptr->port = port;
 
 		ptr->thread = worker_threads + ptr->index % ssp_nthreads;
 
-		dprintf("notify thread %d\n", ptr->thread->id);
+		socket_setnonblock(ptr);
 
-		queue_push(ptr->thread->accept_queue, ptr);
+		if(connect(s, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
+			if(errno == EINPROGRESS) {
+				dprintf("%s: %d, %d async connect\n", ptr->host, ptr->port, ptr->index);
+				event_set(&ptr->event, ptr->sockfd, EV_WRITE|EV_PERSIST, connect_handler, ptr);
+				event_base_set(listen_thread.base, &ptr->event);
+				event_add(&ptr->event, NULL);
+		
+				RETURN_NULL();
+			} else {
+				perror("connect");
+				close(s);
+				RETURN_FALSE;
+			}
+		}
 
-		conn_info(ptr);
-
-		write(ptr->thread->write_fd, "l", 1);
+		accept_connect(ptr);
 
 		RETURN_TRUE;
 	} else {
@@ -884,7 +916,7 @@ static void conv_listen_handler(int sock, short event, void *arg)
 	socket_set_accept(s,SOCKET_CONV_SNDTIMEO,SOCKET_CONV_RCVTIMEO,SOCKET_CONV_SNDBUF,SOCKET_CONV_RCVBUF);
 
 	if(recv(s, &n, sizeof(int), MSG_WAITALL) != sizeof(int)) {
-		perror("recv lenght no equal 4");
+		perror("recv length no equal 4");
 		return;
 	}
 
@@ -895,6 +927,7 @@ static void conv_listen_handler(int sock, short event, void *arg)
 	}
 
 	ptr = &servers[n];
+	ssp_conv_disconnect(ptr);
 
 	inet_ntop(AF_INET, &pin.sin_addr, ptr->host, len);
 	ptr->port = ntohs(pin.sin_port);
@@ -904,6 +937,39 @@ static void conv_listen_handler(int sock, short event, void *arg)
 	event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, conv_read_write_handler, ptr);
 	event_base_set(listen_thread.base, &ptr->event);
 	event_add(&ptr->event, NULL);
+}
+
+static int conv_start_read_write(server_t *ptr) {
+	socket_setblocking(ptr);
+	socket_set_connect(ptr->sockfd, SOCKET_CONV_SNDTIMEO, SOCKET_CONV_RCVTIMEO, SOCKET_CONV_SNDBUF, SOCKET_CONV_RCVBUF);
+	if(send(ptr->sockfd, &ssp_server_id, sizeof(ssp_server_id), MSG_WAITALL) != sizeof(int)) {
+		perror("send");
+		ssp_conv_disconnect(ptr);
+		return 0;
+	}
+
+	event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, conv_read_write_handler, ptr);
+	event_base_set(listen_thread.base, &ptr->event);
+	event_add(&ptr->event, NULL);
+	
+	return 1;
+}
+
+static void conv_connect_handler(int sock, short event, void *arg) {
+	server_t *ptr = arg;
+	int error = 0;
+	socklen_t errlen = sizeof(error);
+
+	if(getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &errlen) || error) {
+		vprintf("%s: %d, %d disconnect\n", ptr->host, ptr->port, ptr->sid);
+
+		ssp_conv_disconnect(ptr);
+	} else {
+		vprintf("%s: %d, %d connected\n", ptr->host, ptr->port, ptr->sid);
+
+		event_del(&ptr->event);
+		conv_start_read_write(ptr);
+	}
 }
 
 static PHP_FUNCTION(ssp_conv_connect)
@@ -961,25 +1027,26 @@ static PHP_FUNCTION(ssp_conv_connect)
 		event_base_set(listen_thread.base, &ptr->event);
 		event_add(&ptr->event, NULL);
 	} else {
-		if(connect(s, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
-			//perror("connect");
-			close(s);
-			RETURN_FALSE;
-		}
-		socket_set_connect(s,SOCKET_CONV_SNDTIMEO,SOCKET_CONV_RCVTIMEO,SOCKET_CONV_SNDBUF,SOCKET_CONV_RCVBUF);
-		if(send(s, &ssp_server_id, sizeof(int), MSG_WAITALL) != sizeof(int)) {
-			perror("send");
-			close(s);
-			RETURN_FALSE;
-		}
-
-		vprintf("%s: %ld, %ld connect\n", host, port, sid);
-
 		ptr->sockfd = s;
 
-		event_set(&ptr->event, ptr->sockfd, EV_READ|EV_PERSIST, conv_read_write_handler, ptr);
-		event_base_set(listen_thread.base, &ptr->event);
-		event_add(&ptr->event, NULL);
+		socket_setnonblock(ptr);
+
+		if(connect(s, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
+			if(errno == EINPROGRESS) {
+				vprintf("%s: %d, %d wait async connect\n", ptr->host, ptr->port, ptr->sid);
+				event_set(&ptr->event, ptr->sockfd, EV_WRITE|EV_PERSIST, conv_connect_handler, ptr);
+				event_base_set(listen_thread.base, &ptr->event);
+				event_add(&ptr->event, NULL);
+		
+				RETURN_NULL();
+			} else {
+				//perror("connect");
+				close(s);
+				RETURN_FALSE;
+			}
+		}
+		
+		RETURN_BOOL(conv_start_read_write(ptr));
 	}
 }
 

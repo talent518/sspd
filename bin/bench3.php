@@ -7,10 +7,10 @@ define('COUNT_AVG', 3);
 function ssp_monitor_handler(array $scpu, array $pcpu, array $smem, array $pmem, int $threads, int $etime, array $args) {
 }
 
-function connect_handler($what, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
+function connect_handler($t) {
 	for($i=0; $i<SSP_MAX_CLIENTS; $i++) ssp_connect('127.0.0.1', 8082 + ($i%3)*2);
 
-	echo 'connect usage time: ', round(microtime(true) - $arg, 3), ' seconds', PHP_EOL;
+	echo 'connect usage time: ', round(microtime(true) - $t, 3), ' seconds', PHP_EOL;
 }
 
 function timeout1_handler($delay, $persist, $arg, $arg1, $arg2, $arg3, $arg4, $arg5) {
@@ -54,7 +54,6 @@ function count_handler($delay, $persist, $arg) {
 
 function ssp_start_handler () {
 	ssp_msg_queue_init(10000, 1);
-	ssp_msg_queue_push('connect_handler', 0, microtime(true));
 	ssp_delayed_init();
 	ssp_delayed_set("count_handler", 1000, true, time());
 	// ssp_delayed_set("timeout1_handler", 1000, true);
@@ -62,6 +61,8 @@ function ssp_start_handler () {
 	// ssp_delayed_set("timeout3_handler", 3000, false, microtime(true));
 	// ssp_delayed_set("timeout4_handler", 20000, false);
 	// ssp_delayed_set("timeout5_handler", 5010, false, microtime(true));
+
+	connect_handler(microtime(true));
 }
 
 function ssp_bench_handler () {

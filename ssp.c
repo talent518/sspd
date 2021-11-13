@@ -473,7 +473,7 @@ int main(int argc, char *argv[])
 				}
 			}zend_end_try();
 
-	if(!serv_opt || !request_init_file) {
+	if(!serv_opt || (!request_init_file && strcmp(serv_opt, "stop") && strcmp(serv_opt, "status"))) {
 		php_ssp_usage(argv[0]);
 		php_output_end_all();
 		exit_status = 1;
@@ -496,7 +496,7 @@ int main(int argc, char *argv[])
 	} else if (strcmp(serv_opt, "start") == 0) {
 		server_start();
 	} else if (strcmp(serv_opt, "status") == 0) {
-		server_stop();
+		server_status();
 	} else if (serv_opt) {
 		php_ssp_usage(argv[0]);
 		php_output_end_all();

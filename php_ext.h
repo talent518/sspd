@@ -205,6 +205,8 @@ typedef struct _server_t {
 	int wsize;
 #endif // ASYNC_SEND
 
+	int fcntl;
+
 	struct event event;
 } server_t;
 

@@ -30,6 +30,8 @@ typedef struct _conn_t {
 	short evflags;
 #endif // ASYNC_SEND
 
+	int fcntl;
+
 	worker_thread_t *thread;
 
 	struct event event;
