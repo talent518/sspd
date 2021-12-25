@@ -111,7 +111,7 @@ int procarg(char *comm, int nproc, int *pid, process_t *proc, unsigned int *pall
 			continue;
 		}
 
-		pall[n] = proc[n].utime + proc[n].stime + proc[n].cutime + proc[n].cstime;
+		pall[n] = proc[n].utime + proc[n].stime/* + proc[n].cutime + proc[n].cstime*/;
 	}
 	
 	return nproc;
@@ -288,7 +288,7 @@ int main(int argc, char *argv[]){
 				continue;
 			}
 
-			pall2[n] = proc2[n].utime + proc2[n].stime + proc2[n].cutime + proc2[n].cstime;
+			pall2[n] = proc2[n].utime + proc2[n].stime/* + proc2[n].cutime + proc2[n].cstime*/;
 
 			printf("%8d|", pid[n]);
 			printf("%8s", fsize(proc2[n].size * 4));
@@ -301,8 +301,8 @@ int main(int argc, char *argv[]){
 			printf("%9s|", fsize(proc2[n].rssFile));
 			printf("%8d|", proc2[n].threads);
 
-			long int utime =  proc2[n].utime + proc2[n].cutime - proc[n].utime - proc[n].cutime;
-			long int stime =  proc2[n].stime + proc2[n].cstime - proc[n].stime - proc[n].cstime;
+			long int utime =  proc2[n].utime/* + proc2[n].cutime*/ - proc[n].utime/* - proc[n].cutime*/;
+			long int stime =  proc2[n].stime/* + proc2[n].cstime*/ - proc[n].stime/* - proc[n].cstime*/;
 			long int ttime = utime + stime;
 			if(ttime > proc2[n].threads * 100) {
 				ttime = proc2[n].threads * 100;

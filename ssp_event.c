@@ -726,8 +726,8 @@ static void timeout_monitor_handler(evutil_socket_t fd, short event, void *arg) 
 	top_info.cpu           = cpu;
 
 	// process cpu persent calculate =========================
-	top_info.pcpu.utime    =  proc.utime + proc.cutime - top_info.proc.utime - top_info.proc.cutime;
-	top_info.pcpu.stime    =  proc.stime + proc.cstime - top_info.proc.stime - top_info.proc.cstime;
+	top_info.pcpu.utime    =  proc.utime/* + proc.cutime*/ - top_info.proc.utime/* - top_info.proc.cutime*/;
+	top_info.pcpu.stime    =  proc.stime/* + proc.cstime*/ - top_info.proc.stime/* - top_info.proc.cstime*/;
 	top_info.proc          = proc;
 	SSP_STATS_WUNLOCK();
 
