@@ -6,7 +6,7 @@ cpus=$(cat /proc/cpuinfo | grep processor | wc -l)
 alias make="make -j$cpus"
 
 INST_DIR=/opt/ssp74
-PHPVER=7.4.12
+PHPVER=7.4.27
 EVVER=2.1.12
 
 if [ ! -d $INST_DIR/bin ]; then
